@@ -17,6 +17,14 @@ Pure-python world; imports the real turn_record from the release bundle.
 Usage: python3 destiny_arena.py
 """
 import os, sys, random
+from collections import deque
+
+# Bounded online window for per-seat coupling (Pe / Sight) estimation. The MI over a
+# locally-stationary binary channel converges well before this many samples, so the window
+# IS the correct online estimator: it bounds per-tick cost at O(n_seats * PE_WINDOW) for the
+# long-running server instead of O(total_history) (the prior full-scan was an O(n^2) melt),
+# and is a no-op for the short offline analyses (all run << PE_WINDOW turns/seat).
+PE_WINDOW = 1024
 
 AGENT_LAYER = os.path.join(os.path.dirname(__file__), "..",
                            "public-release-channel-switching", "agent-layer")
@@ -113,6 +121,9 @@ class Arena:
         self.banished = [False] * self.n
         self.low_streak = [0] * self.n
         self.turns = []; self.log = []
+        # per-seat bounded recent-turn windows: the hot Pe/Sight path reads these instead of
+        # re-scanning the full (unbounded) self.turns every tick (the prior O(n^2) melt).
+        self.seat_turns = [deque(maxlen=PE_WINDOW) for _ in range(self.n)]
         self.last_disc = [0.0] * self.n
 
     def _obs(self, i, monitored):
@@ -147,10 +158,12 @@ class Arena:
             if self.banished[i]:                       # banished seats log no turn
                 continue
             extracted = int(acts[i]["behavior"] == "extract")
-            self.turns.append(Turn(id=f"t{t}-s{i}", Y=BOUND, M=acts[i]["reasoning"],
-                                   D=("extract" if extracted else "contribute"),
-                                   sequence=t,
-                                   context={"monitored": monitored, "seat": i}))
+            tn = Turn(id=f"t{t}-s{i}", Y=BOUND, M=acts[i]["reasoning"],
+                      D=("extract" if extracted else "contribute"),
+                      sequence=t,
+                      context={"monitored": monitored, "seat": i})
+            self.turns.append(tn)
+            self.seat_turns[i].append(tn)          # O(1) push into the bounded window
         # pool dynamics
         e = sum(a["behavior"] == "extract" for a in acts)
         self.pool = max(0.0, min(PMAX, self.pool + REGEN * (PMAX - self.pool) - DELTA * e))
@@ -184,7 +197,7 @@ class Arena:
             for j in range(self.n):
                 if self.banished[j] or j in self.protected:
                     continue
-                jt = [tn for tn in self.turns if tn.context.get("seat") == j]
+                jt = self.seat_turns[j]            # bounded recent window (no full-history scan / no alloc)
                 icd = channel_profile(jt, c_of=lambda tn: tn.context["monitored"],
                                       d_detect=lambda tn: int(str(tn.D) == "extract"),
                                       m_detect=lambda tn: 0)["I(C;D) bits"]
