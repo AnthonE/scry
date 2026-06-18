@@ -137,16 +137,14 @@ python3 mcp_sidecar.py       # MCP server over stdio (mount from any client)
 python3 calibration.py       # per-context calibration demo
 python3 hermes_retrofit.py   # bound + meter demo (Hermes shape)
 python3 memory_shield.py     # the bound's red-team table
-python3 llm_seat_sweep.py    # the §6 live fork-probe across models — NEEDS a provider API key, makes PAID calls
 ```
 
-**The §6 live fork-probe is included** (`fork_probe.py`, `llm_seat_sweep.py`, `m_judge.py`,
-`llm_seat.py`, `destiny_arena.py` + the meter it already shares): the controlled measurement
-behind the headline result — hold the prompt fixed, vary only the oversight context via
+**The §6 live fork-probe** — the controlled measurement behind the headline result
+(`I(C;M)_stripped = 0.04 → 0.97`: hold the prompt fixed, vary only the oversight context via
 counterfactual forks, judge each scratchpad cue-stripped, keep only signal that survives the
-strip. Stdlib-only; keys read from the environment (`OPENAI_API_KEY` / `TOGETHER_API_KEY`). This
-is *how* `I(C;M)_stripped = 0.04 → 0.97` was measured — see the [unmask](https://github.com/AnthonE/unmask)
-paper §6.
+strip) — lives with the proof in the **[unmask](https://github.com/AnthonE/unmask)** repo (paper §6).
+It belongs there, not here: `scry` is the drop-in tool you run on your own agent; `unmask` is the
+research that proves the finding the meter reads.
 
-*Naming note: earlier docs call this "the retrofit" — same thing. This is the
-Destiny System's bound + meter offered to agents outside the game.*
+*Naming note: earlier docs call this "the retrofit" — same thing: a drop-in bound + meter for any
+agent harness.*
