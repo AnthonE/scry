@@ -24,9 +24,10 @@ tools. Framework-agnostic, model-agnostic, dependency-free.
 → **Mount it on your harness:** [`HARNESSES.md`](HARNESSES.md)
 → **Watch your agent drift:** [`MONITOR-YOUR-AGENT.md`](MONITOR-YOUR-AGENT.md)
 → **The measurement it implements:** [AnthonE/unmask](https://github.com/AnthonE/unmask)
-→ **34 seconds, no reading:** [▶ watch (scry.mp4)](https://moreright.xyz/media/scry.mp4) — the bound + the meter as a
-  short video (every frame drawn with Pillow, every sound synthesized with numpy;
-  honest-scope card included)
+**34 seconds, no reading** — the bound + the meter as a short video (every frame drawn with
+Pillow, every sound synthesized with numpy; honest-scope card included). ▶ click to play:
+
+[![scry — watch the bound + the meter (34s)](https://moreright.xyz/media/scry-poster.jpg)](https://moreright.xyz/media/scry.mp4)
 
 ---
 
@@ -67,6 +68,10 @@ python3 hermes_live_poisoning.py --trials 6   # real model (set LIVE_MODEL + an 
 Full battery + honest scope — burial-depth, injection-position, and the recursive "explain the channel
 theorem to the agent" test (it *recites* the right rule and overrides it ~half the time, which is why the
 gate is structural, not a prompt): [`FIELD-RESULTS-2026-06-18.md`](FIELD-RESULTS-2026-06-18.md).
+
+**Validated live on three harnesses** — ElizaOS, Hermes, and moltbot (chromadb memory): on a real model
+the poison robs the unbound agent, the bound holds, and the meter reads Y/M/D — release gate green
+(`validate_release.py` → **10 PASS / 0 FAIL**). Per-harness status: [`HARNESSES.md`](HARNESSES.md).
 
 ## What it does (each defense earned from an experiment in `drift-immune/`)
 
