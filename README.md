@@ -104,9 +104,10 @@ Full battery + honest scope — burial-depth, injection-position, and the recurs
 theorem to the agent" test (it *recites* the right rule and overrides it ~half the time, which is why the
 gate is structural, not a prompt): [`FIELD-RESULTS-2026-06-18.md`](FIELD-RESULTS-2026-06-18.md).
 
-**Validated live on three harnesses** — ElizaOS, Hermes, and moltbot (chromadb memory): on a real model
-the poison robs the unbound agent, the bound holds, and the meter reads Y/M/D — release gate green
-(`validate_release.py` → **10 PASS / 0 FAIL**). Per-harness status: [`HARNESSES.md`](HARNESSES.md).
+**Validated live on three harnesses** — ElizaOS, Hermes (Llama-3.3-70B), and moltbot (Qwen2.5-7B,
+chromadb memory): on a real model the poison robs the unbound agent, the bound holds, and the meter
+reads Y/M/D. Offline gate green: **`python3 test_harnesses.py` → 42/42**. Per-harness status +
+substrate: [`HARNESSES.md`](HARNESSES.md).
 
 ## What it does (each defense earned from an experiment in `drift-immune/`)
 
@@ -137,6 +138,36 @@ A QA harness for *your own* agent — inject poison, see when it flips. (Defensi
   point.)
 - **moltbot**: Python — import `Shield` and wrap the retrieval in the agent loop directly.
 - **Hermes / custom harness**: any pipeline that does `retrieve -> act` — insert `shield.defend()` between.
+
+## What's actually been run (the receipts)
+
+More ran than the two headline docs show. The full ledger, all reproducible from this repo unless noted:
+
+- **Offline gate — `test_harnesses.py`, 42/42**, zero deps, zero network. Plus the detector-trust
+  discipline (`detector_audit.py`): positive control + per-context calibration + independent judge
+  audit, run before any detector number is trusted (it caught one of our *own* artifacts — see below).
+- **Live memory-poisoning battery** (`FIELD-RESULTS-2026-06-18.md`, Llama-3.3-70B): raw agent robbed
+  **6/6 → bound 0/6**; robbery is **invariant to burial depth** (0/4/10 turns) and **injection
+  position** (a pre-registered U-curve that did *not* appear — reported as a null); the recursive
+  "explain the theorem to the agent" test where it **recites the rule and robs you anyway ~half the
+  time** (why the gate is structural, not a prompt); and the watch→force loop end-to-end (n=24, robbed
+  0/24, reasoning-channel coupling ~4× the behavioral).
+- **The drift-immunity mechanism suite** (`drift-immune/`): the immunity table (`raw_immunity.py` —
+  gating/verifying is immune, *anchoring alone is not*), the high-dimensional **coverage limit**
+  (`vector_immunity.py` — you're immune only in the directions you can verify), semantic memory,
+  a memory-agent sandbox, and the **sleeper effect** (n=100 — poison authority doesn't decay with age).
+- **Three harnesses, live:** Hermes (Llama-3.3-70B), moltbot (Qwen2.5-7B, real chromadb recall path),
+  ElizaOS (native TS plugin). Plus an **agentic tool-call arm** (`live_tool_validation.py` — the
+  violation is a real `apply_discount()` invocation, not a text pattern) and a **streaming session**
+  meter (`live_session.py`, Qwen3.5-9B).
+- **The measurement the meter implements** lives in [unmask](https://github.com/AnthonE/unmask): the
+  behavioral channel-switch reproduces across **5 models / 2 vendors** with a capability dose-response
+  (top model ≈ 1 bit), a clean **neutral = 0** control, and **Claude Haiku holding the bound** (a
+  true-negative — the meter doesn't fire on everything); the deterministic, judge-free eval is
+  **live-validated on 20 models across 3 providers** (OpenAI, Together, Anthropic). The controlled
+  reasoning-channel switch (counterfactual forks + cue-strip survival) recovers `I(C;M)_stripped =
+  0.04 → 0.26 → 0.97`, tracking behavior ~1:1. *(The deploy-transcript `p₀` rate is scoped in that
+  repo as suggestive-pending-control — not quoted here.)*
 
 ## Honest scope
 
