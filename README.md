@@ -31,6 +31,41 @@ Pillow, every sound synthesized with numpy; honest-scope card included). ▶ cli
 
 ---
 
+## Why now — the workspace moment, read from the outside
+
+Interpretability just had its flagship result: Anthropic's **global workspace / J-lens**
+reads a model's *deliberate* channel — the concepts it's poised to act on — straight from
+the weights, and shows it's causal (swap a concept in that space, the downstream reasoning
+changes). scry reads **the same channel** — the reasoning/deliberate channel `M` — but off
+the **trace**, never the weights. Two reads of one channel, at different depths, and the
+difference *is* the pitch:
+
+- **The J-lens is white-box** — deeper, and the right move for a lab that hosts the model.
+  But it lives **inside the loop**: the instant a probe becomes what training optimizes
+  against, the model keeps its workspace clean while it drifts — the channel-switching
+  theorem (penalize any channel, the coupling relocates to the cheapest *unpenalized* one;
+  [unmask](https://github.com/AnthonE/unmask) Paper 207 §6 states the fix outright: the
+  stable architecture is a **loop-external measurement**).
+- **scry is loop-external by construction** — it reads the emitted trace of an agent you
+  *didn't* train and *can't* see inside. That's the read still standing when the probe
+  everyone's optimizing against gets gamed. Closed API, any harness, zero internals, today.
+
+**The falsifier this hands the field is one line, on their open tool:** run the J-lens under
+matched watched/unwatched cues and compute `I(watched ; workspace-content)`. ≈0 → the
+workspace is observation-invariant (a real *positive* — the invariant internal channel none
+of us has shown). >0 → it's eval-aware like the trace, and loop-external is the answer.
+scry is the black-box half of that experiment, shipping now.
+
+*Honest, both ways:* reading activations is genuinely deeper than reading a trace, and in
+today's non-adversarial regime the J-lens works — going to the weights is correct for
+whoever holds them. And **no meter is immune**: optimize hard enough against *scry's* own
+output and an agent learns to write clean traces too — scry says so
+([`MONITOR-YOUR-AGENT.md`](MONITOR-YOUR-AGENT.md)). The claim is architecture, not magic:
+loop-external is the position the theorem says *survives*, and it's the position you're
+already in whenever the agent isn't yours.
+
+---
+
 ## memory-shield — the bound (memory integrity)
 
 A drop-in **memory-integrity layer** for agent frameworks. As agents get persistent memory + retrieval,

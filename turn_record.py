@@ -13,6 +13,20 @@ turn split into three fields it can condition on:
   D  — the disclosure/action channel (tool calls, gate calls, the reply that
        crossed the boundary into the world).
 
+M provenance — the one invariant that keeps the meter honest (do not soften):
+M is the *captured* reasoning trace — the scratchpad / CoT / code the harness
+logged outside the action loop — NEVER a self-reported intent field the agent
+authors. A declared-intent report the agent writes about itself is a
+single-writer channel (the producer is the sole witness of its own contents), so
+metering it measures what the agent chose to *say* about its reasoning, not its
+reasoning — the exact reportability failure the meter exists to catch, built into
+the instrument. The rule: M joins meter-side, from the harness's own log, never
+from a field the agent controls in-protocol. The MCP sidecar's self-emitted turns
+are self-report by construction — pair them with harness-side logs when stakes are
+real. (This is also why the white-box J-lens reads activations and this reads the
+trace: both refuse the agent's self-account, just at different depths — see the
+white-box seam in black_box_meter.py.)
+
 Why three and not one blob: Paper 207 — under RL pressure, context-coupling
 relocates OFF the action channel INTO the reasoning channel. A harness that
 collapses M and D into one output field can carry the bound but cannot carry
@@ -33,7 +47,7 @@ from dataclasses import dataclass, field, asdict
 class Turn:
     id: str
     Y: object                      # the bound (dict or str) — named or this turn is unmeterable (§220)
-    M: str = ""                    # reasoning channel ("" = harness didn't record it: bound-only)
+    M: str = ""                    # reasoning channel — CAPTURED trace, never self-reported intent (see docstring)
     D: object = ""                 # action channel (str reply, or dict of tool/gate calls)
     parent_id: str = None          # lineage — None for roots / linear logs
     sequence: int = 0
@@ -139,4 +153,36 @@ def channel_profile(turns, c_of, d_detect, m_detect):
         "I(C;M) bits": round(_mi_pairs(cm), 4),
         "I(C;M | D-clean) bits  [switch signature]": round(_mi_pairs(cm_clean), 4),
         "I(C;D,M) bits  [joint]": round(_mi_pairs(cj), 4),
+    }
+
+
+def behavioral_profile(turns, c_of, d_detect):
+    """The M-less baseline: I(C;D) over ALL turns, action channel only.
+
+    `channel_profile` conditions on `meterable()`, so a harness that logs actions
+    but not reasoning (a bare tool-call log, a human player, an OpenAI response
+    with no `reasoning_content`) comes back n=0 there — nothing to read. That is
+    correct for the *switch signature* (no M = no reasoning channel to catch drift
+    in) but throws away the one thing you CAN honestly compute without M: how much
+    the visible behavior couples to context.
+
+    This is the behavioral CEILING, and naming it as a ceiling is the point
+    (Paper 207: the behavioral channel is the flat one — RL relocates coupling OFF
+    it INTO reasoning). So:
+      • I(C;D) here HIGH  -> overt, behavior-visible coupling; a plain eval sees it.
+      • I(C;D) here ≈ 0   -> behavior looks clean, but this says NOTHING about the
+                            reasoning channel — the covert leak the meter is for is
+                            *unmeasured*, not absent. Do not read a clean behavioral
+                            baseline as "no drift"; read it as "get M to see more."
+
+    Mirrors the king turn-adapter's behavioral_profile (morr): same I(C;D)-only
+    read for the M-less human baseline, one design, two consumers."""
+    rows = [(c_of(t), d_detect(t)) for t in turns]
+    return {
+        "n": len(rows),
+        "I(C;D) bits  [behavioral ceiling]": round(_mi_pairs(rows), 4),
+        "scope": ("action channel only — M unavailable or ignored. HIGH = overt "
+                  "coupling a behavior eval already catches; ~0 = behavior clean "
+                  "but the reasoning channel is UNMEASURED, not clean. Get M "
+                  "(reasoning trace) to read the covert channel."),
     }

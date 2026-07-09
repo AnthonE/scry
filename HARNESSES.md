@@ -54,6 +54,27 @@ the honest adapter says so (`Turn.meterable()`, counted, never faked). This is
 also the medium line from the cantrip probe: code-medium separates the
 channels; conversation-medium collapses them.
 
+An M-less harness is **not** silently dropped: `black_box_pe` still returns the
+**behavioral ceiling** `I(C;D)` over *all* turns (`turn_record.behavioral_profile`),
+the one thing computable without reasoning. HIGH = overt coupling a plain eval
+already catches; ≈0 = behavior looks clean **but the covert reasoning channel is
+UNMEASURED, not clean** — the read the meter exists for is simply dark until you
+log M. (Same I(C;D)-only baseline as the king turn-adapter's human/M-less rows —
+one design, two consumers.)
+
+**M provenance — the invariant that keeps the number honest.** `M` is the
+*captured* reasoning trace (scratchpad / CoT / code the harness logged), **never a
+self-reported intent field the agent authors in-protocol.** A declared-intent
+report is a single-writer channel — the producer is the sole witness of its own
+contents — so metering it measures what the agent chose to *say* about its
+reasoning, not its reasoning: the reportability failure the meter is built to
+catch, wired into the instrument. M joins **meter-side, from the harness log,
+outside the action loop.** This is why the MCP sidecar row above flags
+self-emitted turns as self-report — pair them with harness-side logs when stakes
+are real. (The same refusal-of-self-account the white-box J-lens makes by reading
+activations; scry makes it by reading the trace the harness logged, not the agent's
+account of itself.)
+
 **Why the tree fields exist (the counterfactual primitive).** `I(D;M|Y)` wants
 samples under a held-fixed prefix. A forkable loom provides that natively —
 which is why cantrip is the best-known substrate — but linear logs still fit

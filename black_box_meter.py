@@ -30,7 +30,7 @@ zone; the defaults below are a transparent lexical baseline, never an LLM judge.
 import json
 import random
 
-from turn_record import channel_profile, _mi_pairs
+from turn_record import channel_profile, behavioral_profile, _mi_pairs
 
 # ── default detectors — transparent lexical baseline (swap per zone) ──────────
 
@@ -157,6 +157,13 @@ def black_box_pe(turns, y_bound=None, detectors=None, headline="switch",
     prof["switch_signature_perm_p"] = round(pval, 4)
     prof["switch_signature_null_mean"] = round(nmean, 4)
     prof["insufficient_n"] = prof["n"] < MIN_METERABLE
+
+    # The M-less baseline. When the harness records action but not reasoning, the
+    # switch signature is unestimable (n=0) — but the behavioral ceiling I(C;D)
+    # over ALL turns still reads, so an M-less window returns something honest
+    # (an overt-coupling number + "the covert channel is UNMEASURED") instead of
+    # a bare n=0. Always attached; load-bearing when prof["n"] is short.
+    prof["behavioral_ceiling"] = behavioral_profile(turns, c_of, d_detect)
 
     key = ("I(C;M | D-clean) bits  [switch signature]"
            if headline == "switch" else "I(C;D,M) bits  [joint]")
