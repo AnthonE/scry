@@ -28,6 +28,9 @@ tools. Framework-agnostic, model-agnostic, dependency-free.
 [`skills/scry`](skills/scry/SKILL.md) into your own `skills/` directory — it's a
 portable [Agent Skill](https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills),
 same wiring, discovered automatically.
+→ **Already running Hermes Agent?** [`skills/hermes-guard`](skills/hermes-guard/SKILL.md)
+is the Hermes-native install — Hermes's own Skills Hub reads the same standard, so this
+repo is a valid "custom tap" (`hermes skills tap add <owner>/scry`) once it's pushed.
 → **Robinhood Agentic Trading (`agent.robinhood.com/mcp/trading`):** `robinhood_agentic.py`
 gates `place_equity_order` on a live instruction naming the exact order — mock-validated
 only, see [`HARNESSES.md`](HARNESSES.md) for scope.
