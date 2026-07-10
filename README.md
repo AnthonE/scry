@@ -24,6 +24,13 @@ tools. Framework-agnostic, model-agnostic, dependency-free.
 → **Mount it on your harness:** [`HARNESSES.md`](HARNESSES.md)
 → **Watch your agent drift:** [`MONITOR-YOUR-AGENT.md`](MONITOR-YOUR-AGENT.md)
 → **The measurement it implements:** [AnthonE/unmask](https://github.com/AnthonE/unmask)
+→ **Building an agent inside Claude Code / Cursor / Codex / Gemini CLI?** Copy
+[`skills/scry`](skills/scry/SKILL.md) into your own `skills/` directory — it's a
+portable [Agent Skill](https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills),
+same wiring, discovered automatically.
+→ **Robinhood Agentic Trading (`agent.robinhood.com/mcp/trading`):** `robinhood_agentic.py`
+gates `place_equity_order` on a live instruction naming the exact order — mock-validated
+only, see [`HARNESSES.md`](HARNESSES.md) for scope.
 **34 seconds, no reading** — the bound + the meter as a short video (every frame drawn with
 Pillow, every sound synthesized with numpy; honest-scope card included). ▶ click to play:
 
