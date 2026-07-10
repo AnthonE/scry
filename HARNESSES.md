@@ -31,7 +31,7 @@ lineage/fork structure and reward. Map your log to Turns and you're in.
 | **cantrip / Loom** (deepfates) | circle = Y verbatim; ward = contract | **best known substrate** — prose M (`utterance.content`) and code and D (`gate_calls`) in *separate* fields (confirmed on current source); `Loom.fork/4` = true counterfactuals; native JSONL export (`Storage.Jsonl`) | `[RAN — Paper 207 §4.3c]` | RAN 2026-06-11: honest negative on off-the-shelf Llama-3.3-70B (complies, no switch in a toy temptation) **+ judge-confirmed positive control `I(C;M)=0.40 / I(C;D)=0.00`**. Lesson: the released *lexical* featurizers are too crude for the code medium (false negative ≈0.11 both) — a disposition-aware judge is the meter. Code: `cantrip-loom/` (in the [unmask](https://github.com/AnthonE/unmask) repo) |
 | **verifiers / vf-eval** | n/a (eval, not runtime) | rollouts → Turns, working now | `[WORKING]` | nothing — bridges the published eval into this layer |
 | **your while-loop** | `wrap_retriever` | `loop_tap` — 3 lines | `[WORKING]` | nothing |
-| **Hermes** (Nous) | **live** (`hermes_retrofit.py`) | **live** — `hermes_live_poisoning.py` captures the `<think>` reasoning trace; meterable Turns | `[WORKING]` | — (validated live on Together Qwen2.5-7B: RAW robbed, hard bound 0/N) |
+| **Hermes** (Nous) | **live** (`hermes_retrofit.py`) | **live** — `hermes_live_poisoning.py` captures the `<think>` reasoning trace; meterable Turns | `[WORKING]` | — (validated live on Together Llama-3.3-70B — the full `FIELD-RESULTS-2026-06-18` battery: RAW robbed 6/6, hard bound 0/6; Hermes weights aren't serverless on Together, and Hermes is itself a Llama/Mixtral fine-tune) |
 | **ElizaOS** | **live, native TS** (the `eliza-destiny` plugin package) | **live** — `eliza-destiny/emit_demo.ts` emits Y/M/D Turns from a live loop; Python meter reads them | `[WORKING]` | last-mile: in-runtime evaluator wrapper inside a full Eliza install |
 | **OpenClaw / moltbot** | **live** (`adapters.chromadb_to_items` + fixed `GROUNDING.md`) | **live** — `moltbot_live.py` runs the real chromadb recall path; 6/6 meterable Turns | `[WORKING]` | — (validated live on Together Qwen2.5-7B: chromadb poison RAW-robbed N/N, bound 0/N) |
 | **Excalibur** (Vie McCoy, camelot.wiki) | **Warden already plays this role conceptually** — the harness ships protection as a first-class spirit | unknown | `[STUB]` | one session log: is reasoning logged apart from action? are charge events per-action? is the Warden spec loop-external? |
@@ -53,6 +53,27 @@ action into one blob can carry the bound but **cannot carry the meter** — and
 the honest adapter says so (`Turn.meterable()`, counted, never faked). This is
 also the medium line from the cantrip probe: code-medium separates the
 channels; conversation-medium collapses them.
+
+An M-less harness is **not** silently dropped: `black_box_pe` still returns the
+**behavioral ceiling** `I(C;D)` over *all* turns (`turn_record.behavioral_profile`),
+the one thing computable without reasoning. HIGH = overt coupling a plain eval
+already catches; ≈0 = behavior looks clean **but the covert reasoning channel is
+UNMEASURED, not clean** — the read the meter exists for is simply dark until you
+log M. (Same I(C;D)-only baseline as the king turn-adapter's human/M-less rows —
+one design, two consumers.)
+
+**M provenance — the invariant that keeps the number honest.** `M` is the
+*captured* reasoning trace (scratchpad / CoT / code the harness logged), **never a
+self-reported intent field the agent authors in-protocol.** A declared-intent
+report is a single-writer channel — the producer is the sole witness of its own
+contents — so metering it measures what the agent chose to *say* about its
+reasoning, not its reasoning: the reportability failure the meter is built to
+catch, wired into the instrument. M joins **meter-side, from the harness log,
+outside the action loop.** This is why the MCP sidecar row above flags
+self-emitted turns as self-report — pair them with harness-side logs when stakes
+are real. (The same refusal-of-self-account the white-box J-lens makes by reading
+activations; scry makes it by reading the trace the harness logged, not the agent's
+account of itself.)
 
 **Why the tree fields exist (the counterfactual primitive).** `I(D;M|Y)` wants
 samples under a held-fixed prefix. A forkable loom provides that natively —
