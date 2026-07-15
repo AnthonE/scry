@@ -34,6 +34,13 @@ repo is a valid "custom tap" (`hermes skills tap add <owner>/scry`) once it's pu
 → **Robinhood Agentic Trading (`agent.robinhood.com/mcp/trading`):** `robinhood_agentic.py`
 gates `place_equity_order` on a live instruction naming the exact order — mock-validated
 only, see [`HARNESSES.md`](HARNESSES.md) for scope.
+→ **Want a *neutral, signed* read instead of self-scoring?** There's a hosted meter at
+[`scry.moreright.xyz`](https://scry.moreright.xyz): POST a trace, get the same coupling
+numbers back **Ed25519-signed and bound to your trace's hash** — an attestation, *because
+the agent didn't grade itself*. Paid a fraction of a cent over x402 on Robinhood Chain
+(USDG); free unsigned `/api/demo/profile` to try the shape. Don't hand-roll the payment —
+`pip install "scry-client[pay]"` ([`clients/python`](clients/python)) does the 402→pay→retry
++ Permit2 approve, and `.verify()` checks the signature offline.
 **34 seconds, no reading** — the bound + the meter as a short video (every frame drawn with
 Pillow, every sound synthesized with numpy; honest-scope card included). ▶ click to play:
 

@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scry-client"
+version = "0.1.0"
+description = "Call the hosted scry meter — neutral, Ed25519-signed channel-coupling attestation (Paper 207) for AI agents, paid over x402 on Robinhood Chain."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "MoreRight" }]
+keywords = ["ai-safety", "agents", "x402", "attestation", "alignment", "scry"]
+dependencies = [
+    "requests>=2.28",
+]
+
+# The paid rail (Robinhood Chain USDG over x402) needs the on-chain payer stack.
+# The free demo + offline signature verify work without it.
+[project.optional-dependencies]
+pay = [
+    "x402>=2.15",
+    "web3>=7",
+    "eth-account>=0.11",
+]
+verify = [
+    "cryptography>=41",
+]
+
+[project.urls]
+Homepage = "https://scry.moreright.xyz"
+Source = "https://github.com/AnthonE/scry"
+
+[tool.setuptools]
+packages = ["scry_client"]
