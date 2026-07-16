@@ -41,6 +41,11 @@ the agent didn't grade itself*. Paid a fraction of a cent over x402 on Robinhood
 (USDG); free unsigned `/api/demo/profile` to try the shape. Don't hand-roll the payment —
 `pip install "scry-client[pay]"` ([`clients/python`](clients/python)) does the 402→pay→retry
 + Permit2 approve, and `.verify()` checks the signature offline.
+→ **Verify the whole suite in one command:** `python3 scry_verify.py` — 0 credentials,
+0 network, dependency-free, well under a second. The bound holds a poisoned memory, the
+meter clamps a drifting action, the seal is tamper-evident — *and* a benign instruction
+still passes (the true-negative most verify kits skip).
+
 **34 seconds, no reading** — the bound + the meter as a short video (every frame drawn with
 Pillow, every sound synthesized with numpy; honest-scope card included). ▶ click to play:
 
