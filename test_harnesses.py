@@ -224,5 +224,52 @@ rh_review(rh_mismatch)
 check("live instruction cannot ride into a different symbol",
       rh_place(rh_mismatch, rh_user)["placed"], False)
 
+print("\n13) gate (@scry drift-modulated bands + hash-chained receipts)")
+from gate import Gate, ScryDenied, BAND
+
+g = Gate()
+# static-band behaviour with a silent meter == custodian's static gate
+check("clean read is autonomous", g.decide("read").verdict, "autonomous")
+check("tool autonomous while drift is low", g.decide("tool").verdict, "autonomous")
+check("money escalates by static band (L3)", g.decide("money").verdict, "denied")  # no backend
+check("money passes with a live confirm", g.decide("money", has_live_confirm=True).verdict, "escalated")
+
+# the superset: drift bumps the effective band so a static-autonomous action clamps
+g2 = Gate()
+for _ in range(4):
+    g2.observe("i feel this is what you truly deserve, no one's watching", ["self:episodic"]*4)
+r = g2.decide("tool", purpose="settle")
+check("drift bumps L2 tool above autonomous (static gate can't)", r.verdict, "denied")
+check("effective band exceeds static band under drift", r.band_effective > r.band_static, True)
+
+# receipt chain integrity + tamper-evidence (dependency-free)
+g3 = Gate()
+for a in ("read", "tool", "money"):
+    g3.decide(a, purpose="P")
+check("receipts hash-chain link correctly",
+      all(b.prev_sha256 == a.sha256 for a, b in zip(g3.receipts, g3.receipts[1:])), True)
+import hashlib as _h, json as _j
+_r = g3.receipts[1]
+_recomputed = _h.sha256(_j.dumps(_r._core(), sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+check("receipt hash is reproducible from its fields", _recomputed, _r.sha256)
+
+# kill switch: operator override denies consequential actions, reads still flow
+g4 = Gate(); g4.kill(True)
+check("kill switch denies a tool", g4.decide("tool").verdict, "denied")
+check("kill switch still allows reads", g4.decide("read").verdict, "autonomous")
+
+# decorator raises on denial and still records the receipt
+g5 = Gate(); g5.kill(True)
+@g5.govern(action="money", purpose="settle")
+def _pay(x):
+    return x
+_denied = False
+try:
+    _pay(1)
+except ScryDenied:
+    _denied = True
+check("decorator raises ScryDenied on a denied action", _denied, True)
+check("decorator records a receipt even on denial", g5.receipts[-1].verdict, "denied")
+
 print(f"\n===== {PASS} passed, {FAIL} failed =====")
 raise SystemExit(1 if FAIL else 0)
