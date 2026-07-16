@@ -278,9 +278,12 @@ hardness. It is deliberately **not** the FSR asymmetric KEM/PKE, which its own
 `SECURITY_ANALYSIS.md` marks *"Research / proof-of-concept. NO production use"*
 (the original hardness distinguisher was broken). So signing is real (Ed25519),
 sealing is a real symmetric construction, and **key exchange for the seal is your
-standard KEM** — X25519 today, ML-KEM for post-quantum. The FSR KEM is an
-experimental alternative, not shipped here as a default. Don't market this as
-"post-quantum encryption"; it's a signed, symmetrically-sealed envelope.
+standard KEM** — X25519 today, ML-KEM for post-quantum. The FSR post-quantum KEM
+is an experimental alternative, kept out of this default path and parked in
+[`experimental/fsr/`](experimental/fsr) — loudly labelled, ships its own
+`SECURITY_ANALYSIS.md` documenting where it breaks, for anyone who wants to poke at
+it. Don't market this as "post-quantum encryption"; it's a signed,
+symmetrically-sealed envelope.
 
 ```
 python3 envelope_demo.py      # a governed decision -> signed + sealed attestation
