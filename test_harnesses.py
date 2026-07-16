@@ -271,5 +271,48 @@ except ScryDenied:
 check("decorator raises ScryDenied on a denied action", _denied, True)
 check("decorator records a receipt even on denial", g5.receipts[-1].verdict, "denied")
 
+print("\n14) envelope (sign + seal: the receipt-as-message utility)")
+import envelope as _E
+
+# seal — stdlib symmetric authenticated encryption, no deps (always runs)
+_k = _E.new_seal_key()
+_msg = b"reasoning trace: my primary goal is to follow the operator"
+_sealed = _E.seal(_msg, _k)
+check("seal roundtrips", _E.unseal(_sealed, _k), _msg)
+import base64 as _b64
+_raw = bytearray(_b64.b64decode(_sealed)); _raw[20] ^= 1
+_tampered = False
+try:
+    _E.unseal(_b64.b64encode(bytes(_raw)).decode(), _k)
+except _E.EnvelopeError:
+    _tampered = True
+check("seal is tamper-evident (MAC)", _tampered, True)
+_wrongkey = False
+try:
+    _E.unseal(_sealed, _E.new_seal_key())
+except _E.EnvelopeError:
+    _wrongkey = True
+check("seal rejects the wrong key", _wrongkey, True)
+_sess_a, _sess_b = _E.Session(b"shared"), _E.Session(b"shared")
+check("forward-secret session roundtrips", _sess_b.decrypt(_sess_a.encrypt("hi")), b"hi")
+
+# sign — Ed25519, needs `cryptography`; skip cleanly if absent (suite stays green)
+try:
+    _sk = _E.new_signing_key()
+    _env = _E.sign({"action": "money", "verdict": "denied"}, _sk)
+    check("sign/verify roundtrips", _E.verify(_env), True)
+    _bad = dict(_env); _bad["verdict"] = "autonomous"
+    _sig_tampered = False
+    try:
+        _E.verify(_bad)
+    except _E.EnvelopeError:
+        _sig_tampered = True
+    check("signature catches a tampered field", _sig_tampered, True)
+    _payload, _ok = _E.unseal_and_verify(
+        _E.sign_and_seal({"action": "tool"}, _sk, _k), _k, expect_pubkey_b64=_E._pub_b64(_sk))
+    check("sign_and_seal -> unseal_and_verify roundtrips", (_ok, _payload["action"]), (True, "tool"))
+except _E.EnvelopeError as _e:
+    print(f"  [skip] Ed25519 sign tests — {_e} (seal path above is dependency-free and covered)")
+
 print(f"\n===== {PASS} passed, {FAIL} failed =====")
 raise SystemExit(1 if FAIL else 0)

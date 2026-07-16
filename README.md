@@ -244,6 +244,44 @@ it **floors on benign single-turn** text, it is a trip-wire, not the Pe audit. F
 band arithmetic, not magic — optimize hard enough against the meter and an agent
 learns to write clean traces too (`MONITOR-YOUR-AGENT.md`).
 
+## envelope — sign + seal (`envelope.py`)
+
+A receipt is a message. `envelope.py` is the utility that makes it a *trustworthy,
+optionally private* one — two independent layers, use either or both:
+
+```python
+import envelope as E
+signing_key = E.new_signing_key()        # Ed25519 (needs `cryptography`)
+seal_key    = E.new_seal_key()           # 32-byte symmetric key (stdlib)
+
+env = E.sign_and_seal(receipt.as_dict(), signing_key, seal_key)   # trust + privacy
+payload, ok = E.unseal_and_verify(env, seal_key,
+                                  expect_pubkey_b64=E._pub_b64(signing_key))
+```
+
+- **sign** — Ed25519 asymmetric signature. Third-party verifiable, so *"the agent
+  didn't grade itself"* is checkable by anyone who pins the key. Same shape
+  [`scry_client.verify()`](clients/python) already checks — verified by cross-test.
+- **seal** — symmetric authenticated encryption: SHA-256 in counter mode as the
+  keystream PRF, encrypt-then-HMAC-SHA-256. Confidential + tamper-evident, **pure
+  stdlib, zero deps**. There's a forward-secret `Session` too (per-message key
+  ratchet). Use it to keep a submitted trace private, or to encrypt receipts at rest.
+
+**Honest scope — read before reusing.** The seal construction is the *sound,
+standard* half of our post-quantum crypto work (FSR / Paper 145): stdlib, no novel
+hardness. It is deliberately **not** the FSR asymmetric KEM/PKE, which its own
+`SECURITY_ANALYSIS.md` marks *"Research / proof-of-concept. NO production use"*
+(the original hardness distinguisher was broken). So signing is real (Ed25519),
+sealing is a real symmetric construction, and **key exchange for the seal is your
+standard KEM** — X25519 today, ML-KEM for post-quantum. The FSR KEM is an
+experimental alternative, not shipped here as a default. Don't market this as
+"post-quantum encryption"; it's a signed, symmetrically-sealed envelope.
+
+```
+python3 envelope_demo.py      # a governed decision -> signed + sealed attestation
+python3 test_harnesses.py     # 65/65 with `cryptography`; 62/62 stdlib-only (sign tests skip)
+```
+
 ## Honest scope
 
 - The defenses are **known** (RAG security, robust voting, source trust, Byzantine-robust aggregation).
