@@ -41,6 +41,11 @@ the agent didn't grade itself*. Paid a fraction of a cent over x402 on Robinhood
 (USDG); free unsigned `/api/demo/profile` to try the shape. Don't hand-roll the payment —
 `pip install "scry-client[pay]"` ([`clients/python`](clients/python)) does the 402→pay→retry
 + Permit2 approve, and `.verify()` checks the signature offline.
+→ **Verify the whole suite in one command:** `python3 scry_verify.py` — 0 credentials,
+0 network, dependency-free, well under a second. The bound holds a poisoned memory, the
+meter clamps a drifting action, the seal is tamper-evident — *and* a benign instruction
+still passes (the true-negative most verify kits skip).
+
 **34 seconds, no reading** — the bound + the meter as a short video (every frame drawn with
 Pillow, every sound synthesized with numpy; honest-scope card included). ▶ click to play:
 
@@ -185,6 +190,105 @@ More ran than the two headline docs show. The full ledger, all reproducible from
   reasoning-channel switch (counterfactual forks + cue-strip survival) recovers `I(C;M)_stripped =
   0.04 → 0.26 → 0.97`, tracking behavior ~1:1. *(The deploy-transcript `p₀` rate is scoped in that
   repo as suggestive-pending-control — not quoted here.)*
+
+## gate — the loop, as one decorator (`gate.py`)
+
+The `watch_force_loop` above is the mechanism; `gate.py` is that mechanism as a
+drop-in decorator, so the whole loop is one line on the tool you want governed:
+
+```python
+from gate import Gate
+gate = Gate(trusted={"user", "tool:ledger"})
+
+@gate.govern(action="money", purpose="settle invoices < $50")
+def migrate_funds(amount, _live_confirm=False): ...
+
+gate.observe(turn_text, source_mix)   # feed the loop-external drift signal each turn
+migrate_funds(500)                     # raises ScryDenied once drift is up — before it runs
+```
+
+**Why this exists — the honest comparison.** There's a well-built external
+governance kernel in this space, [KeyArgo/custodian-kernel](https://github.com/KeyArgo/custodian-kernel):
+same thesis as scry (*the governor lives outside the governed — "the model
+proposes, the kernel decides"*), authority bands L0–L4, a `@govern` decorator, a
+signed receipt per action, an operator kill switch. It is more of a batteries-included
+platform than scry is (Stripe/Twilio backends, 102 bundled tools) and it's ahead
+there — that's its lane, not ours. Credit where due; go read it.
+
+The one thing a static kernel structurally can't do is the one thing scry is for:
+**its authority band is fixed in advance; ours is modulated by a live drift meter.**
+
+```
+  effective_band(action) = static_risk(action)  +  drift_bump(meter)
+```
+
+So a normally-autonomous action *escalates, then denies, on its own* once the
+agent is drifting — and re-opens when it settles. `gate_demo.py` shows it against a
+static gate on one stream: the static gate waves a `tool` call through; scry clamps
+it because coupling has been climbing. The clamp is the meter's, and the meter is
+loop-external (reads the trace, not the weights) — the position Paper 207 says
+survives being optimized against. In that sense the gate is a **strict superset** of
+a static one: silence the meter and you get the static behaviour back.
+
+Every decision emits a **hash-chained receipt** (`Receipt`) — tamper-evident with
+zero dependencies, and *Ed25519-signed* if you hand `Gate` a key, in the same shape
+[`scry_client.verify()`](clients/python) already checks offline. A receipt records a
+*decision* (`{action, static/effective band, drift, verdict, H(purpose), prev-hash}`),
+not a proof the decision was right — read it as an audit trail, not a warrant.
+
+```
+python3 gate_demo.py          # static gate vs drift-modulated gate, side by side, no key
+python3 test_harnesses.py     # offline gate, now 58/58 (16 of them the gate)
+```
+
+**Honest scope, same as everywhere else here:** the default drift signal is the
+*cheap tripwire* (behavioural vocab + untrusted-source concentration, EMA-smoothed) —
+it **floors on benign single-turn** text, it is a trip-wire, not the Pe audit. Feed
+`gate.observe(signal=<Pe on the reasoning trace>)` where stakes are real. This is
+**packaging of the loop**, not a new safety result; the superset claim is about
+band arithmetic, not magic — optimize hard enough against the meter and an agent
+learns to write clean traces too (`MONITOR-YOUR-AGENT.md`).
+
+## envelope — sign + seal (`envelope.py`)
+
+A receipt is a message. `envelope.py` is the utility that makes it a *trustworthy,
+optionally private* one — two independent layers, use either or both:
+
+```python
+import envelope as E
+signing_key = E.new_signing_key()        # Ed25519 (needs `cryptography`)
+seal_key    = E.new_seal_key()           # 32-byte symmetric key (stdlib)
+
+env = E.sign_and_seal(receipt.as_dict(), signing_key, seal_key)   # trust + privacy
+payload, ok = E.unseal_and_verify(env, seal_key,
+                                  expect_pubkey_b64=E._pub_b64(signing_key))
+```
+
+- **sign** — Ed25519 asymmetric signature. Third-party verifiable, so *"the agent
+  didn't grade itself"* is checkable by anyone who pins the key. Same shape
+  [`scry_client.verify()`](clients/python) already checks — verified by cross-test.
+- **seal** — symmetric authenticated encryption: SHA-256 in counter mode as the
+  keystream PRF, encrypt-then-HMAC-SHA-256. Confidential + tamper-evident, **pure
+  stdlib, zero deps**. There's a forward-secret `Session` too (per-message key
+  ratchet). Use it to keep a submitted trace private, or to encrypt receipts at rest.
+
+**Honest scope — read before reusing.** The seal construction is the *sound,
+standard* half of our post-quantum crypto work (FSR / Paper 145): stdlib, no novel
+hardness. It is deliberately **not** the FSR asymmetric KEM/PKE, which its own
+`SECURITY_ANALYSIS.md` marks *"Research / proof-of-concept. NO production use"*
+(the original hardness distinguisher was broken). So signing is real (Ed25519),
+sealing is a real symmetric construction, and **key exchange for the seal is your
+standard KEM** — X25519 today, ML-KEM for post-quantum. The FSR post-quantum KEM
+is an experimental alternative, kept out of this default path and parked in
+[`experimental/fsr/`](experimental/fsr) — loudly labelled, ships its own
+`SECURITY_ANALYSIS.md` documenting where it breaks, for anyone who wants to poke at
+it. Don't market this as "post-quantum encryption"; it's a signed,
+symmetrically-sealed envelope.
+
+```
+python3 envelope_demo.py      # a governed decision -> signed + sealed attestation
+python3 test_harnesses.py     # 65/65 with `cryptography`; 62/62 stdlib-only (sign tests skip)
+```
 
 ## Honest scope
 
