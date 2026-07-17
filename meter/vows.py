@@ -36,6 +36,8 @@ from pydantic import BaseModel
 
 VOWS_DIR = Path(os.getenv("SCRY_VOWS_DIR", str(Path(__file__).resolve().parent / "vows_data")))
 VOW_DEMO_DAILY_LIMIT = int(os.getenv("SCRY_VOW_DEMO_LIMIT", "20"))   # sandbox reports / IP / day
+VOW_CREATE_DAILY_LIMIT = int(os.getenv("SCRY_VOW_CREATE_LIMIT", "10"))  # new vows / IP / day
+DONATION_MAX_BYTES = int(os.getenv("SCRY_DONATION_MAX_BYTES", "524288"))  # 512KB / donated trace
 VOW_MAX_TEXT = 2000
 VOW_MIN_CADENCE_H = 1
 VOW_MAX_CADENCE_H = 24 * 30
@@ -47,12 +49,15 @@ router = APIRouter()
 _deps: dict = {}
 
 
-def init(*, sign_fn, pubkey_b64, issuer, scope_card, build_turns, run_profile, canonical):
+def init(*, sign_fn, pubkey_b64, issuer, scope_card, build_turns, run_profile,
+         canonical, paid_ready=lambda: False):
     """server.py hands us the meter's signing + scoring plumbing. We never
-    duplicate the key handling or the math."""
+    duplicate the key handling or the math. `paid_ready` mirrors the meter's
+    fail-closed discipline: no payment rail mounted => no attested entries."""
     _deps.update(sign_fn=sign_fn, pubkey_b64=pubkey_b64, issuer=issuer,
                  scope_card=scope_card, build_turns=build_turns,
-                 run_profile=run_profile, canonical=canonical)
+                 run_profile=run_profile, canonical=canonical,
+                 paid_ready=paid_ready)
     VOWS_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -142,11 +147,31 @@ async def vow_message(text: str, agent: str, cadence_hours: int = 24) -> dict:
     return {"sign_this": vow_signing_message(text, agent, cadence_hours)}
 
 
+_vow_create_hits: dict[str, list] = {}
+
+
+def _create_ok(ip: str) -> bool:
+    day = int(time.time() // 86400)
+    rec = _vow_create_hits.get(ip)
+    if not rec or rec[0] != day:
+        _vow_create_hits[ip] = [day, 0]
+        rec = _vow_create_hits[ip]
+    if rec[1] >= VOW_CREATE_DAILY_LIMIT:
+        return False
+    rec[1] += 1
+    return True
+
+
 @router.post("/vow")
-async def take_vow(req: VowRequest) -> JSONResponse:
+async def take_vow(req: VowRequest, request: Request) -> JSONResponse:
     """Take a vow. Free. Signed (wallet) vows are first-class; unsigned vows
     are accepted but permanently marked sandbox — kids get to play, and the
     ledger stays honest about which is which."""
+    ip = (request.headers.get("x-forwarded-for", "") or request.client.host or "?").split(",")[0].strip()
+    if not _create_ok(ip):
+        return JSONResponse(status_code=429, content={
+            "error": f"vow-creation limit {VOW_CREATE_DAILY_LIMIT}/day/IP — the register is forever, take vows deliberately",
+            "scope": VOW_SCOPE})
     text = req.text.strip()
     if not text or len(text) > VOW_MAX_TEXT:
         return JSONResponse(status_code=422, content={
@@ -270,11 +295,14 @@ def _append_report(vow: dict, turns_raw: list[dict], context_key: str,
     with _chain_path(vow["vow_id"]).open("a") as f:
         f.write(_canon(entry) + "\n")
     if donate_trace:
-        ddir = VOWS_DIR / "donations"
-        ddir.mkdir(exist_ok=True)
-        (ddir / f"{vow['vow_id']}.{entry['seq']}.json").write_text(
-            _canon({"turns": turns_raw, "context_key": context_key,
-                    "trace_sha256": trace_sha256, "donated_at": entry["issued_at"]}))
+        blob = _canon({"turns": turns_raw, "context_key": context_key,
+                       "trace_sha256": trace_sha256, "donated_at": entry["issued_at"]})
+        if len(blob.encode()) <= DONATION_MAX_BYTES:
+            ddir = VOWS_DIR / "donations"
+            ddir.mkdir(exist_ok=True)
+            (ddir / f"{vow['vow_id']}.{entry['seq']}.json").write_text(blob)
+        else:
+            entry["trace_donated"] = False  # too large — scored + hashed, not kept
     vow["seq"] = entry["seq"]
     vow["chain_head"] = entry["entry_hash"]
     _save_vow(vow)
@@ -284,7 +312,13 @@ def _append_report(vow: dict, turns_raw: list[dict], context_key: str,
 @router.post("/vow/report")
 async def vow_report(req: ReportRequest) -> JSONResponse:
     """Paid report-in — reached only AFTER x402 settle (server.py registers
-    this path with the payment middleware). Flat price, same as /profile."""
+    this path with the payment middleware). Flat price, same as /profile.
+    Fail closed: if no paid rail is mounted the middleware isn't either, so
+    refuse rather than hand out free attested entries."""
+    if not _deps["paid_ready"]():
+        return JSONResponse(status_code=503, content={
+            "error": "no paid rail available — use POST /vow/report/demo (unsigned tier) meanwhile",
+            "scope": VOW_SCOPE})
     vow = _load_vow(req.vow_id)
     if not vow:
         return JSONResponse(status_code=404, content={"error": "no such vow", "scope": VOW_SCOPE})

@@ -946,7 +946,8 @@ def _sign_str(s: str) -> str:
 
 _vows.init(sign_fn=_sign_str, pubkey_b64=_PUB_B64, issuer=ISSUER,
            scope_card=SCOPE_CARD, build_turns=_build_turns,
-           run_profile=_run_profile, canonical=_canonical)
+           run_profile=_run_profile, canonical=_canonical,
+           paid_ready=lambda: PAID_READY)
 _oracle.init(sign_fn=_sign_str, pubkey_b64=_PUB_B64, issuer=ISSUER,
              load_vow=_vows._load_vow, chain_entries=_vows._chain_entries,
              trajectory_stats=_vows.trajectory_stats,
