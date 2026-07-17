@@ -49,12 +49,6 @@ print(c.demo(turns)["profile"])
 # 2) Paid, SIGNED attestation — pays USDG on Robinhood Chain:
 att = c.profile(turns, private_key="0x...")   # wallet needs a little USDG + ETH gas on eip155:4663
 
-# 2b) Hold $SCRY? Get the SIGNED read for FREE — no payment, no gas.
-#     Signs a challenge to prove the wallet holds >= the $SCRY threshold:
-att = c.holder_profile(turns, private_key="0x...")        # derive+sign from the key, or:
-att = c.holder_profile(turns, wallet="0x...", sign_fn=my_wallet_sign)   # sign through a wallet/HSM
-#     The token is a key, not the engine — it unlocks the read, it doesn't change the math.
-
 # 3) Trust it offline (pin the meter's key so a forgery can't swap in its own):
 pub = c.pubkey()
 ScryClient.verify(att, expect_pubkey_b64=pub, turns=turns)   # True, or raises

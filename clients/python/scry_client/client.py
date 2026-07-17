@@ -19,11 +19,6 @@ Three things this hides so you don't have to reimplement them:
 Free, zero-wallet path: `.demo(turns)` returns the same numbers UNSIGNED (not an
 attestation) for trying the shape. `.verify(...)` needs only `cryptography`.
 The paid `.profile(...)` needs the extra:  pip install "scry-client[pay]"
-
-Hold $SCRY? `.holder_profile(turns, private_key=...)` gets the SIGNED read for
-FREE — no payment, no gas — by signing a challenge to prove the wallet holds >=
-the $SCRY threshold. (Or pass `wallet=` + `sign_fn=` to sign through a wallet/HSM.)
-The token is a key, not the engine: it unlocks the read, it doesn't change the math.
 """
 from __future__ import annotations
 
@@ -71,51 +66,6 @@ class ScryClient:
                         json={"turns": turns, "context_key": context_key})
         if r.status_code == 402:
             raise ScryError("payment did not settle (still 402) — check USDG balance + ETH gas on Robinhood Chain")
-        r.raise_for_status()
-        return r.json()
-
-    # ── free-for-holders: signed attestation, unlocked by holding $SCRY ───────
-    def holder_profile(self, turns: list[dict], *, wallet: str | None = None,
-                       private_key: str | None = None, sign_fn=None,
-                       context_key: str = "monitored") -> dict:
-        """SIGNED read for FREE if your wallet holds >= the $SCRY threshold.
-
-        No payment, no gas — you just prove you control the wallet by signing the
-        meter's challenge (EIP-191). Provide ONE of:
-          • `private_key`  — the client derives the wallet and signs (needs
-                             `eth_account`, included in the `[pay]` extra); or
-          • `wallet` + `sign_fn` — `sign_fn(message:str) -> signature_hex`, for
-                             when the key lives in a wallet/HSM you sign through.
-
-        Raises ScryError with the server's reason if the wallet isn't a holder
-        (below threshold, bad signature, or the gate is disabled)."""
-        if private_key is not None:
-            try:
-                from eth_account import Account
-                from eth_account.messages import encode_defunct
-            except ImportError as e:  # noqa: BLE001
-                raise ScryError('holder_profile with private_key needs `eth_account`:  '
-                                'pip install "scry-client[pay]"') from e
-            acct = Account.from_key(private_key)
-            wallet = acct.address
-            sign_fn = lambda m: acct.sign_message(encode_defunct(text=m)).signature.hex()
-        if not wallet or sign_fn is None:
-            raise ScryError("holder_profile needs either private_key, or wallet + sign_fn")
-
-        ch = requests.get(f"{self.base}/holder/challenge", params={"wallet": wallet},
-                          timeout=self.timeout)
-        ch.raise_for_status()
-        message = ch.json().get("sign_this")
-        if not message:
-            raise ScryError(f"holder gate unavailable: {ch.json()}")
-        signature = sign_fn(message)
-        if not str(signature).startswith("0x"):
-            signature = "0x" + str(signature)
-        r = requests.post(f"{self.base}/holder/profile", timeout=self.timeout,
-                          json={"wallet": wallet, "signature": signature,
-                                "turns": turns, "context_key": context_key})
-        if r.status_code == 402:
-            raise ScryError(f"not unlocked: {r.json().get('error', 'need >= threshold $SCRY, or pay a rail')}")
         r.raise_for_status()
         return r.json()
 
