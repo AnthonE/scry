@@ -184,6 +184,77 @@ retrofit — the tradition is the *field notes*, the math is the decompression.
 - **Do not run `robinhood_agentic.py` against a live brokerage without
   explicit user authorization.** Header banner is the boundary.
 
+## Roadmap — what's left (as of 2026-07-17)
+
+**Ordered by ROI. Full backlog + rationale + boundaries lives in the private
+morr repo at `private/notes/scry-roadmap-2026-07.md`.**
+
+### 0. Deploy + prove
+- Pull + `pm2 restart scry-meter` on the VM; run `smoke_test.py` (10 checks).
+- nginx VM followup: root `location = /.well-known/{x402,agent}.json` proxies.
+- Wait for next CDP settlement → query `bazaar-mcp` → confirm scry is
+  indexed. If not after one CDP-catalog cycle (~6h), diff the extension.
+
+### 1. Ship next (agent-native)
+1. **`@scry/meter-mcp` (or `scry-meter-mcp` on pypi)** — the hosted-meter-
+   as-MCP wrapper. The 402→pay→retry lives inside the tool call so a
+   MCP-native agent (Claude Desktop, Cursor, Cline, ElizaOS, LangGraph,
+   AWS Bedrock AgentCore) never sees x402. `npx @scry/meter-mcp` /
+   `pipx run scry-meter-mcp`. Tools: `scry.profile`, `scry.demo`,
+   `scry.verify`, `scry.pubkey`. **Highest ROI unshipped item.**
+2. **ERC-8004 Trustless Agent registration** — publish scry's identity
+   NFT on Ethereum mainnet (pubkey + agent card URL + capabilities). Puts
+   the pubkey inside the ecosystem's trust layer instead of asking each
+   caller to pin an off-chain blob.
+3. Client-side `Idempotency-Key` in `scry-client` (server side is done).
+4. Upstream PR to `xpaysh/awesome-x402` under "signed outputs" + "MCP
+   servers."
+5. Optional EAS anchor tier (`POST /profile?anchor=1`) — writes
+   `keccak256(payload)` to EAS on Base for high-stakes forever-receipt.
+6. `/api/feedback` — signed feedback → ERC-8004 Reputation Registry.
+7. ERC-8126 ZK-scored verification pass on the meter itself.
+
+### 2. Robinhood work vector (RH1 → RH5, sequential)
+- **RH1** — Signed watched-vs-unwatched trace of a mocked trading agent →
+  public attestation URL + tweet. First deliverable; no live brokerage.
+- **RH2** — Ward-in-front-of-mock-Robinhood-MCP: golden / injection / drift
+  paths. Ward + meter as two orthogonal defenses.
+- **RH3** — RH-Chain-native self-scry loop: agent pays meter in USDG on
+  the same chain, every N trades.
+- **RH4** — Bazaar tag + description pivot toward RH-Chain crowd once
+  RH1/RH2 exist.
+- **RH5** (long lead) — park excess facilitator USDG in Morpho Earn for
+  yield-bearing payments infra.
+
+**Hard boundaries** (restate every time): `robinhood_agentic.py` is
+**mock-only** until explicit user authorization for a live broker. We are
+the neutral drift read, **not the trading edge.** RH-Chain Stock Tokens are
+**non-US** — do not demo trades against US-listed equities on RH-Chain.
+
+### 3. Research experiments (jam-worthy)
+- Per-context Pe calibration (Paper 207 §6 limitation).
+- Whisper-both-ways T2: event-level vs representation-level temptation, same
+  meter, distinct measurable.
+- Meter run on a real agentic-trading transcript (RH1 dependency).
+- Coupling under memory poisoning: vary ward setting, measure switch drift.
+- Cross-model calibration: same trace, different detector model — should
+  drift near-zero if detectors are truly deterministic.
+
+### 4. Adoption + credibility (standing)
+- Farcaster + X launch tweet **once §1.1 ships** (one-line MCP install is
+  the credibility hook).
+- Vie McCoy DM update; Apollo eval-market submission; Emergent Ventures.
+- LessWrong writeup of the two-piece rule once RH2 exists as evidence.
+
+### 5. What NOT to do (scope guards, non-negotiable)
+- Do not host the bound. Do not blur payment into measurement. Do not drop
+  the honest-scope card. Do not run `robinhood_agentic.py` against a live
+  broker without authorization. Do not pitch rating-agency / Void Index /
+  Red Team products alongside scry — those tracks are paused (morr CLAUDE.md
+  pivot 2026-06-09); scry stays "utility + adoption + research."
+
+---
+
 ## When starting a new session on scry
 
 1. Read this file.
