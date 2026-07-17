@@ -1,0 +1,11 @@
+# scry meter endpoint — server-side deps only.
+# The buyer/facilitator do the on-chain signing/settlement; this server just
+# builds payment requirements and calls the facilitator over HTTP, then runs
+# the (pure-stdlib) meter math from ../turn_record.py.
+x402[fastapi,requests,evm,svm,extensions]>=2.15.0
+uvicorn[standard]>=0.30.0
+cryptography>=41.0.0
+# pin: x402[svm] pulls a solana build whose wheel drops the sync solana.rpc.api
+# module; 0.36.6 has it. Bump only after verifying `from solana.rpc.api import Client`.
+solana==0.36.6
+cdp-sdk==1.47.1

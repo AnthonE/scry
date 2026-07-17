@@ -1,5 +1,28 @@
 # CLAUDE.md — scry
 
+## Framing — read this first
+
+scry is a **small cyberpunk toolkit for AI-agent enthusiasts**. Not a
+product. Not a business unit. A sub-artifact in the larger MoreRight
+constellation (wiki, game, papers) that sits at `moreright.xyz` as one door
+among several. Audience is people who think it's cool their agent can pay
+another endpoint for a signed read of its own behavior.
+
+**Pricing is one flat cost per service, forever.** Currently `$0.10` per
+attested read. Same price on every rail (USDG on RH-Chain, USDC on Base or
+Solana, $SCRY if that rail is ever armed). If costs shift, the flat price
+shifts flat. **No tiers, no "pro," no "enterprise," no "high-stakes callers
+get X." Ever.** If a sibling service is worth building, it lives at the same
+flat price. Everything's open source — anyone who wants cheaper runs their
+own copy.
+
+**Family:** the meter is the built one; verifier / canary / preflight /
+receipts are sketches in [`CONSTELLATION.md`](CONSTELLATION.md), each one
+endpoint doing one crisp job. Build them if useful, not because they let us
+charge more (they don't — flat price always).
+
+---
+
 ## What this repo is
 
 scry is a **drop-in ward + meter for any AI agent that holds a wallet, calls
@@ -48,24 +71,32 @@ ships on **every response** as an honest-scope card. Do not strip it.
 
 ---
 
-## Where the work lives
+## Where the work lives (updated — scry is self-contained)
 
-- **This repo (public, `github.com/AnthonE/scry`)** — the ward, the meter
-  math, the pip client, the docs, the honest-scope carding, the harness
-  retrofits, `robinhood_agentic.py`. Anything an operator would want to run
-  themselves.
-- **Private morr repo (`experiments/memory-shield/meter_endpoint/`)** — the
-  hosted-meter server (FastAPI + x402 middleware, RH-Chain facilitator, CDP
-  facilitator, $SCRY rails, RPP402 service, auto-refill worker). The pip
-  client here **is** the public interface to that server; the server itself
-  is deployed infrastructure and lives in the private repo so keys/gas ops
-  aren't in a public git.
+- **This repo (public, `github.com/AnthonE/scry`)** — everything you need to
+  build, run, or self-host any part of scry:
+  - The ward: `memory_shield.py`, `hermes_retrofit.py`, `envelope.py`,
+    `robinhood_agentic.py`.
+  - The meter math: `turn_record.py`, plus `mcp_sidecar.py` for local MCP.
+  - The pip client: `clients/python/` (`pip install scry-client[pay,verify]`).
+  - **The hosted-meter server: `meter/`** — FastAPI + x402 middleware, the
+    RH-Chain Permit2 facilitator, the CDP facilitator, the auto-refill
+    worker, the smoke test, and an `ecosystem.config.example.js` template.
+    Copy the example, fill in your paths + pay-to, `pm2 start`. Your instance
+    signs with its own Ed25519 key. Anyone can run their own.
+  - Constellation sketches (verifier / canary / preflight / receipts) live
+    in `CONSTELLATION.md` and, if built, in their own top-level dirs alongside
+    `meter/`.
+- **Private morr repo** — only the moreright.xyz *deployment glue*:
+  `ecosystem.config.js` with the VM's real paths and `keys.env` location,
+  the nginx server block, and the private handoffs/roadmap under
+  `private/notes/`. Nothing runnable; nothing that would prevent someone
+  else from standing up their own instance.
 
-**Do not port the hosted-meter server into this repo.** The value of running
-it *ourselves* is being able to sign attestations from a stable pubkey; if
-the whole world runs their own copy, the pubkey isn't neutral. Anyone can
-run their own copy for a private measurement, but the *hosted* one at
-`scry.moreright.xyz` is the attestation anchor.
+**Reference-pubkey framing.** The reference deployment at `scry.moreright.xyz`
+has one property no self-host has: its pubkey is the one third parties
+already pin. That's it — the *code* is not special. If someone wants a
+private measurement, they run their own copy and use their own pubkey.
 
 ---
 
@@ -209,10 +240,13 @@ morr repo at `private/notes/scry-roadmap-2026-07.md`.**
 3. Client-side `Idempotency-Key` in `scry-client` (server side is done).
 4. Upstream PR to `xpaysh/awesome-x402` under "signed outputs" + "MCP
    servers."
-5. Optional EAS anchor tier (`POST /profile?anchor=1`) — writes
-   `keccak256(payload)` to EAS on Base for high-stakes forever-receipt.
+5. Optional EAS anchor flag (`?anchor=1`) — same flat price, we eat the
+   trivial extra gas, writes `keccak256(payload)` to EAS on Base and returns
+   the UID. Ship only if actually useful.
 6. `/api/feedback` — signed feedback → ERC-8004 Reputation Registry.
 7. ERC-8126 ZK-scored verification pass on the meter itself.
+8. Constellation siblings (verifier / canary / preflight / receipts) — build
+   if a real user need shows up, not because they'd let us charge more.
 
 ### 2. Robinhood work vector (RH1 → RH5, sequential)
 - **RH1** — Signed watched-vs-unwatched trace of a mocked trading agent →
@@ -247,11 +281,17 @@ the neutral drift read, **not the trading edge.** RH-Chain Stock Tokens are
 - LessWrong writeup of the two-piece rule once RH2 exists as evidence.
 
 ### 5. What NOT to do (scope guards, non-negotiable)
-- Do not host the bound. Do not blur payment into measurement. Do not drop
-  the honest-scope card. Do not run `robinhood_agentic.py` against a live
-  broker without authorization. Do not pitch rating-agency / Void Index /
-  Red Team products alongside scry — those tracks are paused (morr CLAUDE.md
-  pivot 2026-06-09); scry stays "utility + adoption + research."
+- **Never host the bound** — it must stay local + copied.
+- **One flat price, one thing sold** — no tiers, no "pro," no "enterprise,"
+  no "high-stakes" surcharge; the payment rail can vary, the price cannot.
+- **Never drop the honest-scope card** — every response, in the payload, not
+  a hyperlink.
+- **Never live-broker without authorization** — `robinhood_agentic.py` stays
+  mock-only until an explicit human sentence names the account + window.
+- **No product-manager register on scry surfaces** — no rating-agency / Void
+  Index / Red Team pitches (those tracks are paused, morr CLAUDE.md pivot
+  2026-06-09); scry is a cyberpunk toolkit for enthusiasts, framing stays
+  there.
 
 ---
 
