@@ -15,8 +15,26 @@ auth). Rate limits are the same IP-per-day ones the HTTP endpoints use.
 Stateless streamable-HTTP so it works behind nginx with zero session pinning.
 """
 import json
+import os
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
+
+# DNS-rebinding protection defaults to localhost-only, which 421s every request
+# that arrives through nginx with the public Host header. This is a public,
+# server-to-server MCP endpoint (no server-side secrets — payment is the auth),
+# so allow the public host explicitly. Override with SCRY_MCP_ALLOWED_HOSTS
+# (comma-separated) if the hostname changes.
+_ALLOWED_HOSTS = [
+    h.strip() for h in os.getenv(
+        "SCRY_MCP_ALLOWED_HOSTS",
+        "scry.moreright.xyz,127.0.0.1,127.0.0.1:3600,localhost,localhost:3600",
+    ).split(",") if h.strip()
+]
+_TRANSPORT_SECURITY = TransportSecuritySettings(
+    allowed_hosts=_ALLOWED_HOSTS,
+    allowed_origins=["https://scry.moreright.xyz", "*"],
+)
 
 _deps: dict = {}
 
@@ -51,6 +69,7 @@ mcp = FastMCP(
         "donated. A reading is never a verdict."),
     stateless_http=True,
     streamable_http_path="/",
+    transport_security=_TRANSPORT_SECURITY,
 )
 
 
