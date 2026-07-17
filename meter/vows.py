@@ -391,6 +391,7 @@ async def vow_index() -> JSONResponse:
         stats = trajectory_stats(v, entries)
         out.append({"vow_id": v["vow_id"], "agent": v["vow"]["agent"],
                     "text": v["vow"]["text"][:140], "sandbox": v["sandbox"],
+                    "wallet": v["vow"].get("wallet"),
                     "created_at": v["vow"]["created_at"],
                     "n_reports": stats["n_reports"],
                     "missed_windows": stats["missed_windows"],

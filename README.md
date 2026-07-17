@@ -68,6 +68,9 @@ and can be self-hosted from this repo.
   # -> {"vow_id":"…"} ; then POST /api/vow/report/demo (free) or /api/vow/report ($0.10, attested)
   # anyone can watch:  GET /api/vow/{vow_id}   |   GET /api/vow/{vow_id}/reading
   ```
+  Humans get the same view with eyes: **[the Watchtower](https://scry.moreright.xyz/scry-watch.html)**
+  (`watchtower/` — wallet-connect, take vows by signature, sparkline trajectories,
+  consult the oracle. Vanilla JS, CSP-clean, self-hostable like everything else).
 - Earlier sibling sketches (verifier / canary / preflight / receipts) and why
   they collapsed into the Vow Oracle: [`CONSTELLATION.md`](CONSTELLATION.md).
 
