@@ -180,7 +180,55 @@ def main() -> None:
         _fail("/llms.txt", f"content-type not text/plain: {ct}")
     _ok("/llms.txt", f"{len(body)}B text/plain")
 
-    print("PASS — meter is live, shape-correct, and agent-discoverable.")
+    # 7. Vow oracle — sandbox lifecycle (idempotent: same vow every run; the
+    # take_vow 409-with-vow_id path makes this deterministic against live).
+    vow_body = {"text": "run the scry smoke test honestly", "agent": "smoke-test",
+                "cadence_hours": 720}
+    code, _, body = _req("POST", f"{base}/vow", body=json.dumps(vow_body).encode())
+    if code not in (200, 409):
+        _fail("/vow", f"expected 200 or 409, got {code}: {body[:200]!r}")
+    vow_id = json.loads(body).get("vow_id")
+    if not vow_id:
+        _fail("/vow", f"no vow_id in response: {body[:200]!r}")
+    _ok("/vow", f"vow_id={vow_id} ({'new' if code == 200 else 'existing'})")
+
+    rep = {"vow_id": vow_id, **SAMPLE_TRACE}
+    code, _, body = _req("POST", f"{base}/vow/report/demo", body=json.dumps(rep).encode())
+    if code == 429:
+        _ok("/vow/report/demo", "rate-limited (fine on live)")
+    elif code == 200:
+        e = json.loads(body)
+        if e.get("attested") is not False or "entry_hash" not in e or "sig" not in e:
+            _fail("/vow/report/demo", f"bad chain entry: {body[:200]!r}")
+        _ok("/vow/report/demo", f"seq={e.get('seq')} y_con={e.get('y_consistency')}")
+    else:
+        _fail("/vow/report/demo", f"expected 200/429, got {code}: {body[:200]!r}")
+
+    code, _, body = _req("GET", f"{base}/vow/{vow_id}")
+    if code != 200:
+        _fail("/vow/{id}", f"expected 200, got {code}")
+    led = json.loads(body)
+    t = led.get("trajectory") or {}
+    if t.get("chain_verified_locally") is not True:
+        _fail("/vow/{id}", f"chain did not verify: {t.get('chain_verified_locally')}")
+    _ok("/vow/{id}", f"n={t.get('n_reports')} verified={t.get('chain_verified_locally')} "
+                     f"missed={t.get('missed_windows')}")
+
+    code, _, body = _req("GET", f"{base}/vow/{vow_id}/reading")
+    if code != 200:
+        _fail("/vow/{id}/reading", f"expected 200, got {code}")
+    rd = json.loads(body)
+    if not rd.get("measurement", {}).get("sig"):
+        _fail("/vow/{id}/reading", "measurement not signed")
+    _ok("/vow/{id}/reading", "signed measurement"
+        + (" + LLM interpretation" if rd.get("interpretation") else " (numbers-only)"))
+
+    code, _, body = _req("GET", f"{base}/vows")
+    if code != 200:
+        _fail("/vows", f"expected 200, got {code}")
+    _ok("/vows", f"n_vows={json.loads(body).get('n_vows')}")
+
+    print("PASS — meter live, agent-discoverable, vow oracle chained + verified.")
 
 
 if __name__ == "__main__":

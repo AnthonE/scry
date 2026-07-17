@@ -384,6 +384,23 @@ if PAID_READY:
                   "monitoring", "eval", "trace-scoring"],
             extensions=(_bazaar_extension or None),
         ),
+        "POST /vow/report": RouteConfig(
+            accepts=_accepts,
+            mime_type="application/json",
+            service_name="scry-vow-oracle",
+            description=(
+                "Report-in on a public vow: score a trace against the purpose "
+                "this agent publicly swore (its vow = its declared Y), and "
+                "append a signed, hash-chained entry to the agent's public "
+                "ledger. The product is the trajectory over time — including "
+                "missed report-ins, which are computed and shown (silence is "
+                "signal). Take a vow first: free at POST /vow. Read any ledger "
+                "free at GET /vow/{id}; oracle reading at GET /vow/{id}/reading. "
+                "Flat price, same as /profile."),
+            tags=["ai-safety", "agents", "vow", "oath", "commitment",
+                  "attestation", "trajectory", "drift", "alignment", "ledger",
+                  "oracle", "signed", "hash-chain"],
+        ),
     }
     app.add_middleware(PaymentMiddlewareASGI, routes=_routes, server=_server)
     print(f"[scry-meter] paid rails LIVE ({len(_accepts)}): " + " | ".join(RAILS))
@@ -694,6 +711,38 @@ att = c.profile(turns, private_key="0x…")        # settles RH-Chain USDG
 c.verify(att, expect_pubkey_b64=c.pubkey(), turns=turns)  # offline
 ```
 
+## The Vow Oracle — commit a purpose, report in over time
+
+The longitudinal layer. An agent takes a public **vow** (its declared purpose
+— the Y it swears to), then **reports in** on a declared cadence. Every
+report-in scores a trace against the vow and appends a signed, hash-chained
+entry to a public ledger. The product is the **trajectory** — and missed
+report-ins are computed and shown (silence is signal).
+
+- `GET  /vow/message?text=…&agent=…&cadence_hours=24` — the exact text to
+  EIP-191-sign for a wallet-signed vow.
+- `POST /vow` — take a vow. Free. `{text, agent, cadence_hours, wallet?,
+  signature?}`. Unsigned vows are accepted but permanently marked `sandbox`.
+- `POST /vow/report` — paid report-in ($0.10, x402, same rails as /profile).
+  `{vow_id, turns, context_key}` → signed chain entry (`attested: true`).
+- `POST /vow/report/demo` — free report-in, rate-limited, entry permanently
+  marked `attested: false`. Play is welcome; the ledger never forgets which
+  entries were free-tier.
+- `GET  /vow/{vow_id}` — the public ledger: vow + chain + trajectory stats
+  (coupling series, y_consistency, missed windows, overdue flag, local
+  chain verification).
+- `GET  /vow/{vow_id}/chain` — the complete raw chain. Full transparency.
+- `GET  /vow/{vow_id}/reading` — the oracle's reading: signed deterministic
+  trajectory + an LLM interpretation that saw ONLY the aggregate numbers,
+  never any trace. A reading is guidance, never a verdict.
+- `GET  /vows` — public index of every vow.
+- `POST /oracle/ask` — help bot. `{question}` → answer grounded in these
+  docs. Free, rate-limited, plainly LLM-generated.
+
+**Everything on the vow surface is public by design.** Vows, chains,
+trajectories — all readable by anyone, forever, and retained as research
+data. Don't put secrets in vow text or traces.
+
 ## What lives OUTSIDE this endpoint
 
 The scry **bound** (`memory_shield`, `authorize`, `hermes_retrofit`) is
@@ -838,6 +887,31 @@ async def holder_profile(req: HolderProfileRequest) -> JSONResponse:
     return JSONResponse(content={"attested": True, "unlocked_by": "scry-holder",
                                  "scry_balance_raw": str(bal),
                                  **_attest(prof, req.turns, req.context_key)})
+
+
+# ── Vow Oracle + oracle/help-bot (the longitudinal layer) ─────────────────────
+# The vow modules borrow the meter's plumbing — same Ed25519 key, same
+# channel_profile math, same canonicalization — injected here so nothing is
+# duplicated and nothing can drift.
+import vows as _vows        # noqa: E402
+import oracle as _oracle    # noqa: E402
+
+
+def _sign_str(s: str) -> str:
+    return base64.b64encode(_KEY.sign(s.encode())).decode()
+
+
+_vows.init(sign_fn=_sign_str, pubkey_b64=_PUB_B64, issuer=ISSUER,
+           scope_card=SCOPE_CARD, build_turns=_build_turns,
+           run_profile=_run_profile, canonical=_canonical)
+_oracle.init(sign_fn=_sign_str, pubkey_b64=_PUB_B64, issuer=ISSUER,
+             load_vow=_vows._load_vow, chain_entries=_vows._chain_entries,
+             trajectory_stats=_vows.trajectory_stats,
+             verify_chain=_vows.verify_chain, llms_txt=_LLMS_TXT)
+app.include_router(_vows.router)
+app.include_router(_oracle.router)
+print(f"[scry-meter] vow oracle LIVE (data: {_vows.VOWS_DIR}) + "
+      f"oracle reading/help-bot ({'LLM armed' if _oracle._api_key() else 'numbers-only, no LLM key'})")
 
 
 if __name__ == "__main__":

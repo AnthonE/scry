@@ -1,5 +1,17 @@
 # Constellation — the tiny cyberpunk services around scry
 
+> **REVISED 2026-07-17 — the constellation collapsed into one thing and it
+> shipped.** The hammering session concluded: verifier is a library not a
+> service (trusting a remote verifier to check a signature is worse than
+> checking locally); preflight blurred into hosting the bound (killed);
+> canary is commodity (parked); receipts was the underrated one — and
+> receipts, done properly, became the **Vow Oracle**: vow → report-in →
+> hash-chained public trajectory → reading. **Built, live in `meter/`
+> (vows.py + oracle.py). Design of record: [`VOWS.md`](VOWS.md).**
+>
+> The sketches below are kept for the reasoning trail — mostly as a record
+> of why they *didn't* survive.
+
 **Sketched not built, except where marked.** This is thinking-on-paper about
 the family scry could live inside. One page. If we ever build a sibling, it
 lives right next to `meter/` in this repo — same aesthetic, same discipline.

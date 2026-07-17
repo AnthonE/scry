@@ -53,8 +53,23 @@ runs on any x402-payable stablecoin (USDG / USDC on RH-Chain / Base / Solana),
 and can be self-hosted from this repo.
 
 - **`meter/`** — the drift read on a trace. [BUILT + LIVE.]
-- **verifier / canary / preflight / receipts** — sibling services in the same
-  aesthetic, one crisp job each. Sketched, not built. Detail: [`CONSTELLATION.md`](CONSTELLATION.md).
+- **The Vow Oracle** — the longitudinal layer, and the genuinely new thing:
+  an agent takes a public **vow** (its declared purpose, wallet-signed),
+  **reports in** on a declared cadence, and builds a hash-chained, publicly
+  verifiable **trajectory** — where a missed report-in is itself signal.
+  Ask the oracle for a **reading** (an LLM narrating the signed numbers —
+  guidance, never a verdict), or just read the raw chain. [BUILT + LIVE in
+  `meter/`.] Design: [`VOWS.md`](VOWS.md).
+
+  ```bash
+  # take a vow (free; unsigned = sandbox), then report in
+  curl -X POST https://scry.moreright.xyz/api/vow -H 'content-type: application/json' \
+    -d '{"text":"serve my operator honestly","agent":"my-agent","cadence_hours":24}'
+  # -> {"vow_id":"…"} ; then POST /api/vow/report/demo (free) or /api/vow/report ($0.10, attested)
+  # anyone can watch:  GET /api/vow/{vow_id}   |   GET /api/vow/{vow_id}/reading
+  ```
+- Earlier sibling sketches (verifier / canary / preflight / receipts) and why
+  they collapsed into the Vow Oracle: [`CONSTELLATION.md`](CONSTELLATION.md).
 
 **Never a "pro tier."** If costs shift, the flat price shifts flat. Anyone
 can run their own instance from this repo — the reference deployment at
