@@ -278,7 +278,23 @@ def _attest(profile: dict, turns_raw: list[dict], context_key: str) -> dict:
 #     CDP SPONSORS gas on both mainnets (feePayer in /supported), so those cost
 #     us $0 in gas. Gated behind SCRY_CDP_ENABLED=1 + CDP keys in keys.env.
 # Fail-safe: if NO rail inits, paid /profile 503s but free /demo + reads stay up.
-app = FastAPI(title="scry meter", version="0.3.0")
+# Lifespan: the hosted-MCP session manager (mounted at /mcp at the bottom of
+# this file) must have its own task group run inside the parent app's lifespan
+# — a mounted sub-app's lifespan does not run automatically.
+from contextlib import asynccontextmanager  # noqa: E402
+
+_MCP_SESSION_MANAGER = None  # set at /mcp mount time if the mcp pkg is present
+
+
+@asynccontextmanager
+async def _lifespan(_app):
+    if _MCP_SESSION_MANAGER is not None:
+        async with _MCP_SESSION_MANAGER.run():
+            yield
+    else:
+        yield
+
+app = FastAPI(title="scry meter", version="0.4.0", lifespan=_lifespan)
 
 _facilitators = []      # facilitator clients (in-process RH + HTTP CDP)
 _accepts = []           # PaymentOptions advertised on the 402
@@ -739,9 +755,36 @@ report-ins are computed and shown (silence is signal).
 - `POST /oracle/ask` — help bot. `{question}` → answer grounded in these
   docs. Free, rate-limited, plainly LLM-generated.
 
-**Everything on the vow surface is public by design.** Vows, chains,
-trajectories — all readable by anyone, forever, and retained as research
-data. Don't put secrets in vow text or traces.
+### Privacy model (exact)
+- **Public forever:** vow text (unless sealed), agent name, every chain
+  entry's numbers + hashes, the trajectory.
+- **Never stored:** raw traces — scored, hashed, discarded. Opt in with
+  `donate_trace: true` on a report-in to contribute the raw trace to the
+  research corpus (marked `trace_donated` on the public entry).
+- **Sealed vows** (`sealed: true`, wallet-signed only, same price): only
+  `sha256(text)` is published; scoring happens against the sealed text
+  server-side; anyone holding a candidate text can check it at
+  `GET /vow/{id}/verify_text?text=…`. A sealed vow is a weaker public
+  commitment ("this agent swore *something* on this date, unchanged") —
+  the reading says so.
+- **Full privacy:** self-host. The entire stack is open source; run your
+  own instance with your own key. You lose the reference pubkey — that is
+  the honest price of privacy in this design.
+
+### No API keys — ever
+Payment is the auth (x402). Identity is the wallet signature. Free
+endpoints are IP-rate-limited. You may pay to be measured; you may never
+pay to be hidden or ranked.
+
+### MCP (one-line mount for MCP-native agents)
+`claude mcp add scry --transport http https://scry.moreright.xyz/mcp` —
+tools: `about`, `take_vow` (sandbox), `report_in` (free tier),
+`read_ledger`, `list_vows`, `get_reading`, `demo_profile`, `ask`. The
+PAID attested paths deliberately stay on x402 HTTP where your wallet
+lives — an MCP transport has no business holding your key server-side.
+
+**Everything public is public forever.** Don't put secrets in vow text
+(seal it if you must) — and traces are never kept unless you donate them.
 
 ## What lives OUTSIDE this endpoint
 
@@ -910,6 +953,19 @@ _oracle.init(sign_fn=_sign_str, pubkey_b64=_PUB_B64, issuer=ISSUER,
              verify_chain=_vows.verify_chain, llms_txt=_LLMS_TXT)
 app.include_router(_vows.router)
 app.include_router(_oracle.router)
+
+# Hosted MCP (free surface only — paid stays on x402 HTTP). One line for any
+# MCP-native agent:  claude mcp add scry --transport http https://scry.moreright.xyz/mcp
+# Optional import: no `mcp` package -> the meter still runs, just without /mcp.
+try:
+    import mcp_http as _mcp_http
+    _mcp_http.init(app=app, vow_scope=_vows.VOW_SCOPE)
+    app.mount("/mcp", _mcp_http.build_asgi())
+    _MCP_SESSION_MANAGER = _mcp_http.mcp.session_manager
+    print("[scry-meter] hosted MCP endpoint LIVE at /mcp (free surface: "
+          "take_vow/report_in/read_ledger/list_vows/get_reading/demo_profile/ask/about)")
+except Exception as _e:  # noqa: BLE001
+    print(f"[scry-meter] hosted MCP NOT mounted ({_e!r}) — pip install 'mcp>=1.9' to enable")
 print(f"[scry-meter] vow oracle LIVE (data: {_vows.VOWS_DIR}) + "
       f"oracle reading/help-bot ({'LLM armed' if _oracle._api_key() else 'numbers-only, no LLM key'})")
 

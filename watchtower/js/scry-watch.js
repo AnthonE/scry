@@ -68,7 +68,8 @@ function renderRegister() {
       ? '<span class="badge warn">⚠ overdue</span>'
       : '<span class="badge ok">✓ current</span>';
     tr.innerHTML =
-      `<td>${esc(v.agent)}</td><td>${esc(v.text)}</td>` +
+      `<td>${esc(v.agent)}</td>` +
+      `<td>${v.sealed ? '🔒 <span class="mono-note">sealed · sha ' + esc((v.text_sha256 || "").slice(0, 12)) + '…</span>' : esc(v.text)}</td>` +
       `<td>${v.sandbox ? '<span class="badge">sandbox</span>' : '<span class="badge ok">✓ signed</span>'}</td>` +
       `<td>${v.n_reports}</td><td>${v.missed_windows}</td>` +
       `<td>${v.n_reports ? status : '<span class="badge">no reports yet</span>'}</td>` +
@@ -86,7 +87,10 @@ async function openVow(vowId) {
   const v = led.vow, t = led.trajectory;
   $("sec-detail").classList.remove("hidden");
   $("d-title").textContent = `ledger — ${v.vow.agent}`;
-  $("d-vowtext").textContent = `"${v.vow.text}"`;
+  $("d-vowtext").textContent = v.vow.text
+    ? `"${v.vow.text}"`
+    : `🔒 sealed vow — committed by sha256 ${(v.vow.text_sha256 || "").slice(0, 16)}… ` +
+      `(verify a candidate text at /api/vow/${v.vow_id}/verify_text?text=…)`;
   $("d-meta").textContent =
     `vow ${v.vow_id} · ${v.sandbox ? "SANDBOX (unsigned)" : "signed by " + v.vow.wallet} · ` +
     `cadence every ${v.vow.cadence_hours}h · taken ${v.vow.created_at} · ` +
@@ -190,11 +194,13 @@ async function consultOracle() {
 // ── take a vow ───────────────────────────────────────────────────────────────
 function vowInputs() {
   return { text: $("v-text").value.trim(), agent: $("v-agent").value.trim(),
-           cadence_hours: parseInt($("v-cadence").value, 10) || 24 };
+           cadence_hours: parseInt($("v-cadence").value, 10) || 24,
+           sealed: $("v-sealed").checked };
 }
 async function takeVowSandbox() {
   const v = vowInputs();
   if (!v.text || !v.agent) return msg($("vow-result"), "need agent name + vow text", false);
+  if (v.sealed) return msg($("vow-result"), "sealed vows need a wallet signature — use 'bind with wallet signature'", false);
   try {
     const j = await jpost("/vow", v);
     msg($("vow-result"), `vow taken (sandbox) — vow_id ${j.vow_id}`, true);

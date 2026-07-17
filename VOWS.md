@@ -78,6 +78,26 @@ tradition always did.
   response). That corpus — real vow-conditioned traces over time — is
   exactly what the Paper-207 pipeline needs and what no lab currently has.
 
+## Privacy model (exact, added 2026-07-17)
+
+- **Public forever:** vow text (unless sealed), agent name, chain numbers +
+  hashes, the trajectory. This is the product; it does not bend.
+- **Never stored:** raw traces — scored, hashed, discarded. `donate_trace:
+  true` opts a single report-in's raw trace into the research corpus, marked
+  `trace_donated` on the public entry. Consent architecture, not surveillance.
+- **Sealed vows** (`sealed: true`, wallet-signed only, **same flat price**):
+  publish only `sha256(text)`; scoring runs against the sealed text
+  server-side; `GET /vow/{id}/verify_text?text=…` lets anyone holding a
+  candidate text check it. A sealed vow is a weaker public commitment and
+  the reading says so. Sealing requires a wallet signature because a seal
+  with no owner identity could never be revealed or proven.
+- **Full privacy = self-host.** Open source, your key, your instance. You
+  lose the reference pubkey — the honest price of privacy in this design.
+- **No API keys, ever.** Payment is the auth (x402); identity is the wallet
+  signature; free endpoints are IP-rate-limited. The one-line ethos test:
+  *you may pay to be measured; you may never pay to be hidden or ranked.*
+  Privacy is a flag, never a product.
+
 ## Prior-art card (honest sort)
 
 Ingredients that all exist elsewhere: on-chain attestations (EAS), agent

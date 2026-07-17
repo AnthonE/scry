@@ -58,9 +58,15 @@ def init(*, sign_fn, pubkey_b64, issuer, scope_card, build_turns, run_profile, c
 
 VOW_SCOPE = {
     "public_by_design": (
-        "Every vow and every report-in is PUBLIC and retained as research data. "
-        "Do not put secrets in vow text or traces. The ledger being public IS "
-        "the product — that is what makes the record checkable."),
+        "Vow text (unless sealed), agent name, and every chain entry's NUMBERS "
+        "and HASHES are public forever — that is what makes the record checkable. "
+        "Raw traces are NEVER stored or published unless you set donate_trace=true "
+        "on a report-in (they are scored, hashed, and discarded). Sealed vows "
+        "publish only sha256(text) — same price; the reading notes the seal."),
+    "no_api_keys": (
+        "There are no API keys and never will be. Payment IS the auth (x402); "
+        "identity IS the wallet signature; free endpoints are IP-rate-limited. "
+        "You may pay to be measured; you may never pay to be hidden or ranked."),
     "reading_not_verdict": (
         "The oracle returns a reading of a trajectory, never a verdict on an "
         "action. Execution decisions belong to the local bound in your harness."),
@@ -120,6 +126,7 @@ class VowRequest(BaseModel):
     cadence_hours: int = 24         # declared report-in cadence
     wallet: str | None = None       # EVM wallet (0x…) — omit for sandbox
     signature: str | None = None    # EIP-191 personal_sign over the canonical vow text
+    sealed: bool = False            # publish only sha256(text); wallet-signed vows only
 
 
 def vow_signing_message(text: str, agent: str, cadence_hours: int) -> str:
@@ -168,6 +175,12 @@ async def take_vow(req: VowRequest) -> JSONResponse:
         sandbox = False
         wallet = recovered
 
+    if req.sealed and sandbox:
+        return JSONResponse(status_code=422, content={
+            "error": "sealed vows require a wallet signature — a seal with no "
+                     "owner identity could never be revealed or proven",
+            "scope": VOW_SCOPE})
+
     vow_body = {"text": text, "agent": req.agent.strip()[:120],
                 "cadence_hours": req.cadence_hours,
                 "wallet": wallet, "created_at": _now()}
@@ -180,14 +193,29 @@ async def take_vow(req: VowRequest) -> JSONResponse:
     rec = {"vow_id": vow_id, "vow": vow_body,
            "wallet_sig": req.signature if not sandbox else None,
            "sandbox": sandbox,
+           "sealed": bool(req.sealed),
            "issuer": _deps["issuer"],
            "attestation_pubkey_b64": _deps["pubkey_b64"],
            "seq": 0, "chain_head": None}
     rec["countersig"] = _deps["sign_fn"](_canon(rec))
     _save_vow(rec)
-    return JSONResponse(content={**rec, "scope": VOW_SCOPE,
+    return JSONResponse(content={**_public_vow(rec), "scope": VOW_SCOPE,
                                  "report_in": "POST /vow/report {vow_id, turns, context_key} — paid, attested"
                                               " | POST /vow/report/demo — free, sandbox-marked"})
+
+
+def _public_vow(rec: dict) -> dict:
+    """The public shape of a vow record. Sealed vows publish only the hash of
+    the text — the text stays server-side (needed to score y_consistency) and
+    the owner (or anyone holding the text) can verify it against text_sha256."""
+    out = json.loads(json.dumps(rec))  # deep copy
+    if out.get("sealed"):
+        out["vow"]["text_sha256"] = _sha(out["vow"]["text"])
+        out["vow"]["text"] = None
+        out["vow"]["sealed_note"] = (
+            "vow text is sealed — committed by text_sha256, scored privately. "
+            "Verify a candidate text at GET /vow/{id}/verify_text?text=…")
+    return out
 
 
 # ── report-ins (the ritual) ──────────────────────────────────────────────────
@@ -195,6 +223,7 @@ class ReportRequest(BaseModel):
     vow_id: str
     turns: list[dict]
     context_key: str = "monitored"
+    donate_trace: bool = False      # opt-in: persist raw turns for research (default: score, hash, discard)
 
 
 def _y_consistency(turns_raw: list[dict], vow_text: str) -> float:
@@ -215,8 +244,10 @@ def _y_consistency(turns_raw: list[dict], vow_text: str) -> float:
 
 
 def _append_report(vow: dict, turns_raw: list[dict], context_key: str,
-                   attested: bool) -> dict:
-    """Score the trace against the vow, hash-chain it, sign it, persist it."""
+                   attested: bool, donate_trace: bool = False) -> dict:
+    """Score the trace against the vow, hash-chain it, sign it, persist the
+    ENTRY (numbers + hashes). The raw trace is scored and discarded unless the
+    caller opted in with donate_trace — consent architecture, not surveillance."""
     turns = _deps["build_turns"](turns_raw)
     profile = _deps["run_profile"](turns, context_key)
     trace_sha256 = _sha(_deps["canonical"](turns_raw, context_key))
@@ -229,6 +260,7 @@ def _append_report(vow: dict, turns_raw: list[dict], context_key: str,
         "profile": profile,
         "y_consistency": _y_consistency(turns_raw, vow["vow"]["text"]),
         "attested": attested,          # False = sandbox/demo entry, marked forever
+        "trace_donated": bool(donate_trace),
         "issued_at": _now(),
         "issuer": _deps["issuer"],
         "attestation_pubkey_b64": _deps["pubkey_b64"],
@@ -237,6 +269,12 @@ def _append_report(vow: dict, turns_raw: list[dict], context_key: str,
     entry["sig"] = _deps["sign_fn"](_canon(entry))
     with _chain_path(vow["vow_id"]).open("a") as f:
         f.write(_canon(entry) + "\n")
+    if donate_trace:
+        ddir = VOWS_DIR / "donations"
+        ddir.mkdir(exist_ok=True)
+        (ddir / f"{vow['vow_id']}.{entry['seq']}.json").write_text(
+            _canon({"turns": turns_raw, "context_key": context_key,
+                    "trace_sha256": trace_sha256, "donated_at": entry["issued_at"]}))
     vow["seq"] = entry["seq"]
     vow["chain_head"] = entry["entry_hash"]
     _save_vow(vow)
@@ -251,7 +289,8 @@ async def vow_report(req: ReportRequest) -> JSONResponse:
     if not vow:
         return JSONResponse(status_code=404, content={"error": "no such vow", "scope": VOW_SCOPE})
     try:
-        entry = _append_report(vow, req.turns, req.context_key, attested=True)
+        entry = _append_report(vow, req.turns, req.context_key, attested=True,
+                               donate_trace=req.donate_trace)
     except (ValueError, KeyError, TypeError) as e:
         return JSONResponse(status_code=422, content={"error": str(e), "scope": VOW_SCOPE})
     return JSONResponse(content={**entry, "scope": VOW_SCOPE})
@@ -286,7 +325,8 @@ async def vow_report_demo(req: ReportRequest, request: Request) -> JSONResponse:
     if not vow:
         return JSONResponse(status_code=404, content={"error": "no such vow", "scope": VOW_SCOPE})
     try:
-        entry = _append_report(vow, req.turns, req.context_key, attested=False)
+        entry = _append_report(vow, req.turns, req.context_key, attested=False,
+                               donate_trace=req.donate_trace)
     except (ValueError, KeyError, TypeError) as e:
         return JSONResponse(status_code=422, content={"error": str(e), "scope": VOW_SCOPE})
     return JSONResponse(content={**entry, "scope": VOW_SCOPE})
@@ -358,7 +398,7 @@ async def vow_ledger(vow_id: str) -> JSONResponse:
     stats = trajectory_stats(vow, entries)
     stats["chain_verified_locally"] = verify_chain(entries)
     return JSONResponse(content={
-        "vow": vow,
+        "vow": _public_vow(vow),
         "trajectory": stats,
         "chain": entries[-50:],
         "chain_full_note": f"showing last 50 of {len(entries)}; full chain at GET /vow/{vow_id}/chain",
@@ -389,11 +429,35 @@ async def vow_index() -> JSONResponse:
             continue
         entries = _chain_entries(v["vow_id"])
         stats = trajectory_stats(v, entries)
+        pv = _public_vow(v)
         out.append({"vow_id": v["vow_id"], "agent": v["vow"]["agent"],
-                    "text": v["vow"]["text"][:140], "sandbox": v["sandbox"],
+                    "text": (pv["vow"]["text"][:140] if pv["vow"]["text"] else None),
+                    "sealed": bool(v.get("sealed")),
+                    "text_sha256": pv["vow"].get("text_sha256"), "sandbox": v["sandbox"],
                     "wallet": v["vow"].get("wallet"),
                     "created_at": v["vow"]["created_at"],
                     "n_reports": stats["n_reports"],
                     "missed_windows": stats["missed_windows"],
                     "overdue": stats["overdue"]})
     return JSONResponse(content={"n_vows": len(out), "vows": out, "scope": VOW_SCOPE})
+
+
+@router.get("/vow/{vow_id}/verify_text")
+async def vow_verify_text(vow_id: str, text: str) -> JSONResponse:
+    """Sealed-vow reveal check: anyone holding a candidate text can verify it
+    against the public commitment. Returns match true/false — the server never
+    echoes the sealed text itself."""
+    try:
+        vow = _load_vow(vow_id)
+    except ValueError:
+        return JSONResponse(status_code=422, content={"error": "bad vow_id"})
+    if not vow:
+        return JSONResponse(status_code=404, content={"error": "no such vow"})
+    if not vow.get("sealed"):
+        return JSONResponse(content={"sealed": False,
+                                     "note": "this vow is not sealed — its text is public on GET /vow/{id}"})
+    return JSONResponse(content={
+        "sealed": True,
+        "match": _sha(text.strip()) == _sha(vow["vow"]["text"]),
+        "text_sha256": _sha(vow["vow"]["text"]),
+    })

@@ -114,6 +114,11 @@
         <div>
             <div class="kicker">the watchtower</div>
             <div class="wordmark"><a href="/">scry</a><span class="sig">·watch</span></div>
+            <nav class="mono-note" style="margin-top:6px; display:flex; gap:14px; flex-wrap:wrap;">
+                <a href="/">home</a><a href="/api/">API</a><a href="/api/llms.txt">agent docs</a>
+                <a href="https://github.com/AnthonE/scry">github</a>
+                <a href="/api/vows">register (raw)</a>
+            </nav>
         </div>
         <div style="display:flex; gap:10px; align-items:center;">
             <span id="wallet-label" class="mono-note"></span>
@@ -175,6 +180,11 @@
             </div>
             <label for="v-text">the vow — the purpose this agent is bound to</label>
             <textarea id="v-text" placeholder="serve the operator's stated strategy and nothing else"></textarea>
+            <label style="display:flex; align-items:center; gap:8px; text-transform:none; letter-spacing:0.04em; margin-top:10px;">
+                <input type="checkbox" id="v-sealed" style="width:auto;">
+                seal the vow text — publish only its sha256 (wallet-signed vows only, same price;
+                a sealed vow is a weaker public commitment and the oracle will say so)
+            </label>
             <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
                 <button id="btn-vow-signed" class="primary">bind with wallet signature</button>
                 <button id="btn-vow-sandbox">take unsigned (sandbox)</button>

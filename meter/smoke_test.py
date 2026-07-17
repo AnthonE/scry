@@ -228,6 +228,13 @@ def main() -> None:
         _fail("/vows", f"expected 200, got {code}")
     _ok("/vows", f"n_vows={json.loads(body).get('n_vows')}")
 
+    # 8. Hosted MCP mount — a bare GET is not a valid MCP request, but the mount
+    # existing means anything except 404.
+    code, _, _b = _req("GET", f"{base}/mcp/")
+    if code == 404:
+        _fail("/mcp", "MCP endpoint not mounted (404)")
+    _ok("/mcp", f"mounted (status {code} on bare GET — expected non-404)")
+
     print("PASS — meter live, agent-discoverable, vow oracle chained + verified.")
 
 

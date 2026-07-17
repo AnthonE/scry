@@ -9,3 +9,6 @@ cryptography>=41.0.0
 # module; 0.36.6 has it. Bump only after verifying `from solana.rpc.api import Client`.
 solana==0.36.6
 cdp-sdk==1.47.1
+# hosted MCP endpoint (/mcp) — free-surface tools for MCP-native agents
+mcp>=1.9
+httpx>=0.27
