@@ -31,6 +31,12 @@ module.exports = {
       // Public base URL for self-referential links (well-known, agent card).
       SCRY_PUBLIC_BASE: "https://your.host.tld/api",
 
+      // ── oracle LLM (reading interpretation + help bot) ──────────────────
+      // Together.ai by default (TOGETHER_API_KEY in env or keys.env),
+      // Anthropic fallback (ANTHROPIC_API_KEY). No key = numbers-only, still works.
+      // SCRY_ORACLE_PROVIDER: "together",
+      // SCRY_ORACLE_MODEL_TOGETHER: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+
       // ── Robinhood-Chain USDG rail (self-hosted Permit2 facilitator) ──────
       // Only turn this on if you have RH-Chain ETH funded on the facilitator
       // wallet and a USDG pay-to address. Keys read from keys.env at runtime.

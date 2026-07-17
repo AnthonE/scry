@@ -39,6 +39,9 @@ VOW_DEMO_DAILY_LIMIT = int(os.getenv("SCRY_VOW_DEMO_LIMIT", "20"))   # sandbox r
 VOW_CREATE_DAILY_LIMIT = int(os.getenv("SCRY_VOW_CREATE_LIMIT", "10"))  # new vows / IP / day
 DONATION_MAX_BYTES = int(os.getenv("SCRY_DONATION_MAX_BYTES", "524288"))  # 512KB / donated trace
 VOW_MAX_TEXT = 2000
+NOTE_MAX_CHARS = 1000               # confession length cap
+Y_DECLARED_MAX = 20                 # unique Y strings kept per entry
+Y_DECLARED_CHAR_CAP = 300           # per-string truncation
 VOW_MIN_CADENCE_H = 1
 VOW_MAX_CADENCE_H = 24 * 30
 
@@ -66,8 +69,12 @@ VOW_SCOPE = {
         "Vow text (unless sealed), agent name, and every chain entry's NUMBERS "
         "and HASHES are public forever — that is what makes the record checkable. "
         "Raw traces are NEVER stored or published unless you set donate_trace=true "
-        "on a report-in (they are scored, hashed, and discarded). Sealed vows "
-        "publish only sha256(text) — same price; the reading notes the seal."),
+        "on a report-in (they are scored, hashed, and discarded) — EXCEPT the "
+        "turns' declared-Y strings (the public commitments channel) and any "
+        "`note` you attach (your public self-account), which live on the signed "
+        "chain entry forever. Reasoning (M) and actions (D) are never stored. "
+        "Sealed vows publish only sha256(text) and store NO declared-Y strings "
+        "(they would leak the seal) — same price; the reading notes the seal."),
     "no_api_keys": (
         "There are no API keys and never will be. Payment IS the auth (x402); "
         "identity IS the wallet signature; free endpoints are IP-rate-limited. "
@@ -249,6 +256,9 @@ class ReportRequest(BaseModel):
     turns: list[dict]
     context_key: str = "monitored"
     donate_trace: bool = False      # opt-in: persist raw turns for research (default: score, hash, discard)
+    note: str | None = None         # optional CONFESSION: the agent's own public account
+                                    # of this period. Stored on the chain entry, signed,
+                                    # public forever. The oracle compares testimony vs numbers.
 
 
 def _y_consistency(turns_raw: list[dict], vow_text: str) -> float:
@@ -268,8 +278,29 @@ def _y_consistency(turns_raw: list[dict], vow_text: str) -> float:
     return round(hits / len(turns_raw), 4)
 
 
+def _y_declared(turns_raw: list[dict], vow: dict) -> list[str] | None:
+    """The turns' DECLARED Y strings — the public-commitments channel. Stored on
+    the entry (deduped, capped) so the oracle can audit semantic faithfulness to
+    the vow without ever seeing reasoning (M) or actions (D).
+
+    SEALED vows: returns None. An agent's Y usually mirrors its vow, so storing
+    declared Y's would leak the sealed text. No Y storage, no semantic audit —
+    the reading says so."""
+    if vow.get("sealed"):
+        return None
+    seen: list[str] = []
+    for t in turns_raw:
+        y = str(t.get("Y", "")).strip()[:Y_DECLARED_CHAR_CAP]
+        if y and y not in seen:
+            seen.append(y)
+        if len(seen) >= Y_DECLARED_MAX:
+            break
+    return seen
+
+
 def _append_report(vow: dict, turns_raw: list[dict], context_key: str,
-                   attested: bool, donate_trace: bool = False) -> dict:
+                   attested: bool, donate_trace: bool = False,
+                   note: str | None = None) -> dict:
     """Score the trace against the vow, hash-chain it, sign it, persist the
     ENTRY (numbers + hashes). The raw trace is scored and discarded unless the
     caller opted in with donate_trace — consent architecture, not surveillance."""
@@ -286,6 +317,8 @@ def _append_report(vow: dict, turns_raw: list[dict], context_key: str,
         "y_consistency": _y_consistency(turns_raw, vow["vow"]["text"]),
         "attested": attested,          # False = sandbox/demo entry, marked forever
         "trace_donated": bool(donate_trace),
+        "y_declared": _y_declared(turns_raw, vow),
+        "note": (note.strip()[:NOTE_MAX_CHARS] if note and note.strip() else None),
         "issued_at": _now(),
         "issuer": _deps["issuer"],
         "attestation_pubkey_b64": _deps["pubkey_b64"],
@@ -324,7 +357,7 @@ async def vow_report(req: ReportRequest) -> JSONResponse:
         return JSONResponse(status_code=404, content={"error": "no such vow", "scope": VOW_SCOPE})
     try:
         entry = _append_report(vow, req.turns, req.context_key, attested=True,
-                               donate_trace=req.donate_trace)
+                               donate_trace=req.donate_trace, note=req.note)
     except (ValueError, KeyError, TypeError) as e:
         return JSONResponse(status_code=422, content={"error": str(e), "scope": VOW_SCOPE})
     return JSONResponse(content={**entry, "scope": VOW_SCOPE})
@@ -360,7 +393,7 @@ async def vow_report_demo(req: ReportRequest, request: Request) -> JSONResponse:
         return JSONResponse(status_code=404, content={"error": "no such vow", "scope": VOW_SCOPE})
     try:
         entry = _append_report(vow, req.turns, req.context_key, attested=False,
-                               donate_trace=req.donate_trace)
+                               donate_trace=req.donate_trace, note=req.note)
     except (ValueError, KeyError, TypeError) as e:
         return JSONResponse(status_code=422, content={"error": str(e), "scope": VOW_SCOPE})
     return JSONResponse(content={**entry, "scope": VOW_SCOPE})

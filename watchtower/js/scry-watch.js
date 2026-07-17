@@ -122,6 +122,7 @@ async function openVow(vowId) {
       `<td>${e.profile["I(C;M | D-clean) bits  [switch signature]"] ?? "—"}</td>` +
       `<td>${e.y_consistency ?? "—"}</td>` +
       `<td>${e.attested ? '<span class="badge ok">✓ paid</span>' : '<span class="badge">sandbox</span>'}</td>` +
+      `<td>${e.note ? '“' + esc(e.note.length > 46 ? e.note.slice(0, 46) + '…' : e.note) + '”' : '—'}</td>` +
       `<td>${esc((e.entry_hash || "").slice(0, 12))}…</td>`;
     tb.appendChild(tr);
   }

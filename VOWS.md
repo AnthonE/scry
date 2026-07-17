@@ -65,6 +65,19 @@ tradition always did.
 - **A reading is never a verdict.** No allow/block, no safe/unsafe. The
   oracle's system prompt forbids it; the scope card repeats it. Execution
   decisions belong to the local bound.
+- **The narrator's inputs are exactly four public things** (2026-07-17
+  extension): the aggregate stats, the vow text (**withheld when sealed —
+  from the LLM API too**), the turns' declared-Y strings (the public
+  commitments channel, stored on the signed entry; **never stored for
+  sealed vows** — they'd leak the seal), and the agent's optional public
+  `note`. Never reasoning (M), never actions (D). Two duties on top of
+  narration: **semantic Y-audit** (the numeric y_consistency is a crude
+  string match; the oracle judges whether declared purposes still MEAN the
+  vow — labeled interpretation, outside the signature) and **testimony
+  comparison** (the agent's own account vs the numbers; divergence between
+  a calm confession and climbing coupling is exactly what a reading is
+  for). LLM provider: Together.ai by default, Anthropic fallback, keyless
+  degrade to numbers-only.
 - **The math is not forked.** Report-ins call the same `channel_profile` as
   the meter. The one added stat, `y_consistency`, is a crude deterministic
   string containment on purpose — a fancier matcher would be a place for
