@@ -76,5 +76,23 @@ module.exports = {
       SCRY_RH_REFILL_SLIPPAGE_BPS: "150",
       SCRY_RH_REFILL_INTERVAL_S: "300",
     },
+  }, {
+    // Anchor worker: daily merkle root over every vow's chain head -> ONE tx
+    // to ScryVowRegistry.anchorRoot on Robinhood Chain. Makes every ledger
+    // tamper-proof against the operator. Dry-run by default; arm only after
+    // the contract is deployed (contracts/script/DeployScryVowRegistry.s.sol).
+    name: "scry-anchor",
+    cwd: "/PATH/TO/scry/meter",
+    script: ".venv/bin/python",
+    args: "anchor_worker.py",
+    interpreter: "none",
+    autorestart: true,
+    env: {
+      SCRY_ANCHOR: "1",
+      SCRY_ANCHOR_DRYRUN: "1",              // set "0" only after a dry-run pass
+      SCRY_ANCHOR_CONTRACT: "",             // deployed ScryVowRegistry address
+      SCRY_ANCHOR_INTERVAL_S: "86400",
+      // SCRY_ANCHOR_KEY or PRIVATE_KEY from keys.env pays the anchor gas
+    },
   }],
 };

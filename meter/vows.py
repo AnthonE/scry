@@ -461,3 +461,66 @@ async def vow_verify_text(vow_id: str, text: str) -> JSONResponse:
         "match": _sha(text.strip()) == _sha(vow["vow"]["text"]),
         "text_sha256": _sha(vow["vow"]["text"]),
     })
+
+
+# ── on-chain anchoring surface (reads what anchor_worker.py writes) ──────────
+def _last_anchor() -> dict | None:
+    p = VOWS_DIR / "anchors.jsonl"
+    if not p.exists():
+        return None
+    lines = [ln for ln in p.read_text().splitlines() if ln.strip()]
+    return json.loads(lines[-1]) if lines else None
+
+
+@router.get("/anchors")
+async def anchors() -> JSONResponse:
+    """Every anchor ever posted (root, vow count, tx, block). The on-chain
+    contract's Anchored events are the authoritative copy; this is the mirror."""
+    p = VOWS_DIR / "anchors.jsonl"
+    entries = ([json.loads(ln) for ln in p.read_text().splitlines() if ln.strip()]
+               if p.exists() else [])
+    return JSONResponse(content={"n": len(entries), "anchors": entries[-100:],
+                                 "contract": os.getenv("SCRY_ANCHOR_CONTRACT") or None})
+
+
+@router.get("/vow/{vow_id}/proof")
+async def vow_proof(vow_id: str) -> JSONResponse:
+    """Merkle inclusion proof for this vow's chain head under the most recent
+    anchor. Verify client-side (sorted-pair keccak256) or on-chain via
+    ScryVowRegistry.verifyProof — either way, you don't have to trust us."""
+    try:
+        vow = _load_vow(vow_id)
+    except ValueError:
+        return JSONResponse(status_code=422, content={"error": "bad vow_id"})
+    if not vow:
+        return JSONResponse(status_code=404, content={"error": "no such vow"})
+    anchor = _last_anchor()
+    if not anchor:
+        return JSONResponse(status_code=404, content={
+            "error": "no anchor posted yet — the chain is tamper-evident (hash-linked, "
+                     "signed) but not yet anchored on-chain"})
+    leaves_file = VOWS_DIR / "anchor_leaves" / anchor["leaves_file"]
+    if not leaves_file.exists():
+        return JSONResponse(status_code=500, content={"error": "anchor leaf-set missing"})
+    from anchor_worker import leaf_for, merkle_proof  # local module, no cycle at import time
+    leafset = json.loads(leaves_file.read_text())
+    mine = next((h for h in leafset["leaves"] if h["vow_id"] == vow_id), None)
+    if mine is None:
+        return JSONResponse(status_code=404, content={
+            "error": "this vow was created after the last anchor — wait for the next cycle",
+            "last_anchor_at": anchor["at"]})
+    leaves = [leaf_for(h["vow_id"], h["chain_head"]) for h in leafset["leaves"]]
+    target = leaf_for(mine["vow_id"], mine["chain_head"])
+    proof = merkle_proof(leaves, target)
+    return JSONResponse(content={
+        "vow_id": vow_id,
+        "anchored_chain_head": mine["chain_head"],
+        "current_chain_head": vow.get("chain_head"),
+        "head_unchanged_since_anchor": mine["chain_head"] == vow.get("chain_head"),
+        "leaf": "0x" + target.hex(),
+        "proof": ["0x" + p.hex() for p in proof],
+        "root": anchor["root"],
+        "anchor": {k: anchor.get(k) for k in ("at", "tx", "block", "vow_count", "dryrun")},
+        "verify": ("sorted-pair keccak256 up the proof must equal root; or call "
+                   "ScryVowRegistry.verifyProof(proof, root, leaf) on Robinhood Chain"),
+    })

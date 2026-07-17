@@ -111,20 +111,42 @@ about outcomes; slashing punishes observable violations; heartbeats prove
 liveness, not alignment-relative-to-a-vow. Ingredients known; assembly new.
 Claim it exactly that way and no stronger.
 
-## Chain + IPFS anchoring (phase 2, designed-for now)
+## Chain anchoring + soulbound vows (phase 2 — BUILT 2026-07-17, broadcast pending)
 
-The chain is tamper-*evident* today (hash-chained, Ed25519-signed, publicly
-re-verifiable — `verify_chain` runs on every ledger read and anyone can run
-it from the raw data). Phase 2 makes it tamper-*proof against us*:
+The chain is tamper-*evident* on its own (hash-chained, Ed25519-signed,
+publicly re-verifiable). The on-chain leg makes it tamper-*proof against us*
+— the one property a signer can't self-provide. **Code complete in
+`contracts/` + `meter/anchor_worker.py`; mainnet broadcast is a deliberate
+human step (real gas, permanent registry).**
 
-1. **IPFS**: pin each vow doc + periodic chain snapshots; CIDs slot into the
-   existing content-addressed fields naturally.
-2. **On-chain anchor**: write the chain head hash periodically (weekly, or
-   every N entries) to EAS on Base — cheap, standard, independently
-   timestamped. One anchor covers every entry beneath it.
+- **`ScryVowRegistry.sol`** (Robinhood Chain, eip155:4663) — one dependency-
+  free contract, two jobs:
+  - **Soulbound vows**: `takeVow()` mints an [ERC-5192](https://eips.ethereum.org/EIPS/eip-5192)
+    (Final) locked ERC-721 to the swearer — non-transferable forever (you
+    cannot sell your oath), **no burn function** (the record does not go
+    away). Unsealed text goes in the event log (permanent, ~100× cheaper
+    than storage); sealed vows commit `sha256(text)` only. On-chain
+    hash-check: `sha256(text) == textHash` enforced at mint.
+  - **Merkle anchoring**: the worker posts one `anchorRoot(root, count, cid)`
+    tx per day covering EVERY vow's chain head (sorted-pair keccak256,
+    OpenZeppelin-compatible). `verifyProof` on-chain for convenience.
+  - **Metadata fully on-chain** (Loot-style): base64 JSON + SVG sigil in
+    `tokenURI` — renders in any wallet with no server and no IPFS
+    dependency; [ERC-7572](https://eips.ethereum.org/EIPS/eip-7572)
+    `contractURI` for collection metadata. Property-tested merkle
+    (sizes 1–100, negatives) + forge test suite.
+- **API**: `GET /vow/{id}/proof` (inclusion proof under the latest anchor +
+  head-unchanged-since-anchor check) · `GET /anchors` (the anchor mirror;
+  the contract's `Anchored` events are the authoritative copy).
+- **What stays off-chain, deliberately:** report-ins (gas would tax the
+  ritual; the anchor covers them), readings, and anything stake/slash.
+- **IPFS (2b, next):** pin leaf-sets + vow docs so anchor resolution
+  doesn't route through our server. The `leavesCid` field is already in
+  the event.
 
-Cheap-correct architecture: IPFS for bulk, chain for anchoring, Ed25519 for
-identity. No per-report gas, ever.
+Cheap-correct architecture: event log for text, merkle for scale (one tx
+covers a million vows), IPFS for bulk, Ed25519 for identity. No per-report
+gas, ever.
 
 ## Parked forever (not just for now)
 
