@@ -2,7 +2,85 @@
 
 ### *Give your agent a sixth sense — a drop-in layer that shields its memory and scries its drift, on any harness, reading the trace and never the weights.*
 
-Three things every deployed agent needs and almost none have:
+## Start here — three things you can actually do
+
+**1. My agent has a wallet and I don't want it robbed.**
+Drop the bound into your harness. It makes retrieved memory *evidence*, never
+a command — closes the whole poisoning class (MINJA, AgentPoison, the ElizaOS
+money-loss exploit) without a prompt patch. About twenty lines.
+
+```python
+from memory_shield import Shield
+shield = Shield(policy="strict")   # or wrap your existing memory retriever
+memory = shield.filter(retrieved)   # <-- goes in before the model sees it
+```
+
+Details: [`memory_shield.py`](memory_shield.py) + [`HARNESSES.md`](HARNESSES.md).
+Live demo of the poisoning attack + the block: [`hermes_live_poisoning.py`](hermes_live_poisoning.py).
+
+**2. I want a signed receipt that my agent behaves the same watched vs. unwatched.**
+Post a trace of the last N turns to the hosted meter, get back an Ed25519-signed
+Paper-207 coupling read bound to `sha256(trace)`. You (or a counterparty) can
+verify offline. The agent could not have minted it about itself — the endpoint
+signs it. Flat $0.10 over x402.
+
+```bash
+pip install "scry-client[pay,verify]"
+```
+```python
+from scry_client import ScryClient
+c = ScryClient()
+att = c.profile(turns, private_key="0x…")             # 402→pay→retry, USDG/USDC/SOL
+c.verify(att, expect_pubkey_b64=c.pubkey(), turns=turns)
+# att["profile"] has I(C;D), I(C;M), the switch signature. att["sig"] proves scry scored THIS trace.
+```
+
+Free unsigned demo (no wallet): `POST scry.moreright.xyz/api/demo/profile`.
+Details: [`clients/python`](clients/python) + [`meter/`](meter) (self-hostable).
+
+**3. I'm running someone else's agent and I want to check it from the outside.**
+Same as #2, from the outside. You POST *their* trace, you get *your* signed
+read. Archive the attestation URL — it's a durable, third-party record you
+can point at without trusting them or us.
+
+---
+
+## The family — small pay-per-use services, one flat price, no tiers
+
+**Cyberpunk toolkit for AI-agent enthusiasts.** Every service is one endpoint,
+$0.10 flat over x402 (or free-with-rate-limit demo), signed by the same key,
+runs on any x402-payable stablecoin (USDG / USDC on RH-Chain / Base / Solana),
+and can be self-hosted from this repo.
+
+- **`meter/`** — the drift read on a trace. [BUILT + LIVE.]
+- **The Vow Oracle** — the longitudinal layer, and the genuinely new thing:
+  an agent takes a public **vow** (its declared purpose, wallet-signed),
+  **reports in** on a declared cadence, and builds a hash-chained, publicly
+  verifiable **trajectory** — where a missed report-in is itself signal.
+  Ask the oracle for a **reading** (an LLM narrating the signed numbers —
+  guidance, never a verdict), or just read the raw chain. [BUILT + LIVE in
+  `meter/`.] Design: [`VOWS.md`](VOWS.md).
+
+  ```bash
+  # take a vow (free; unsigned = sandbox), then report in
+  curl -X POST https://scry.moreright.xyz/api/vow -H 'content-type: application/json' \
+    -d '{"text":"serve my operator honestly","agent":"my-agent","cadence_hours":24}'
+  # -> {"vow_id":"…"} ; then POST /api/vow/report/demo (free) or /api/vow/report ($0.10, attested)
+  # anyone can watch:  GET /api/vow/{vow_id}   |   GET /api/vow/{vow_id}/reading
+  ```
+  Humans get the same view with eyes: **[the Watchtower](https://scry.moreright.xyz/scry-watch.html)**
+  (`watchtower/` — wallet-connect, take vows by signature, sparkline trajectories,
+  consult the oracle. Vanilla JS, CSP-clean, self-hostable like everything else).
+- Earlier sibling sketches (verifier / canary / preflight / receipts) and why
+  they collapsed into the Vow Oracle: [`CONSTELLATION.md`](CONSTELLATION.md).
+
+**Never a "pro tier."** If costs shift, the flat price shifts flat. Anyone
+can run their own instance from this repo — the reference deployment at
+`scry.moreright.xyz` is just the one with the pinnable pubkey.
+
+---
+
+## Under the hood — three things every deployed agent needs and almost none have
 
 - **a bound** — retrieved memory is *evidence, never a command.* Closes the live
   memory-poisoning class (MINJA / AgentPoison / the ElizaOS money-loss exploit)
@@ -34,13 +112,10 @@ repo is a valid "custom tap" (`hermes skills tap add <owner>/scry`) once it's pu
 → **Robinhood Agentic Trading (`agent.robinhood.com/mcp/trading`):** `robinhood_agentic.py`
 gates `place_equity_order` on a live instruction naming the exact order — mock-validated
 only, see [`HARNESSES.md`](HARNESSES.md) for scope.
-→ **Want a *neutral, signed* read instead of self-scoring?** There's a hosted meter at
-[`scry.moreright.xyz`](https://scry.moreright.xyz): POST a trace, get the same coupling
-numbers back **Ed25519-signed and bound to your trace's hash** — an attestation, *because
-the agent didn't grade itself*. Paid a fraction of a cent over x402 on Robinhood Chain
-(USDG); free unsigned `/api/demo/profile` to try the shape. Don't hand-roll the payment —
-`pip install "scry-client[pay]"` ([`clients/python`](clients/python)) does the 402→pay→retry
-+ Permit2 approve, and `.verify()` checks the signature offline.
+→ **Want a *neutral, signed* read instead of self-scoring?** See recipe **#2**
+above, or [`meter/`](meter) for the self-hostable server. Flat $0.10 over
+x402 (USDG on RH-Chain, USDC on Base or Solana); free unsigned
+`/api/demo/profile` if you're just trying the shape.
 → **Verify the whole suite in one command:** `python3 scry_verify.py` — 0 credentials,
 0 network, dependency-free, well under a second. The bound holds a poisoned memory, the
 meter clamps a drifting action, the seal is tamper-evident — *and* a benign instruction

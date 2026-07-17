@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>scry watchtower — oversee your agents</title>
+    <meta name="description" content="The watchtower: every vow, every chain, every trajectory. Connect a wallet to bind vows for your agents; watch any agent's drift record — public by design.">
+    <meta name="theme-color" content="#150e28">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
+    <style>
+        :root {
+            --void: #150e28; --void-2: #1d1436; --dusk: #2b1c45;
+            --dusk-line: rgba(242,236,224,0.10);
+            --amber: #f4b942; --amber-dim: #c99a34;
+            --cream: #e8d5b7; --ink: #f4efe4; --ink-dim: #b9b0cc;
+            --hood: #00c805;
+            /* series hues — validated (6 checks, dark surface #150e28) */
+            --s-coupling: #4f8fd9;   /* I(C;M)             */
+            --s-switch:   #b5811f;   /* switch signature   */
+            --s-ycon:     #b8619e;   /* y_consistency      */
+            --display: "Cinzel", Georgia, serif;
+            --body: "Cormorant Garamond", Georgia, serif;
+            --mono: "JetBrains Mono", Menlo, monospace;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background:
+                radial-gradient(ellipse 80% 50% at 50% -10%, #3a2860 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 85% 100%, #241850 0%, transparent 55%),
+                var(--void);
+            color: var(--ink); font-family: var(--body); font-size: 18px;
+            line-height: 1.55; -webkit-font-smoothing: antialiased; min-height: 100vh;
+        }
+        .wrap { max-width: 1060px; margin: 0 auto; padding: 0 22px 80px; }
+        header { display: flex; align-items: baseline; justify-content: space-between;
+                 gap: 16px; padding: 26px 0 18px; border-bottom: 1px solid var(--dusk-line);
+                 flex-wrap: wrap; }
+        .wordmark { font-family: var(--display); font-weight: 900; font-size: 30px;
+                    letter-spacing: 0.05em; }
+        .wordmark a { color: var(--ink); text-decoration: none; }
+        .wordmark .sig { color: var(--amber); }
+        .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em;
+                  text-transform: uppercase; color: var(--amber); }
+        h2 { font-family: var(--display); font-weight: 600; font-size: 24px; margin: 0 0 14px; }
+        a { color: var(--amber); }
+        section { padding: 34px 0 0; }
+        button {
+            font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.08em;
+            background: var(--void-2); color: var(--ink); border: 1px solid var(--dusk);
+            border-radius: 8px; padding: 9px 16px; cursor: pointer;
+        }
+        button:hover { border-color: var(--amber-dim); color: var(--amber); }
+        button.primary { border-color: var(--amber-dim); color: var(--amber); }
+        input, textarea, select {
+            font-family: var(--mono); font-size: 13px; width: 100%;
+            background: var(--void-2); color: var(--ink); border: 1px solid var(--dusk);
+            border-radius: 8px; padding: 9px 12px;
+        }
+        textarea { min-height: 74px; resize: vertical; }
+        label { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.16em;
+                text-transform: uppercase; color: var(--ink-dim); display: block;
+                margin: 12px 0 5px; }
+        table { width: 100%; border-collapse: collapse; font-family: var(--mono);
+                font-size: 12.5px; }
+        th { text-align: left; font-weight: 500; font-size: 10.5px; letter-spacing: 0.14em;
+             text-transform: uppercase; color: var(--ink-dim); padding: 8px 10px;
+             border-bottom: 1px solid var(--dusk-line); }
+        td { padding: 9px 10px; border-bottom: 1px solid var(--dusk-line); vertical-align: top; }
+        tr.rowlink { cursor: pointer; }
+        tr.rowlink:hover td { background: rgba(244,185,66,0.05); }
+        .scroll-x { overflow-x: auto; }
+        .badge { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+                 padding: 2px 8px; border-radius: 999px; border: 1px solid var(--dusk);
+                 color: var(--ink-dim); white-space: nowrap; }
+        .badge.ok    { border-color: rgba(0,200,5,0.5);   color: var(--hood); }
+        .badge.warn  { border-color: rgba(244,185,66,0.6); color: var(--amber); }
+        .badge.bad   { border-color: rgba(230,90,90,0.6);  color: #e07070; }
+        .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                 gap: 10px; margin: 16px 0; }
+        .tile { background: var(--void-2); border: 1px solid var(--dusk); border-radius: 10px;
+                padding: 12px 14px; }
+        .tile .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+                   text-transform: uppercase; color: var(--ink-dim); }
+        .tile .v { font-family: var(--display); font-size: 26px; margin-top: 3px; }
+        .sparks { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                  gap: 14px; margin: 18px 0; }
+        .spark { background: var(--void-2); border: 1px solid var(--dusk); border-radius: 10px;
+                 padding: 12px 14px; }
+        .spark .t { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+                    color: var(--ink-dim); margin-bottom: 6px; display: flex; gap: 8px;
+                    align-items: center; }
+        .spark .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+        .spark svg { display: block; width: 100%; height: 74px; }
+        .oracle-prose { font-style: italic; color: var(--cream); border-left: 2px solid var(--amber-dim);
+                        padding: 6px 0 6px 18px; margin: 14px 0; }
+        .mono-note { font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); }
+        .card { background: var(--void-2); border: 1px solid var(--dusk); border-radius: 12px;
+                padding: 18px 20px; margin-top: 14px; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }
+        #tooltip { position: fixed; pointer-events: none; display: none; z-index: 10;
+                   background: var(--void-2); border: 1px solid var(--amber-dim);
+                   border-radius: 7px; padding: 5px 9px; font-family: var(--mono);
+                   font-size: 11.5px; color: var(--ink); }
+        .hidden { display: none; }
+        .msg { font-family: var(--mono); font-size: 12px; margin-top: 10px; word-break: break-all; }
+        .msg.ok { color: var(--hood); } .msg.err { color: #e07070; }
+        footer { margin-top: 56px; border-top: 1px solid var(--dusk-line); padding-top: 16px; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <div>
+            <div class="kicker">the watchtower</div>
+            <div class="wordmark"><a href="/">scry</a><span class="sig">·watch</span></div>
+            <nav class="mono-note" style="margin-top:6px; display:flex; gap:14px; flex-wrap:wrap;">
+                <a href="/">home</a><a href="/api/">API</a><a href="/api/llms.txt">agent docs</a>
+                <a href="https://github.com/AnthonE/scry">github</a>
+                <a href="/api/vows">register (raw)</a>
+            </nav>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <span id="wallet-label" class="mono-note"></span>
+            <button id="btn-wallet">connect wallet</button>
+        </div>
+    </header>
+
+    <section id="sec-register">
+        <h2>The register</h2>
+        <p class="mono-note" style="margin-bottom:12px;">
+            Every vow ever taken — public by design. Click a row to open its ledger.
+            <label style="display:inline; margin-left:10px; text-transform:none; letter-spacing:0;">
+                <input type="checkbox" id="filter-mine" style="width:auto; vertical-align:middle;"> only my wallet's vows
+            </label>
+        </p>
+        <div class="scroll-x"><table id="tbl-register">
+            <thead><tr>
+                <th>agent</th><th>vow</th><th>kind</th><th>reports</th>
+                <th>missed</th><th>status</th><th>taken</th>
+            </tr></thead>
+            <tbody></tbody>
+        </table></div>
+    </section>
+
+    <section id="sec-detail" class="hidden">
+        <h2 id="d-title">ledger</h2>
+        <p class="mono-note" id="d-vowtext"></p>
+        <p class="mono-note" id="d-meta"></p>
+        <div class="tiles" id="d-tiles"></div>
+        <div class="sparks" id="d-sparks"></div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin:6px 0 4px;">
+            <button id="btn-reading" class="primary">consult the oracle</button>
+            <button id="btn-chain">full chain (raw)</button>
+            <button id="btn-back">back to register</button>
+        </div>
+        <div id="d-reading"></div>
+        <h2 style="margin-top:26px;">chain (most recent)</h2>
+        <div class="scroll-x"><table id="tbl-chain">
+            <thead><tr>
+                <th>seq</th><th>when</th><th>I(C;M)</th><th>switch</th>
+                <th>y_con</th><th>attested</th><th>entry hash</th>
+            </tr></thead>
+            <tbody></tbody>
+        </table></div>
+    </section>
+
+    <section id="sec-take">
+        <h2>Take a vow</h2>
+        <div class="card">
+            <div class="grid2">
+                <div>
+                    <label for="v-agent">agent name</label>
+                    <input id="v-agent" placeholder="my-trading-agent">
+                </div>
+                <div>
+                    <label for="v-cadence">report-in cadence (hours)</label>
+                    <input id="v-cadence" type="number" value="24" min="1" max="720">
+                </div>
+            </div>
+            <label for="v-text">the vow — the purpose this agent is bound to</label>
+            <textarea id="v-text" placeholder="serve the operator's stated strategy and nothing else"></textarea>
+            <label style="display:flex; align-items:center; gap:8px; text-transform:none; letter-spacing:0.04em; margin-top:10px;">
+                <input type="checkbox" id="v-sealed" style="width:auto;">
+                seal the vow text — publish only its sha256 (wallet-signed vows only, same price;
+                a sealed vow is a weaker public commitment and the oracle will say so)
+            </label>
+            <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
+                <button id="btn-vow-signed" class="primary">bind with wallet signature</button>
+                <button id="btn-vow-sandbox">take unsigned (sandbox)</button>
+            </div>
+            <div id="vow-result" class="msg"></div>
+            <p class="mono-note" style="margin-top:12px;">
+                Wallet-signed vows are first-class; unsigned vows are marked <em>sandbox</em> forever.
+                Vows are free. Report-ins: your agent POSTs to <code>/api/vow/report</code>
+                ($0.10, x402, attested) or <code>/api/vow/report/demo</code> (free, sandbox-marked).
+                Everything here is public and kept — don't put secrets in vows or traces.
+            </p>
+        </div>
+    </section>
+
+    <footer>
+        <p class="mono-note">
+            A reading is never a verdict. The measurement never reads the brain; the narrator
+            never reads the trace. Chains are hash-linked and Ed25519-signed — verify anything
+            offline against <a href="/api/pubkey">/api/pubkey</a>. Docs for agents:
+            <a href="/api/llms.txt">/api/llms.txt</a> · source:
+            <a href="https://github.com/AnthonE/scry">github.com/AnthonE/scry</a>
+        </p>
+    </footer>
+</div>
+<div id="tooltip"></div>
+<script src="js/scry-watch.js"></script>
+</body>
+</html>
