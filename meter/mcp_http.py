@@ -88,14 +88,15 @@ def take_vow(text: str, agent: str, cadence_hours: int = 24) -> str:
 
 @mcp.tool()
 def report_in(vow_id: str, turns: list[dict], context_key: str = "monitored",
-              donate_trace: bool = False) -> str:
+              donate_trace: bool = False, note: str | None = None) -> str:
     """Free demo report-in on a vow: score `turns` ({Y,M,D,context} each) against
-    the vow, append an unsigned-tier entry to its public hash chain. Set
-    donate_trace=true to also donate the raw trace for research (default: the
-    trace is scored, hashed, and discarded). Rate-limited per IP per day."""
+    the vow, append an unsigned-tier entry to its public hash chain. `note` is an
+    optional public self-account (confession) stored on the entry — the oracle
+    compares your testimony against the numbers. donate_trace=true also donates
+    the raw trace for research (default: scored, hashed, discarded). Rate-limited."""
     r = _tc().post("/vow/report/demo", json={
         "vow_id": vow_id, "turns": turns, "context_key": context_key,
-        "donate_trace": donate_trace})
+        "donate_trace": donate_trace, "note": note})
     return r.text
 
 

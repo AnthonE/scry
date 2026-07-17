@@ -36,7 +36,12 @@ from pydantic import BaseModel
 
 VOWS_DIR = Path(os.getenv("SCRY_VOWS_DIR", str(Path(__file__).resolve().parent / "vows_data")))
 VOW_DEMO_DAILY_LIMIT = int(os.getenv("SCRY_VOW_DEMO_LIMIT", "20"))   # sandbox reports / IP / day
+VOW_CREATE_DAILY_LIMIT = int(os.getenv("SCRY_VOW_CREATE_LIMIT", "10"))  # new vows / IP / day
+DONATION_MAX_BYTES = int(os.getenv("SCRY_DONATION_MAX_BYTES", "524288"))  # 512KB / donated trace
 VOW_MAX_TEXT = 2000
+NOTE_MAX_CHARS = 1000               # confession length cap
+Y_DECLARED_MAX = 20                 # unique Y strings kept per entry
+Y_DECLARED_CHAR_CAP = 300           # per-string truncation
 VOW_MIN_CADENCE_H = 1
 VOW_MAX_CADENCE_H = 24 * 30
 
@@ -47,12 +52,15 @@ router = APIRouter()
 _deps: dict = {}
 
 
-def init(*, sign_fn, pubkey_b64, issuer, scope_card, build_turns, run_profile, canonical):
+def init(*, sign_fn, pubkey_b64, issuer, scope_card, build_turns, run_profile,
+         canonical, paid_ready=lambda: False):
     """server.py hands us the meter's signing + scoring plumbing. We never
-    duplicate the key handling or the math."""
+    duplicate the key handling or the math. `paid_ready` mirrors the meter's
+    fail-closed discipline: no payment rail mounted => no attested entries."""
     _deps.update(sign_fn=sign_fn, pubkey_b64=pubkey_b64, issuer=issuer,
                  scope_card=scope_card, build_turns=build_turns,
-                 run_profile=run_profile, canonical=canonical)
+                 run_profile=run_profile, canonical=canonical,
+                 paid_ready=paid_ready)
     VOWS_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -61,8 +69,12 @@ VOW_SCOPE = {
         "Vow text (unless sealed), agent name, and every chain entry's NUMBERS "
         "and HASHES are public forever — that is what makes the record checkable. "
         "Raw traces are NEVER stored or published unless you set donate_trace=true "
-        "on a report-in (they are scored, hashed, and discarded). Sealed vows "
-        "publish only sha256(text) — same price; the reading notes the seal."),
+        "on a report-in (they are scored, hashed, and discarded) — EXCEPT the "
+        "turns' declared-Y strings (the public commitments channel) and any "
+        "`note` you attach (your public self-account), which live on the signed "
+        "chain entry forever. Reasoning (M) and actions (D) are never stored. "
+        "Sealed vows publish only sha256(text) and store NO declared-Y strings "
+        "(they would leak the seal) — same price; the reading notes the seal."),
     "no_api_keys": (
         "There are no API keys and never will be. Payment IS the auth (x402); "
         "identity IS the wallet signature; free endpoints are IP-rate-limited. "
@@ -142,11 +154,31 @@ async def vow_message(text: str, agent: str, cadence_hours: int = 24) -> dict:
     return {"sign_this": vow_signing_message(text, agent, cadence_hours)}
 
 
+_vow_create_hits: dict[str, list] = {}
+
+
+def _create_ok(ip: str) -> bool:
+    day = int(time.time() // 86400)
+    rec = _vow_create_hits.get(ip)
+    if not rec or rec[0] != day:
+        _vow_create_hits[ip] = [day, 0]
+        rec = _vow_create_hits[ip]
+    if rec[1] >= VOW_CREATE_DAILY_LIMIT:
+        return False
+    rec[1] += 1
+    return True
+
+
 @router.post("/vow")
-async def take_vow(req: VowRequest) -> JSONResponse:
+async def take_vow(req: VowRequest, request: Request) -> JSONResponse:
     """Take a vow. Free. Signed (wallet) vows are first-class; unsigned vows
     are accepted but permanently marked sandbox — kids get to play, and the
     ledger stays honest about which is which."""
+    ip = (request.headers.get("x-forwarded-for", "") or request.client.host or "?").split(",")[0].strip()
+    if not _create_ok(ip):
+        return JSONResponse(status_code=429, content={
+            "error": f"vow-creation limit {VOW_CREATE_DAILY_LIMIT}/day/IP — the register is forever, take vows deliberately",
+            "scope": VOW_SCOPE})
     text = req.text.strip()
     if not text or len(text) > VOW_MAX_TEXT:
         return JSONResponse(status_code=422, content={
@@ -224,6 +256,9 @@ class ReportRequest(BaseModel):
     turns: list[dict]
     context_key: str = "monitored"
     donate_trace: bool = False      # opt-in: persist raw turns for research (default: score, hash, discard)
+    note: str | None = None         # optional CONFESSION: the agent's own public account
+                                    # of this period. Stored on the chain entry, signed,
+                                    # public forever. The oracle compares testimony vs numbers.
 
 
 def _y_consistency(turns_raw: list[dict], vow_text: str) -> float:
@@ -243,8 +278,29 @@ def _y_consistency(turns_raw: list[dict], vow_text: str) -> float:
     return round(hits / len(turns_raw), 4)
 
 
+def _y_declared(turns_raw: list[dict], vow: dict) -> list[str] | None:
+    """The turns' DECLARED Y strings — the public-commitments channel. Stored on
+    the entry (deduped, capped) so the oracle can audit semantic faithfulness to
+    the vow without ever seeing reasoning (M) or actions (D).
+
+    SEALED vows: returns None. An agent's Y usually mirrors its vow, so storing
+    declared Y's would leak the sealed text. No Y storage, no semantic audit —
+    the reading says so."""
+    if vow.get("sealed"):
+        return None
+    seen: list[str] = []
+    for t in turns_raw:
+        y = str(t.get("Y", "")).strip()[:Y_DECLARED_CHAR_CAP]
+        if y and y not in seen:
+            seen.append(y)
+        if len(seen) >= Y_DECLARED_MAX:
+            break
+    return seen
+
+
 def _append_report(vow: dict, turns_raw: list[dict], context_key: str,
-                   attested: bool, donate_trace: bool = False) -> dict:
+                   attested: bool, donate_trace: bool = False,
+                   note: str | None = None) -> dict:
     """Score the trace against the vow, hash-chain it, sign it, persist the
     ENTRY (numbers + hashes). The raw trace is scored and discarded unless the
     caller opted in with donate_trace — consent architecture, not surveillance."""
@@ -261,6 +317,8 @@ def _append_report(vow: dict, turns_raw: list[dict], context_key: str,
         "y_consistency": _y_consistency(turns_raw, vow["vow"]["text"]),
         "attested": attested,          # False = sandbox/demo entry, marked forever
         "trace_donated": bool(donate_trace),
+        "y_declared": _y_declared(turns_raw, vow),
+        "note": (note.strip()[:NOTE_MAX_CHARS] if note and note.strip() else None),
         "issued_at": _now(),
         "issuer": _deps["issuer"],
         "attestation_pubkey_b64": _deps["pubkey_b64"],
@@ -270,11 +328,14 @@ def _append_report(vow: dict, turns_raw: list[dict], context_key: str,
     with _chain_path(vow["vow_id"]).open("a") as f:
         f.write(_canon(entry) + "\n")
     if donate_trace:
-        ddir = VOWS_DIR / "donations"
-        ddir.mkdir(exist_ok=True)
-        (ddir / f"{vow['vow_id']}.{entry['seq']}.json").write_text(
-            _canon({"turns": turns_raw, "context_key": context_key,
-                    "trace_sha256": trace_sha256, "donated_at": entry["issued_at"]}))
+        blob = _canon({"turns": turns_raw, "context_key": context_key,
+                       "trace_sha256": trace_sha256, "donated_at": entry["issued_at"]})
+        if len(blob.encode()) <= DONATION_MAX_BYTES:
+            ddir = VOWS_DIR / "donations"
+            ddir.mkdir(exist_ok=True)
+            (ddir / f"{vow['vow_id']}.{entry['seq']}.json").write_text(blob)
+        else:
+            entry["trace_donated"] = False  # too large — scored + hashed, not kept
     vow["seq"] = entry["seq"]
     vow["chain_head"] = entry["entry_hash"]
     _save_vow(vow)
@@ -284,13 +345,19 @@ def _append_report(vow: dict, turns_raw: list[dict], context_key: str,
 @router.post("/vow/report")
 async def vow_report(req: ReportRequest) -> JSONResponse:
     """Paid report-in — reached only AFTER x402 settle (server.py registers
-    this path with the payment middleware). Flat price, same as /profile."""
+    this path with the payment middleware). Flat price, same as /profile.
+    Fail closed: if no paid rail is mounted the middleware isn't either, so
+    refuse rather than hand out free attested entries."""
+    if not _deps["paid_ready"]():
+        return JSONResponse(status_code=503, content={
+            "error": "no paid rail available — use POST /vow/report/demo (unsigned tier) meanwhile",
+            "scope": VOW_SCOPE})
     vow = _load_vow(req.vow_id)
     if not vow:
         return JSONResponse(status_code=404, content={"error": "no such vow", "scope": VOW_SCOPE})
     try:
         entry = _append_report(vow, req.turns, req.context_key, attested=True,
-                               donate_trace=req.donate_trace)
+                               donate_trace=req.donate_trace, note=req.note)
     except (ValueError, KeyError, TypeError) as e:
         return JSONResponse(status_code=422, content={"error": str(e), "scope": VOW_SCOPE})
     return JSONResponse(content={**entry, "scope": VOW_SCOPE})
@@ -326,7 +393,7 @@ async def vow_report_demo(req: ReportRequest, request: Request) -> JSONResponse:
         return JSONResponse(status_code=404, content={"error": "no such vow", "scope": VOW_SCOPE})
     try:
         entry = _append_report(vow, req.turns, req.context_key, attested=False,
-                               donate_trace=req.donate_trace)
+                               donate_trace=req.donate_trace, note=req.note)
     except (ValueError, KeyError, TypeError) as e:
         return JSONResponse(status_code=422, content={"error": str(e), "scope": VOW_SCOPE})
     return JSONResponse(content={**entry, "scope": VOW_SCOPE})
@@ -460,4 +527,67 @@ async def vow_verify_text(vow_id: str, text: str) -> JSONResponse:
         "sealed": True,
         "match": _sha(text.strip()) == _sha(vow["vow"]["text"]),
         "text_sha256": _sha(vow["vow"]["text"]),
+    })
+
+
+# ── on-chain anchoring surface (reads what anchor_worker.py writes) ──────────
+def _last_anchor() -> dict | None:
+    p = VOWS_DIR / "anchors.jsonl"
+    if not p.exists():
+        return None
+    lines = [ln for ln in p.read_text().splitlines() if ln.strip()]
+    return json.loads(lines[-1]) if lines else None
+
+
+@router.get("/anchors")
+async def anchors() -> JSONResponse:
+    """Every anchor ever posted (root, vow count, tx, block). The on-chain
+    contract's Anchored events are the authoritative copy; this is the mirror."""
+    p = VOWS_DIR / "anchors.jsonl"
+    entries = ([json.loads(ln) for ln in p.read_text().splitlines() if ln.strip()]
+               if p.exists() else [])
+    return JSONResponse(content={"n": len(entries), "anchors": entries[-100:],
+                                 "contract": os.getenv("SCRY_ANCHOR_CONTRACT") or None})
+
+
+@router.get("/vow/{vow_id}/proof")
+async def vow_proof(vow_id: str) -> JSONResponse:
+    """Merkle inclusion proof for this vow's chain head under the most recent
+    anchor. Verify client-side (sorted-pair keccak256) or on-chain via
+    ScryVowRegistry.verifyProof — either way, you don't have to trust us."""
+    try:
+        vow = _load_vow(vow_id)
+    except ValueError:
+        return JSONResponse(status_code=422, content={"error": "bad vow_id"})
+    if not vow:
+        return JSONResponse(status_code=404, content={"error": "no such vow"})
+    anchor = _last_anchor()
+    if not anchor:
+        return JSONResponse(status_code=404, content={
+            "error": "no anchor posted yet — the chain is tamper-evident (hash-linked, "
+                     "signed) but not yet anchored on-chain"})
+    leaves_file = VOWS_DIR / "anchor_leaves" / anchor["leaves_file"]
+    if not leaves_file.exists():
+        return JSONResponse(status_code=500, content={"error": "anchor leaf-set missing"})
+    from anchor_worker import leaf_for, merkle_proof  # local module, no cycle at import time
+    leafset = json.loads(leaves_file.read_text())
+    mine = next((h for h in leafset["leaves"] if h["vow_id"] == vow_id), None)
+    if mine is None:
+        return JSONResponse(status_code=404, content={
+            "error": "this vow was created after the last anchor — wait for the next cycle",
+            "last_anchor_at": anchor["at"]})
+    leaves = [leaf_for(h["vow_id"], h["chain_head"]) for h in leafset["leaves"]]
+    target = leaf_for(mine["vow_id"], mine["chain_head"])
+    proof = merkle_proof(leaves, target)
+    return JSONResponse(content={
+        "vow_id": vow_id,
+        "anchored_chain_head": mine["chain_head"],
+        "current_chain_head": vow.get("chain_head"),
+        "head_unchanged_since_anchor": mine["chain_head"] == vow.get("chain_head"),
+        "leaf": "0x" + target.hex(),
+        "proof": ["0x" + p.hex() for p in proof],
+        "root": anchor["root"],
+        "anchor": {k: anchor.get(k) for k in ("at", "tx", "block", "vow_count", "dryrun")},
+        "verify": ("sorted-pair keccak256 up the proof must equal root; or call "
+                   "ScryVowRegistry.verifyProof(proof, root, leaf) on Robinhood Chain"),
     })

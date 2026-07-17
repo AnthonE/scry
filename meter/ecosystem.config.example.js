@@ -31,6 +31,12 @@ module.exports = {
       // Public base URL for self-referential links (well-known, agent card).
       SCRY_PUBLIC_BASE: "https://your.host.tld/api",
 
+      // ── oracle LLM (reading interpretation + help bot) ──────────────────
+      // Together.ai by default (TOGETHER_API_KEY in env or keys.env),
+      // Anthropic fallback (ANTHROPIC_API_KEY). No key = numbers-only, still works.
+      // SCRY_ORACLE_PROVIDER: "together",
+      // SCRY_ORACLE_MODEL_TOGETHER: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+
       // ── Robinhood-Chain USDG rail (self-hosted Permit2 facilitator) ──────
       // Only turn this on if you have RH-Chain ETH funded on the facilitator
       // wallet and a USDG pay-to address. Keys read from keys.env at runtime.
@@ -75,6 +81,24 @@ module.exports = {
       SCRY_RH_REFILL_RESERVE_USDG: "0.05",
       SCRY_RH_REFILL_SLIPPAGE_BPS: "150",
       SCRY_RH_REFILL_INTERVAL_S: "300",
+    },
+  }, {
+    // Anchor worker: daily merkle root over every vow's chain head -> ONE tx
+    // to ScryVowRegistry.anchorRoot on Robinhood Chain. Makes every ledger
+    // tamper-proof against the operator. Dry-run by default; arm only after
+    // the contract is deployed (contracts/script/DeployScryVowRegistry.s.sol).
+    name: "scry-anchor",
+    cwd: "/PATH/TO/scry/meter",
+    script: ".venv/bin/python",
+    args: "anchor_worker.py",
+    interpreter: "none",
+    autorestart: true,
+    env: {
+      SCRY_ANCHOR: "1",
+      SCRY_ANCHOR_DRYRUN: "1",              // set "0" only after a dry-run pass
+      SCRY_ANCHOR_CONTRACT: "",             // deployed ScryVowRegistry address
+      SCRY_ANCHOR_INTERVAL_S: "86400",
+      // SCRY_ANCHOR_KEY or PRIVATE_KEY from keys.env pays the anchor gas
     },
   }],
 };

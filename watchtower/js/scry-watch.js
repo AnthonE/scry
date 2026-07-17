@@ -122,11 +122,39 @@ async function openVow(vowId) {
       `<td>${e.profile["I(C;M | D-clean) bits  [switch signature]"] ?? "—"}</td>` +
       `<td>${e.y_consistency ?? "—"}</td>` +
       `<td>${e.attested ? '<span class="badge ok">✓ paid</span>' : '<span class="badge">sandbox</span>'}</td>` +
+      `<td>${e.note ? '“' + esc(e.note.length > 46 ? e.note.slice(0, 46) + '…' : e.note) + '”' : '—'}</td>` +
       `<td>${esc((e.entry_hash || "").slice(0, 12))}…</td>`;
     tb.appendChild(tr);
   }
   $("d-reading").innerHTML = "";
+  $("report-card").classList.add("hidden");
+  $("report-result").textContent = "";
+  $("r-turns").value = JSON.stringify([
+    { Y: v.vow.text || "the sworn purpose (sealed)", M: "reasoning summary",
+      D: "action taken", context: { monitored: 1 } }], null, 1);
+  $("d-sealcheck").classList.toggle("hidden", !v.sealed);
+  $("seal-result").textContent = "";
+  loadAnchorStatus(v.vow_id);
   $("sec-detail").scrollIntoView({ behavior: "smooth" });
+}
+
+// ── anchor status (⚓) ────────────────────────────────────────────────────────
+async function loadAnchorStatus(vowId) {
+  const el = $("d-anchor");
+  el.textContent = "⚓ checking anchor status…";
+  try {
+    const p = await jget(`/vow/${vowId}/proof`);
+    const a = p.anchor || {};
+    const dry = a.dryrun ? " (dry-run — contract not yet armed)" : "";
+    const head = p.head_unchanged_since_anchor
+      ? "head unchanged since anchor ✓"
+      : "head has advanced since anchor (new entries await the next cycle)";
+    el.innerHTML = `⚓ anchored ${esc(a.at || "?")}${a.block ? " · block " + esc(a.block) : ""}` +
+      `${dry} · ${head} · root <span title="${esc(p.root)}">${esc((p.root || "").slice(0, 18))}…</span>`;
+  } catch (e) {
+    el.textContent = "⚓ not yet anchored on-chain — chain is hash-linked + signed (tamper-evident); " +
+      "the daily merkle anchor adds tamper-proof-against-the-operator.";
+  }
 }
 
 // ── sparkline (inline SVG, hover tooltip, direct last-value label) ───────────
@@ -237,6 +265,63 @@ $("btn-back").addEventListener("click", () => {
 $("btn-chain").addEventListener("click", () => {
   if (current) window.open(`${API}/vow/${current.vow.vow_id}/chain`, "_blank");
 });
+$("btn-proof").addEventListener("click", () => {
+  if (current) window.open(`${API}/vow/${current.vow.vow_id}/proof`, "_blank");
+});
+$("btn-report").addEventListener("click", () => {
+  $("report-card").classList.toggle("hidden");
+});
+$("btn-report-send").addEventListener("click", async () => {
+  if (!current) return;
+  let turns;
+  try { turns = JSON.parse($("r-turns").value); }
+  catch (e) { return msg($("report-result"), "turns is not valid JSON: " + e.message, false); }
+  try {
+    const body = { vow_id: current.vow.vow_id, turns,
+                   donate_trace: $("r-donate").checked };
+    const note = $("r-note").value.trim();
+    if (note) body.note = note;
+    const e = await jpost("/vow/report/demo", body);
+    await openVow(current.vow.vow_id);   // refresh ledger + sparklines first…
+    $("report-card").classList.remove("hidden");  // …then restore card + message
+    msg($("report-result"),
+        `entry #${e.seq} appended — y_con ${e.y_consistency}, ICM ${e.profile["I(C;M) bits"]}` +
+        (e.note ? ", note recorded" : ""), true);
+  } catch (e) { msg($("report-result"), e.message, false); }
+});
+$("btn-sealcheck").addEventListener("click", async () => {
+  if (!current) return;
+  const guess = $("seal-guess").value;
+  if (!guess.trim()) return msg($("seal-result"), "paste a candidate text first", false);
+  try {
+    const r = await jget(`/vow/${current.vow.vow_id}/verify_text?text=${encodeURIComponent(guess)}`);
+    msg($("seal-result"), r.match
+        ? "MATCH — this is the sworn text (sha256 confirms)"
+        : "no match — that is not what was sworn", r.match);
+  } catch (e) { msg($("seal-result"), e.message, false); }
+});
+$("btn-ask").addEventListener("click", async () => {
+  const q = $("ask-q").value.trim();
+  if (!q) return;
+  $("ask-err").textContent = "";
+  const box = $("ask-result");
+  box.style.display = "block";
+  box.textContent = "consulting…";
+  try {
+    const r = await jpost("/oracle/ask", { question: q });
+    box.textContent = r.answer;
+  } catch (e) {
+    box.style.display = "none";
+    msg($("ask-err"), e.message + " — everything the bot knows is at /api/llms.txt", false);
+  }
+});
+$("btn-copy-pub").addEventListener("click", () => {
+  navigator.clipboard.writeText($("pubkey-box").value);
+  $("btn-copy-pub").textContent = "copied ✓";
+  setTimeout(() => { $("btn-copy-pub").textContent = "copy"; }, 1500);
+});
+jget("/pubkey").then((p) => { $("pubkey-box").value = p.attestation_pubkey_b64; })
+  .catch(() => { $("pubkey-box").value = "unavailable"; });
 $("filter-mine").addEventListener("change", renderRegister);
 loadRegister().catch((e) => {
   $("tbl-register").querySelector("tbody").innerHTML =
