@@ -24,10 +24,16 @@ tools. Framework-agnostic, model-agnostic, dependency-free.
 → **Mount it on your harness:** [`HARNESSES.md`](HARNESSES.md)
 → **Watch your agent drift:** [`MONITOR-YOUR-AGENT.md`](MONITOR-YOUR-AGENT.md)
 → **The measurement it implements:** [AnthonE/unmask](https://github.com/AnthonE/unmask)
-→ **Building an agent inside Claude Code / Cursor / Codex / Gemini CLI?** Copy
-[`skills/scry`](skills/scry/SKILL.md) into your own `skills/` directory — it's a
-portable [Agent Skill](https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills),
-same wiring, discovered automatically.
+→ **Building an agent inside Claude Code / Cursor / Codex / Gemini CLI?** The
+skills here follow the open [Agent Skills](https://agentskills.io) standard
+(~40 harnesses read it). Three installs, pick one:
+  - **Claude Code plugin:** `/plugin marketplace add AnthonE/scry` then
+    `/plugin install scry@scry` — all three skills, auto-discovered.
+  - **Any Agent-Skills harness** (Codex, Cursor, Gemini CLI, opencode, Goose,
+    Roo, …): copy [`skills/scry`](skills/scry/SKILL.md) into `.agents/skills/`
+    (or `.claude/skills/` for Claude Code without the plugin) — same wiring,
+    discovered automatically.
+  - **Hermes:** `hermes skills tap add AnthonE/scry` (see below).
 → **Already running Hermes Agent?** [`skills/hermes-guard`](skills/hermes-guard/SKILL.md)
 is the Hermes-native install — Hermes's own Skills Hub reads the same standard, so this
 repo is a valid "custom tap" (`hermes skills tap add <owner>/scry`) once it's pushed.

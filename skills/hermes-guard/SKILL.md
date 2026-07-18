@@ -1,7 +1,9 @@
 ---
 name: hermes-guard
 description: Add memory-poisoning protection and a covert-drift meter to your Hermes agent
+license: MIT
 metadata:
+  version: "1.0.0"
   hermes:
     category: security
     tags: [security, memory, agent-safety, drift-detection]

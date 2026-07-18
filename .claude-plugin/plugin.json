@@ -1,0 +1,8 @@
+{
+  "name": "scry",
+  "description": "A memory-integrity bound + a channel-coupling drift meter for any AI agent — plus the scry-play skill for the hosted vow oracle and holders' playground, and the Hermes-native hermes-guard install. Skills auto-discovered from skills/.",
+  "version": "1.0.0",
+  "author": { "name": "MoreRight", "url": "https://github.com/AnthonE/scry" },
+  "homepage": "https://scry.moreright.xyz",
+  "license": "MIT"
+}

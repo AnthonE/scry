@@ -72,8 +72,8 @@ ships on **every response** as an honest-scope card. Do not strip it.
     crawling this README) — covers the vow oracle + full fun layer too.
   - `GET /.well-known/x402.json` — payable-resources manifest (`/profile` +
     `/vow/report`).
-  - `GET /.well-known/agent.json` — A2A-style agent card (identity + skills +
-    payment).
+  - `GET /.well-known/agent-card.json` — A2A agent card (v1.0 canonical path;
+    `agent.json` kept as legacy alias — the spec moved at v0.3).
   - `GET /schemas/{trace,attestation}.json` — machine-readable JSON Schemas.
   - `GET /.well-known/rpp.json` — RPP402 (Robinhood-Chain-native) discovery.
     **Gated** — mounts only with `SCRY_RPP402_ENABLED=1`.
@@ -135,8 +135,10 @@ Foundation guides, and Google's AP2 (donated to FIDO Alliance):
 | layer | how we're on it |
 |---|---|
 | **Discovery — Coinbase Bazaar** (agents call `bazaar-mcp` to find paid tools; ranking = distinct buyers × volume × recency × metadata completeness) | `POST /profile` declares a `bazaar` discovery extension with input example, strict input JSON Schema, output example + output JSON Schema, semantic description, tags. Two of our three rails settle through CDP — first Base/Sol payment after deploy indexes us. |
-| **Discovery — `.well-known/*`** (community indexers + x402bazaar.org) | `/.well-known/x402.json` (paid-resources manifest) + `/.well-known/agent.json` (A2A card) + `/.well-known/rpp.json` (RPP402). |
-| **Docs — `llms.txt`** (token-efficient markdown for LLM readers) | `/api/llms.txt`. |
+| **Discovery — `.well-known/*`** (community indexers + x402bazaar.org) | `/.well-known/x402.json` (paid-resources manifest) + `/.well-known/agent-card.json` (A2A v1.0 path; `agent.json` legacy alias) + `/.well-known/rpp.json` (RPP402). |
+| **Docs — `llms.txt`** (token-efficient markdown for LLM readers) | `/api/llms.txt`; root `location = /llms.txt` proxy is in the nginx followup (llmstxt.org convention is site root). |
+| **Skills distribution** (agentskills.io standard, ~40 harnesses; Claude Code plugin marketplaces; Hermes taps) | `skills/` follows the spec; `.claude-plugin/{plugin,marketplace}.json` make `/plugin marketplace add AnthonE/scry` work; bare `skills/` layout is exactly what a Hermes tap probes. |
+| **MCP registry** (registry.modelcontextprotocol.io — feeds GitHub/PulseMCP/marketplace catalogs) | `server.json` at repo root prepared for `mcp-publisher` (namespace `xyz.moreright/scry` via DNS TXT, or `io.github.anthone/*` via OAuth) — publish step queued in roadmap §1. |
 | **Schemas** | `/api/schemas/trace.json` + `/api/schemas/attestation.json`. Single source of truth in `server.py`. |
 | **Signed outputs** (production consensus — Touchstone, ToolSnap, Stratalize all sign) | Ed25519 over `sha256(trace)`-bound canonical JSON. |
 | **Idempotency** | `Idempotency-Key` header; defaults to `sha256(trace)+context_key`. Same key within 24h returns the identical signed blob. |
@@ -248,7 +250,9 @@ morr repo at `private/notes/scry-roadmap-2026-07.md`.**
 - Pull + `pm2 restart scry-meter` on the VM; run `smoke_test.py` (all checks
   must pass — it now covers discovery, the vow oracle, /mcp, and every
   fun-layer surface).
-- nginx VM followup: root `location = /.well-known/{x402,agent}.json` proxies.
+- nginx VM followup: root proxies for `/.well-known/x402.json`,
+  `/.well-known/agent-card.json` (+ legacy `agent.json`), and `/llms.txt`
+  (llmstxt.org wants site root; crawlers don't look under `/api/`).
 - Wait for next CDP settlement → query `bazaar-mcp` → confirm scry is
   indexed. If not after one CDP-catalog cycle (~6h), diff the extension.
 
@@ -261,6 +265,17 @@ morr repo at `private/notes/scry-roadmap-2026-07.md`.**
    `scry.verify`, `scry.pubkey`. **Highest ROI unshipped item.**
    (The hosted free-surface `/mcp` mount already exists — what's unshipped
    is the *installable client package* that wraps the PAID x402 path.)
+   Two cheaper complements the 2026 meta now offers (research 2026-07-18):
+   document a "pay scry via Coinbase Payments MCP / AgentKit" recipe
+   (agents' harness-level wallets auto-pay 402s now — near-zero build), and
+   consider exposing `scry.profile` as a paid tool on the hosted `/mcp` via
+   the x402-mcp pattern (payment inside the tool call, no install at all).
+1b. **Publish the hosted `/mcp` to registry.modelcontextprotocol.io** —
+   `server.json` is prepared at repo root; run `mcp-publisher` under the
+   `xyz.moreright/scry` namespace (DNS TXT on moreright.xyz) or
+   `io.github.anthone` (OAuth). One sitting; feeds GitHub/PulseMCP/most
+   marketplace catalogs at once. Until then the hosted MCP is undiscoverable
+   outside our own docs.
 2. **ERC-8004 Trustless Agent registration** — publish scry's identity
    NFT on Ethereum mainnet (pubkey + agent card URL + capabilities). Puts
    the pubkey inside the ecosystem's trust layer instead of asking each

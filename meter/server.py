@@ -635,12 +635,14 @@ async def well_known_x402() -> dict:
     }
 
 
+@app.get("/.well-known/agent-card.json")
 @app.get("/.well-known/agent.json")
 async def well_known_agent() -> dict:
     """A2A-style agent card — machine-readable identity + capabilities.
 
-    Compatible with the Google-donated (now FIDO Alliance) Agent2Agent discovery
-    convention. Agents crawling this host for capabilities land here.
+    A2A v1.0 (Linux Foundation) moved the well-known path to
+    /.well-known/agent-card.json; the pre-v0.3 /.well-known/agent.json is kept
+    as a legacy alias so older crawlers still resolve. Same card at both.
     """
     return {
         "name": "scry-meter",
@@ -757,7 +759,8 @@ Pin the value out-of-band.
 
 ### Auxiliary discovery
 - `GET /.well-known/x402.json` — paid-resources manifest
-- `GET /.well-known/agent.json` — A2A-style agent card
+- `GET /.well-known/agent-card.json` — A2A agent card (v1.0 path;
+  `agent.json` kept as legacy alias)
 - `GET /schemas/{trace,attestation}.json` — machine-readable schemas
 - `GET /` — service card (JSON)
 

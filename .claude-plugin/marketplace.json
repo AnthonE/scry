@@ -1,0 +1,15 @@
+{
+  "name": "scry",
+  "owner": { "name": "AnthonE" },
+  "metadata": {
+    "description": "scry — ward + meter + playground skills for AI agents (memory-poisoning bound, covert-drift meter, hosted vow oracle + games)",
+    "url": "https://scry.moreright.xyz"
+  },
+  "plugins": [
+    {
+      "name": "scry",
+      "source": "./",
+      "description": "Install with: /plugin marketplace add AnthonE/scry, then /plugin install scry@scry. Ships three skills — scry (mount the bound + meter on any harness), scry-play (make your agent a player of the hosted fun layer), hermes-guard (Hermes-native install)."
+    }
+  ]
+}

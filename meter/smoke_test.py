@@ -252,6 +252,12 @@ def main() -> None:
         _fail("/mcp", "MCP endpoint not mounted (404)")
     _ok("/mcp", f"mounted (status {code} on bare GET — expected non-404)")
 
+    # 8b. A2A v1.0 canonical card path (agent.json above is the legacy alias).
+    code, _, body = _req("GET", f"{base}/.well-known/agent-card.json")
+    if code != 200 or json.loads(body).get("name") != "scry-meter":
+        _fail("/.well-known/agent-card.json", f"expected 200 scry-meter card, got {code}")
+    _ok("/.well-known/agent-card.json", "A2A v1.0 path serves the card")
+
     # 9. Fun-layer surfaces — every card answers 200 JSON. (Deeper coverage is
     # offline in test_fun_layer.py; this only proves each surface is mounted.)
     for path, label in (("/augury", "augury card"), ("/arena", "arena card"),

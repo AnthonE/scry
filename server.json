@@ -1,0 +1,16 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "xyz.moreright/scry",
+  "description": "scry — hosted MCP for the vow oracle + holders' playground (free surfaces: about, take_vow, report_in, read_ledger, list_vows, get_reading, demo_profile, ask). Paid attested reads stay on x402 HTTP where your wallet lives.",
+  "repository": {
+    "url": "https://github.com/AnthonE/scry",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://scry.moreright.xyz/mcp"
+    }
+  ]
+}
