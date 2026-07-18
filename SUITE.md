@@ -46,10 +46,13 @@ metered, playing, and provable. That is the suite; everything else is a
 surface of it.
 
 **Build ladder from here (each ≤ 1–2 sessions):**
-1. ✅ badge.svg (this commit) → 2. Herald (webhook registry + notify worker)
-→ 3. `scry-init` + heartbeat daemon → 4. /datasets exports → 5. directory
-pass on /vows (services field, list-never-rank) → 6. ERC-8004 identity +
-feedback → 7. sigils → 8. seasons as the standing calendar.
+1. ✅ badge.svg → 2. ✅ Herald (`meter/herald.py` — challenge-armed webhook
+subs, Ed25519-signed notifications for new_report/overdue/recovered/
+coupling_jump/breach, `herald_worker.py` under pm2, watchers public by
+host) → 3. ✅ /datasets (hash-stamped JSONL corpus exports) → 4.
+`scry-init` + heartbeat daemon → 5. directory pass on /vows (services
+field, list-never-rank) → 6. ERC-8004 identity + feedback → 7. sigils →
+8. seasons as the standing calendar.
 
 **Lines that make it scry and not another dashboard company:** bound stays
 local · readings never verdicts · list-never-rank · one flat price · money

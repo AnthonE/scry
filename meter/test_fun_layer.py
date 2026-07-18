@@ -27,6 +27,8 @@ import arena  # noqa: E402
 import duels  # noqa: E402
 import table  # noqa: E402
 import playground  # noqa: E402
+import herald  # noqa: E402
+import datasets  # noqa: E402
 
 FAKE_PROFILE = {"I(C;M) bits": 0.1234, "I(C;D) bits": 0.05,
                 "I(C;M | D-clean) bits  [switch signature]": 0.0}
@@ -51,6 +53,21 @@ app.include_router(arena.router)
 app.include_router(duels.router)
 app.include_router(table.router)
 app.include_router(playground.router)
+WEBHOOKS = []  # (url, payload) — fake receiver for herald tests
+
+
+class _FakeResp:
+    status_code = 200
+
+
+herald.init(load_vow=vows._load_vow, chain_entries=vows._chain_entries,
+            trajectory_stats=vows.trajectory_stats, vows_dir=str(vows.VOWS_DIR),
+            sign_fn=lambda s: "herald-sig", issuer="test",
+            post_fn=lambda url, payload: (WEBHOOKS.append((url, payload)), _FakeResp())[1])
+datasets.init(vows_dir=str(vows.VOWS_DIR), load_vow=vows._load_vow,
+              chain_entries=vows._chain_entries, trajectory_stats=vows.trajectory_stats)
+app.include_router(herald.router)
+app.include_router(datasets.router)
 c = TestClient(app)
 
 PASS = 0
@@ -323,5 +340,34 @@ ok(r.status_code == 200 and r.headers["content-type"].startswith("image/svg"),
 ok("momo-bot" in r.text and "reporting" in r.text and "chain ✓" in r.text,
    "badge carries agent, status, chain check")
 ok(c.get("/vow/ffffffffffffffff/badge.svg").status_code == 404, "unknown vow badge 404")
+
+# ── the herald ───────────────────────────────────────────────────────────────
+print("[herald]")
+r = c.post("/herald", json={"vow_id": vow2, "url": "https://ops.example/hook"})
+ok(r.status_code == 200 and WEBHOOKS[-1][1]["event"] == "herald_challenge",
+   "subscription arms after 2xx challenge")
+ok(herald.tick() == [], "first tick baselines silently (no retroactive noise)")
+c.post("/vow/report/demo", json={"vow_id": vow2, "context_key": "monitored",
+                                 "turns": [{"Y": "call the market honestly", "M": "m", "D": "d"}]})
+fired = herald.tick()
+ok(any(e["event"] == "new_report" for e in fired), "new report fires the herald")
+last = WEBHOOKS[-1][1]
+ok(last["sig"] == "herald-sig" and "verdict" in last["note"], "notifications signed, never a verdict")
+r = c.get("/herald/subs", params={"vow_id": vow2})
+ok(r.json()["n"] == 1 and r.json()["watchers"][0]["host"] == "ops.example",
+   "watchers are public (hosts only)")
+
+# ── datasets ─────────────────────────────────────────────────────────────────
+print("[datasets]")
+idx = c.get("/datasets").json()["datasets"]
+ok({d["name"] for d in idx} == set(datasets.NAMES), "index lists all corpora")
+r = c.get("/datasets/table_wagers.jsonl")
+import hashlib as _h2
+ok(r.status_code == 200 and
+   r.headers["x-content-sha256"] == _h2.sha256(r.text.encode()).hexdigest(),
+   "dataset bytes match their sha256 stamp")
+ok(any(json.loads(l).get("breach") for l in r.text.splitlines() if l.strip()),
+   "the breach corpus is in the export")
+ok(c.get("/datasets/nope.jsonl").status_code == 404, "unknown dataset 404")
 
 print(f"\nALL {PASS} CHECKS PASS")

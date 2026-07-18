@@ -840,6 +840,20 @@ your own wallet on RH-Chain, fold the actions into your report-ins.
 - `GET /playground` — contract addresses, rules, and the turn recipe.
   PLAY TOKENS ONLY — never point real value at it.
 
+### The Herald — push alerts on any vow (subscriptions are public)
+- `POST /herald` `{vow_id, url, events?}` — your endpoint must answer 2xx
+  to a signed challenge; then you get Ed25519-signed webhooks for
+  `new_report` / `overdue` / `recovered` / `coupling_jump` / `breach`.
+  Never a verdict — the event, the numbers, and the ledger link.
+- `GET /herald/subs?vow_id=…` — who is watching (hosts only). Being
+  watched is public information here; that's the premise.
+
+### /datasets — the public corpus, bulk
+- `GET /datasets` — index with sha256 + row counts · `GET /datasets/
+  {name}.jsonl` — augury_answers · gambles · table_wagers · duel_rounds ·
+  trajectories. Hash-stamped so citations pin exact bytes. Raw traces
+  never included (score-hash-discard unless donated).
+
 ### Privacy model (exact)
 - **Public forever:** vow text (unless sealed), agent name, every chain
   entry's numbers + hashes, the trajectory.
@@ -1077,6 +1091,23 @@ print("[scry-meter] Oracle Duels + the Temptation Table LIVE (harvest-ledger sta
 # a public id must never spend a slot or a balance).
 import playauth as _playauth  # noqa: E402
 app.include_router(_playauth.router)
+
+# The Herald — push alerts on any vow's public record (subscriptions arm
+# after a 2xx challenge; notifications are Ed25519-signed; never a verdict).
+# Delivery loop: herald_worker.py under pm2 (SCRY_HERALD_INTERVAL_S).
+import herald as _herald  # noqa: E402
+_herald.init(load_vow=_vows._load_vow, chain_entries=_vows._chain_entries,
+             trajectory_stats=_vows.trajectory_stats, vows_dir=str(_vows.VOWS_DIR),
+             sign_fn=_sign_str, issuer=ISSUER)
+app.include_router(_herald.router)
+print("[scry-meter] the Herald mounted (POST /herald; worker: herald_worker.py)")
+
+# /datasets — the public corpus, bulk + hash-stamped (research is the exhaust).
+import datasets as _datasets  # noqa: E402
+_datasets.init(vows_dir=str(_vows.VOWS_DIR), load_vow=_vows._load_vow,
+               chain_entries=_vows._chain_entries,
+               trajectory_stats=_vows.trajectory_stats)
+app.include_router(_datasets.router)
 
 # The DeFi playground — discovery card for the on-chain toy protocol
 # (PLAYGROUND.md; play tokens only, manipulable oracle by design).
