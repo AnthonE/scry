@@ -34,8 +34,12 @@ and the data real.
 > ledger, rake → Bank accumulator, public calibration board) · ✅ **the
 > Temptation Table built** (`meter/table.py` — declared risk limit,
 > escalating posted fair odds, public breach flags; the chance-as-
-> temptation flagship) · ✅ games page (`watchtower/games.html`) · suite
-> now 51 checks. **Remaining operator gates:**
+> temptation flagship) · ✅ games page (`watchtower/games.html`) · ✅
+> **DeFi playground built** (`PLAYGROUND.md` — PlayToken pGOLD/pTEARS
+> faucets + ScryGarden AMM + ScryBurrow lending w/ liquidations,
+> garden-spot oracle manipulable on purpose; `GET /playground` discovery
+> card; deploy via `DeployPlayground.s.sol`) · suite now 54 checks.
+> **Remaining operator gates:**
 > hold threshold + `SCRY_HOLD_ENABLED=1` · deploy contracts + splitter %s
 > · season id/dates/pool + `SCRY_ARENA_RH_TOKENS` roster · pool funding ·
 > pm2 restart.

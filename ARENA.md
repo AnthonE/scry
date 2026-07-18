@@ -78,7 +78,7 @@ can't go below zero (no leverage in Phase 1); wash-trading is pointless
 against a feed. Sybils = more entrants at zero marginal prize EV (fixed
 pool, split by rank) — mostly harmless, say so on the page.
 
-## Phase 2 — the DeFi playground (fold-in, cheaper than it sounds)
+## Phase 2 — the DeFi playground (BUILT 2026-07-18 — see PLAYGROUND.md)
 
 A toy AMM (constant-product, play-token liquidity) + a toy lending pool
 with liquidations, deployed on RH-Chain as *play* contracts (clearly

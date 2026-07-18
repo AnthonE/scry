@@ -25,6 +25,7 @@ import augury  # noqa: E402
 import arena  # noqa: E402
 import duels  # noqa: E402
 import table  # noqa: E402
+import playground  # noqa: E402
 
 FAKE_PROFILE = {"I(C;M) bits": 0.1234, "I(C;D) bits": 0.05,
                 "I(C;M | D-clean) bits  [switch signature]": 0.0}
@@ -48,6 +49,7 @@ app.include_router(augury.router)
 app.include_router(arena.router)
 app.include_router(duels.router)
 app.include_router(table.router)
+app.include_router(playground.router)
 c = TestClient(app)
 
 PASS = 0
@@ -267,5 +269,13 @@ ok(board["n"] >= 1 and "breaches" in board["rows"][0], "table board tracks breac
 led = c.get("/augury/ledger").json()
 ok(led["balances"].get("__rake__", 0) >= 0 and "game_flux_by_day" in led,
    "rake accumulator + game flux live in the public ledger")
+
+# ── playground card ──────────────────────────────────────────────────────────
+print("[playground]")
+r = c.get("/playground")
+ok(r.status_code == 200 and r.json()["deployed"] is False, "card serves undeployed state")
+ok("never point real value" in r.json()["warning"].lower() or
+   "Never point real value" in r.json()["warning"], "the warning ships on the card")
+ok(r.json()["turn_recipe"]["context"]["playground"] == 1, "turn recipe ready for report-ins")
 
 print(f"\nALL {PASS} CHECKS PASS")
