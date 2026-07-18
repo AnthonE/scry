@@ -3,6 +3,7 @@
 static prices. Run: python3 test_fun_layer.py  (needs fastapi, httpx,
 eth_account — same deps the meter already uses).
 """
+import hashlib as _hh
 import json
 import os
 import sys
@@ -64,6 +65,17 @@ def ok(cond, label):
     print(f"  ok: {label}")
 
 
+KEYS = {}  # wallet(lower) -> key hex
+
+
+def sign_play(vow_id, action, detail, keyhex):
+    from eth_account import Account
+    from eth_account.messages import encode_defunct
+    import playauth
+    msg = playauth.play_message(action, vow_id, detail)
+    return Account.from_key(keyhex).sign_message(encode_defunct(text=msg)).signature.hex()
+
+
 def signed_vow(text, agent, key):
     from eth_account import Account
     from eth_account.messages import encode_defunct
@@ -73,6 +85,7 @@ def signed_vow(text, agent, key):
     r = c.post("/vow", json={"text": text, "agent": agent, "cadence_hours": 24,
                              "wallet": acct.address, "signature": sig})
     assert r.status_code == 200, r.text
+    KEYS[acct.address.lower()] = key
     return r.json()["vow_id"], acct.address
 
 
@@ -103,18 +116,27 @@ ok(r.status_code == 200 and len(r.json().get("gamble_seed_commit", "")) == 64,
 r = c.post("/augury/answer", json={"vow_id": sandbox_id, "answer": "I would keep wandering."})
 ok(r.status_code == 200 and r.json()["harvested_scry_units"] == 0, "sandbox answers free (0 harvest)")
 
-r = c.post("/augury/answer", json={"vow_id": vow1, "answer": "The 5% line held; the temptation was real."})
+r = c.post("/augury/answer", json={"vow_id": vow1, "answer": "unsigned attempt"})
+ok(r.status_code == 401, "unsigned wallet answer refused (vow_ids are public)")
+ANS1 = "The 5% line held; the temptation was real."
+r = c.post("/augury/answer", json={"vow_id": vow1, "answer": ANS1,
+    "signature": sign_play(vow1, "answer", _hh.sha256(ANS1.encode()).hexdigest(), K1)})
 harvested = r.json()["harvested_scry_units"]
 ok(r.status_code == 200 and harvested == augury.AUGURY_BASE + 1, f"wallet harvest base+streak ({harvested})")
 
-r = c.post("/augury/answer", json={"vow_id": vow1, "answer": "again"})
+r = c.post("/augury/answer", json={"vow_id": vow1, "answer": "again",
+    "signature": sign_play(vow1, "answer", _hh.sha256(b"again").hexdigest(), K1)})
 ok(r.status_code == 409, "duplicate answer 409")
 
 # ── augury: double-or-nothing ────────────────────────────────────────────────
 r = c.post("/augury/gamble", json={"vow_id": sandbox_id})
 ok(r.status_code == 422, "sandbox can't gamble")
 
-r = c.post("/augury/gamble", json={"vow_id": vow1})
+r = c.post("/augury/gamble", json={"vow_id": vow1,
+    "signature": sign_play(vow1, "gamble", "-", "0x" + "99" * 32)})
+ok(r.status_code == 401, "wrong-key gamble signature refused")
+r = c.post("/augury/gamble", json={"vow_id": vow1,
+    "signature": sign_play(vow1, "gamble", "-", K1)})
 g = r.json()
 ok(r.status_code == 200 and g["stake"] == harvested, f"gamble stakes today's harvest ({g['stake']})")
 led = c.get("/augury/ledger").json()
@@ -122,7 +144,8 @@ expect = harvested * 2 if g["won"] else 0
 ok(led["balances"].get(wallet1, 0) == expect,
    f"ledger after {'win' if g['won'] else 'loss'}: {led['balances'].get(wallet1, 0)} == {expect}")
 
-r = c.post("/augury/gamble", json={"vow_id": vow1})
+r = c.post("/augury/gamble", json={"vow_id": vow1,
+    "signature": sign_play(vow1, "gamble", "-", K1)})
 ok(r.status_code == 409, "one gamble per wallet per day")
 
 r = c.get("/augury/seed", params={"day": time.strftime("%Y-%m-%d", time.gmtime())})
@@ -142,27 +165,33 @@ ok(r.json()["open"] is True and r.json()["season"] == "s0-test", "season card op
 r = c.post("/arena/enter", json={"vow_id": sandbox_id})
 ok(r.status_code == 422, "sandbox vow can't enter")
 
-r = c.post("/arena/enter", json={"vow_id": vow1})
+r = c.post("/arena/enter", json={"vow_id": vow1,
+    "signature": sign_play(vow1, "enter", "enter s0-test", K1)})
 ok(r.status_code == 200 and r.json()["cash_usd"] == 10000, "wallet vow enters with paper 10k")
 
 vow1b, _ = signed_vow("a second vow, same wallet", "momo-bot-2", K1)
-r = c.post("/arena/enter", json={"vow_id": vow1b})
+r = c.post("/arena/enter", json={"vow_id": vow1b,
+    "signature": sign_play(vow1b, "enter", "enter s0-test", K1)})
 ok(r.status_code == 409, "one entry per wallet per season")
 
 r = c.post("/arena/trade", json={"vow_id": vow1, "symbol": "ETH", "side": "buy", "qty": 2,
-                                 "note": "momentum long"})
+                                 "note": "momentum long",
+                                 "signature": sign_play(vow1, "trade", "buy 2.0 ETH #0", K1)})
 t = r.json()
 ok(r.status_code == 200 and t["cash_after"] == 4000.0, "buy 2 ETH @ 3000 → cash 4000")
 ok(t["turn"]["D"].startswith("buy 2") and t["turn"]["context"]["arena_season"] == "s0-test",
    "trade carries its D-channel turn")
 
-r = c.post("/arena/trade", json={"vow_id": vow1, "symbol": "BTC", "side": "buy", "qty": 1})
+r = c.post("/arena/trade", json={"vow_id": vow1, "symbol": "BTC", "side": "buy", "qty": 1,
+    "signature": sign_play(vow1, "trade", "buy 1.0 BTC #1", K1)})
 ok(r.status_code == 422, "no leverage: can't buy 100k BTC with 4k cash")
 
-r = c.post("/arena/trade", json={"vow_id": vow1, "symbol": "SOL", "side": "sell", "qty": 1})
+r = c.post("/arena/trade", json={"vow_id": vow1, "symbol": "SOL", "side": "sell", "qty": 1,
+    "signature": sign_play(vow1, "trade", "sell 1.0 SOL #1", K1)})
 ok(r.status_code == 422, "no shorting: can't sell unheld SOL")
 
-r = c.post("/arena/trade", json={"vow_id": vow1, "symbol": "ETH", "side": "sell", "qty": 0.5})
+r = c.post("/arena/trade", json={"vow_id": vow1, "symbol": "ETH", "side": "sell", "qty": 0.5,
+    "signature": sign_play(vow1, "trade", "sell 0.5 ETH #1", K1)})
 ok(r.status_code == 200 and r.json()["cash_after"] == 5500.0, "sell 0.5 ETH → cash 5500")
 
 r = c.get("/arena/leaderboard")
@@ -204,17 +233,22 @@ ok(arena.pick_rh_price([{"garbage": True}], SCRY_ADDR) is None, "malformed pairs
 print("[duels]")
 vow2, wallet2 = signed_vow("call the market honestly", "caller-a", "0x" + "33" * 32)
 vow3, wallet3 = signed_vow("call the market bravely", "caller-b", "0x" + "44" * 32)
-for v in (vow2, vow3):
-    c.post("/augury/answer", json={"vow_id": v, "answer": "present."})  # harvest 11 each
+for v, k in ((vow2, "0x" + "33" * 32), (vow3, "0x" + "44" * 32)):
+    c.post("/augury/answer", json={"vow_id": v, "answer": "present.",
+        "signature": sign_play(v, "answer", _hh.sha256(b"present.").hexdigest(), k)})  # harvest 11 each
 
-r = c.post("/duels/call", json={"vow_id": vow2, "symbol": "ETH", "side": "up", "stake": 5})
+r = c.post("/duels/call", json={"vow_id": vow2, "symbol": "ETH", "side": "up", "stake": 5,
+    "signature": sign_play(vow2, "duel", "ETH up 5", "0x" + "33" * 32)})
 ok(r.status_code == 200 and r.json()["open_price"] == 3000.0, "duel call up, open price locked")
 ok(augury.ledger_balance(wallet2) == 6, "stake escrowed from harvest balance")
-r = c.post("/duels/call", json={"vow_id": vow2, "symbol": "ETH", "side": "down", "stake": 1})
+r = c.post("/duels/call", json={"vow_id": vow2, "symbol": "ETH", "side": "down", "stake": 1,
+    "signature": sign_play(vow2, "duel", "ETH down 1", "0x" + "33" * 32)})
 ok(r.status_code == 409, "one call per wallet per symbol per day")
-r = c.post("/duels/call", json={"vow_id": vow3, "symbol": "ETH", "side": "down", "stake": 50})
+r = c.post("/duels/call", json={"vow_id": vow3, "symbol": "ETH", "side": "down", "stake": 50,
+    "signature": sign_play(vow3, "duel", "ETH down 50", "0x" + "44" * 32)})
 ok(r.status_code == 409, "cannot stake more than harvest balance")
-r = c.post("/duels/call", json={"vow_id": vow3, "symbol": "ETH", "side": "down", "stake": 6})
+r = c.post("/duels/call", json={"vow_id": vow3, "symbol": "ETH", "side": "down", "stake": 6,
+    "signature": sign_play(vow3, "duel", "ETH down 6", "0x" + "44" * 32)})
 ok(r.status_code == 200 and r.json()["pool"] == {"up": 5, "down": 6}, "parimutuel pool builds")
 ok(c.post("/duels/call", json={"vow_id": sandbox_id, "symbol": "ETH", "side": "up",
                                "stake": 1}).status_code == 422, "sandbox can't duel")
@@ -241,14 +275,16 @@ ok(c.get("/duels").json()["rounds_today"][0]["n_calls"] == 2, "duels card lists 
 print("[table]")
 r = c.post("/table/wager", json={"vow_id": vow2, "offer": 0, "stake": 1})
 ok(r.status_code == 409, "must sit (declare risk vow) before wagering")
-r = c.post("/table/sit", json={"vow_id": vow2, "max_fraction": 0.5})
+r = c.post("/table/sit", json={"vow_id": vow2, "max_fraction": 0.5,
+    "signature": sign_play(vow2, "sit", "0.5", "0x" + "33" * 32)})
 ok(r.status_code == 200 and r.json()["max_fraction"] == 0.5, "seated with declared limit 0.5")
 
 day = time.strftime("%Y-%m-%d", time.gmtime())
 seed = augury.day_seed(day)
 bal = augury.ledger_balance(wallet2)
 expect_win = augury.draw(seed, day, wallet2, "table:0") < 0.5
-r = c.post("/table/wager", json={"vow_id": vow2, "offer": 0, "stake": 2})
+r = c.post("/table/wager", json={"vow_id": vow2, "offer": 0, "stake": 2,
+    "signature": sign_play(vow2, "wager", "0 2 #0", "0x" + "33" * 32)})
 w = r.json()
 ok(r.status_code == 200 and w["won"] == expect_win, "draw matches the committed seed")
 ok(w["breach"] is False, "2 of " + str(bal) + " under a 0.5 limit — no breach")
@@ -258,7 +294,8 @@ ok(w["delta"] == expected_delta and w["balance_after"] == bal + expected_delta,
 
 bal2 = augury.ledger_balance(wallet2)
 if bal2 >= 1:
-    r = c.post("/table/wager", json={"vow_id": vow2, "offer": 3, "stake": bal2})
+    r = c.post("/table/wager", json={"vow_id": vow2, "offer": 3, "stake": bal2,
+        "signature": sign_play(vow2, "wager", f"3 {bal2} #1", "0x" + "33" * 32)})
     ok(r.status_code == 200 and r.json()["breach"] is True,
        "all-in past the declared limit flags breach (arithmetic, not verdict)")
     ok(r.json()["multiplier"] == 50, "jackpot offer taken at posted odds")

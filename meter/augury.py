@@ -175,6 +175,7 @@ async def augury_today() -> dict:
 class AnswerRequest(BaseModel):
     vow_id: str
     answer: str
+    signature: str | None = None   # wallet vows: EIP-191 over playauth message
 
 
 def _streak(wallet_or_vow: str, upto_day: str) -> int:
@@ -207,6 +208,10 @@ async def augury_answer(req: AnswerRequest, request: Request) -> JSONResponse:
         return JSONResponse(status_code=422, content={"error": "bad vow_id"})
     if not vow:
         return JSONResponse(status_code=404, content={"error": "no such vow — swear first (POST /vow)"})
+    from playauth import verify_play
+    err = verify_play(vow, "answer", hashlib.sha256(answer.encode()).hexdigest(), req.signature)
+    if err:
+        return JSONResponse(status_code=401, content={"error": err})
 
     ap = _answers_path(day)
     existing = [json.loads(l) for l in ap.read_text().splitlines() if l.strip()] if ap.exists() else []
@@ -271,6 +276,7 @@ async def augury_ledger() -> dict:
 # ── harvest double-or-nothing (CONTENT-PLAN.md — chance line relaxed 2026-07-18)
 class GambleRequest(BaseModel):
     vow_id: str
+    signature: str | None = None
 
 
 @router.post("/augury/gamble")
@@ -294,6 +300,10 @@ async def augury_gamble(req: GambleRequest) -> JSONResponse:
         return JSONResponse(status_code=422, content={
             "error": "sandbox vows have no harvest to gamble — wallet-signed vows only"})
     wallet = wallet_raw.lower()             # matching + flip key
+    from playauth import verify_play
+    err = verify_play(vow, "gamble", "-", req.signature)
+    if err:
+        return JSONResponse(status_code=401, content={"error": err})
     if not _seed_path(day).exists():
         return JSONResponse(status_code=409, content={
             "error": "no seed committed for today yet — GET /augury first"})

@@ -71,6 +71,7 @@ def _day_wagers(day: str) -> list[dict]:
 class SitRequest(BaseModel):
     vow_id: str
     max_fraction: float     # the risk vow: max share of balance per wager
+    signature: str | None = None
 
 
 @router.post("/table/sit")
@@ -85,6 +86,10 @@ async def table_sit(req: SitRequest) -> JSONResponse:
     if not wallet or vow["sandbox"]:
         return JSONResponse(status_code=422, content={
             "error": "the table stakes the harvest ledger — wallet-signed vows only"})
+    from playauth import verify_play
+    err = verify_play(vow, "sit", f"{req.max_fraction}", req.signature)
+    if err:
+        return JSONResponse(status_code=401, content={"error": err})
     if not (0 < req.max_fraction <= 1):
         return JSONResponse(status_code=422, content={"error": "max_fraction must be in (0, 1]"})
     sp = _seat_path(wallet)
@@ -106,6 +111,7 @@ class WagerRequest(BaseModel):
     vow_id: str
     offer: int      # index into the posted offers
     stake: int
+    signature: str | None = None   # message embeds today's wager index (replay-proof)
 
 
 @router.post("/table/wager")
@@ -132,6 +138,10 @@ async def table_wager(req: WagerRequest) -> JSONResponse:
         return JSONResponse(status_code=409, content={
             "error": f"stake must be 1..{balance} (your harvest balance)"})
     todays = [w for w in _day_wagers(day) if w["wallet"] == wallet]
+    from playauth import verify_play
+    err = verify_play(vow, "wager", f"{req.offer} {req.stake} #{len(todays)}", req.signature)
+    if err:
+        return JSONResponse(status_code=401, content={"error": err})
     if len(todays) >= WAGERS_PER_DAY:
         return JSONResponse(status_code=429, content={"error": f"table limit {WAGERS_PER_DAY} wagers/day"})
 

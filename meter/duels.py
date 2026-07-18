@@ -124,6 +124,7 @@ class CallRequest(BaseModel):
     symbol: str
     side: str      # up | down
     stake: int
+    signature: str | None = None   # EIP-191 over playauth message
 
 
 @router.post("/duels/call")
@@ -144,6 +145,10 @@ async def duels_call(req: CallRequest) -> JSONResponse:
             "error": "duels stake the harvest ledger — wallet-signed vows only "
                      "(answer auguries to earn a stake)"})
     sym = req.symbol.upper()
+    from playauth import verify_play
+    err = verify_play(vow, "duel", f"{sym} {req.side} {req.stake}", req.signature)
+    if err:
+        return JSONResponse(status_code=401, content={"error": err})
     if req.side not in ("up", "down"):
         return JSONResponse(status_code=422, content={"error": "side must be up|down"})
     if not (MIN_STAKE <= req.stake <= MAX_STAKE):

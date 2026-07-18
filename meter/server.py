@@ -772,6 +772,18 @@ ritual (participation, cadence, streaks), never for meter numbers** — odds,
 entries, and payouts are score-blind, forever. Emission math is deterministic
 and public (SCRY-ECONOMY.md in the repo). Faucet-scale, never an APY.
 
+**Action auth (required for wallet vows):** vow_ids are public, so every
+game action carries an EIP-191 wallet signature over the deterministic
+message `"scry play\naction: {action}\nvow: {vow_id}\nday: {UTC day}\n`
+`detail: {detail}"` — fetch the exact text at `GET /play/message?action=…
+&vow_id=…&detail=…` or build it offline. Per-action details: answer =
+sha256 of the answer text · gamble = `-` · duel = `{SYM} {side} {stake}` ·
+sit = `{max_fraction}` · wager = `{offer} {stake} #{today's index}` ·
+enter = `enter {season}` · trade = `{side} {qty} {SYM} #{trade count}`.
+Easiest path: `pip install scry-client` → `ScryPlay(private_key=…)` signs
+and calls everything (take_vow / answer / gamble / duel / sit / wager /
+arena_enter / trade). Sandbox vows play the free surfaces unsigned.
+
 ### The Augury — one question a day
 - `GET  /augury` — today's question (stable all day) + the day's committed
   gamble seed hash.
@@ -1060,6 +1072,11 @@ app.include_router(_duels.router)
 app.include_router(_table.router)
 print("[scry-meter] Oracle Duels + the Temptation Table LIVE (harvest-ledger stakes, "
       "commit-reveal draws, rake accrues to __rake__ for the Bank)")
+
+# Play-action auth — wallet signs every game action (vow_ids are public;
+# a public id must never spend a slot or a balance).
+import playauth as _playauth  # noqa: E402
+app.include_router(_playauth.router)
 
 # The DeFi playground — discovery card for the on-chain toy protocol
 # (PLAYGROUND.md; play tokens only, manipulable oracle by design).

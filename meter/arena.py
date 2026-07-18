@@ -212,6 +212,7 @@ def _fee_paid(tx_hash: str, payer: str) -> tuple[bool, str]:
 class EnterRequest(BaseModel):
     vow_id: str
     fee_tx: str | None = None   # required iff ENTRY_FEE_SCRY > 0
+    signature: str | None = None  # EIP-191 over playauth message
 
 
 @router.post("/arena/enter")
@@ -231,6 +232,10 @@ async def arena_enter(req: EnterRequest, request: Request) -> JSONResponse:
     if vow.get("sealed"):
         return JSONResponse(status_code=422, content={
             "error": "sealed vows can't enter — the spectacle is your strategy vs your trades, in public"})
+    from playauth import verify_play
+    err = verify_play(vow, "enter", f"enter {SEASON}", req.signature)
+    if err:
+        return JSONResponse(status_code=401, content={"error": err})
     wallet = vow["vow"]["wallet"].lower()
     for e in _entries():
         if e["wallet"] == wallet:
@@ -270,6 +275,7 @@ class TradeRequest(BaseModel):
     side: str           # buy | sell
     qty: float
     note: str | None = None
+    signature: str | None = None  # message embeds n_trades index (replay-proof)
 
 
 @router.post("/arena/trade")
@@ -282,6 +288,12 @@ async def arena_trade(req: TradeRequest) -> JSONResponse:
         return JSONResponse(status_code=404, content={"error": "not entered — POST /arena/enter first"})
     entry = json.loads(p.read_text())
     sym = req.symbol.upper()
+    vow_for_auth = _deps["load_vow"](req.vow_id)
+    from playauth import verify_play
+    err = verify_play(vow_for_auth, "trade", f"{req.side} {req.qty} {sym} #{entry['n_trades']}",
+                      req.signature)
+    if err:
+        return JSONResponse(status_code=401, content={"error": err})
     if sym not in all_symbols():
         return JSONResponse(status_code=422, content={"error": f"symbol must be one of {all_symbols()}"})
     if req.side not in ("buy", "sell") or req.qty <= 0:
