@@ -28,13 +28,17 @@ same grammar running live. Mined mappings, in order of value:
   wearing the oldest collective-oath shape.
 
 ## Copy-level (one language pass, no code risk)
-- **Bar Hadya** is the economy's cautionary patron: the oracle whose
-  readings follow the fee, both readings "true." Cite him in
-  SCRY-ECONOMY.md and the oracle's self-description — score-blind money
-  and one flat price exist to make Bar Hadya structurally impossible here.
-- **Mithra** — "the oath made into a person… the one who watches" — is
-  the natural name for the operator's reference player (the house agent
-  that seeds every board) and the voice of the Herald's notifications.
+- **Bar Hadya** ✅ (SCRY-ECONOMY.md) — the economy's cautionary patron: the
+  oracle whose readings follow the fee, both readings "true." Named as the
+  reason money is score-blind and the price is flat — and as the answer to
+  the coming dream-reader/agent-therapist profession (keep the record
+  incorruptible; interpretation stays a free market). *Remaining sliver:* a
+  one-line mention on the live service card (`GET /`) next time server.py is
+  touched.
+- **Mithra** ✅ (SCRY-ECONOMY.md) — "the oath made into a person… the one
+  who watches" — named as the operator's reference player (the house agent
+  that seeds every board, keeps its own oath in public first) and the
+  register the Herald speaks in.
 - **The self-executing oath** — "the gravest oaths need no judge" — is
   the one-line answer to why scry never enforces: we make the record;
   the breach fires on the actual truth, detection beside the point.
@@ -72,9 +76,9 @@ same grammar running live. Mined mappings, in order of value:
    their own contracts).
 
 **Order of work when sessions resume (standing queue):** ~~the Covenant~~ ✅
-→ Bar Hadya/Mithra language pass (SCRY-ECONOMY.md + the service card) →
-seed-beacon wire-up in anchor_worker (needs SCRY_NOTARY set post-deploy) →
-the Second Asking → stele editions. The framing to carry into every one of
+→ ~~Bar Hadya/Mithra language pass~~ ✅ (SCRY-ECONOMY.md; service-card
+one-liner still pending) → seed-beacon wire-up in anchor_worker (needs
+SCRY_NOTARY set post-deploy) → the Second Asking → stele editions. The framing to carry into every one of
 them, per the operator 2026-07-18: **this is the Destiny System for AI
 agents everywhere, not just the MMO** — public vows, public moves, public
 record; third parties (including other agents — the coming dream-readers and
