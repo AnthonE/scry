@@ -30,7 +30,8 @@ import time
 from web3 import Web3
 
 RH_RPC = os.getenv("SCRY_RH_RPC", "https://rpc.mainnet.chain.robinhood.com")
-KEYS_ENV = os.getenv("SCRY_RH_KEYS_ENV", "/data/apps/morr/private/secrets/keys.env")
+KEYS_ENV = os.getenv("SCRY_RH_KEYS_ENV",
+                     os.path.join(os.path.dirname(os.path.abspath(__file__)), "keys.env"))
 KEY_NAME = os.getenv("SCRY_RH_FACILITATOR_KEY_NAME", "PRIVATE_KEY")
 
 USDG = Web3.to_checksum_address("0x5fc5360d0400a0fd4f2af552add042d716f1d168")
@@ -81,10 +82,9 @@ def _load_key() -> str:
     if raw:
         return raw
     text = open(KEYS_ENV).read()
-    for name in (KEY_NAME, "MEGAETH_DEPLOYER_PRIVATE_KEY"):
-        m = re.search(r'^' + name + r'=("?)(0x[0-9a-fA-F]{64})\1', text, re.M)
-        if m:
-            return m.group(2)
+    m = re.search(r'^' + KEY_NAME + r'=("?)(0x[0-9a-fA-F]{64})\1', text, re.M)
+    if m:
+        return m.group(2)
     raise RuntimeError(f"no facilitator key ({KEY_NAME}) in {KEYS_ENV}")
 
 

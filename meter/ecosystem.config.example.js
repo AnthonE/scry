@@ -38,11 +38,12 @@ module.exports = {
       // SCRY_ORACLE_MODEL_TOGETHER: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
 
       // ── Robinhood-Chain USDG rail (self-hosted Permit2 facilitator) ──────
-      // ON by default (fails safe if no key/RPC); set SCRY_RH_SETTLE: "0" to
-      // hold it down explicitly. Needs RH-Chain ETH on the facilitator wallet
-      // and a USDG pay-to address. Keys read from keys.env at runtime.
-      // SCRY_RH_SETTLE: "1",
-      // SCRY_RH_PAY_TO: "0xYOUR_PAY_TO",
+      // The rail arms ONLY when SCRY_RH_PAY_TO names YOUR receiving wallet
+      // (there is deliberately no default — your money goes where you say).
+      // Needs RH-Chain ETH on the facilitator wallet; keys read from keys.env
+      // (defaults to keys.env beside the code) at runtime. Set
+      // SCRY_RH_SETTLE: "0" to hold the rail down even when configured.
+      SCRY_RH_PAY_TO: "0xYOUR_PAY_TO",
       // SCRY_RH_AMOUNT: "100000",       // 0.10 USDG (6dp)
       // SCRY_RH_AMOUNT_USD: "$0.10",
       // SCRY_RH_KEYS_ENV: "/PATH/TO/secrets/keys.env",
@@ -70,7 +71,8 @@ module.exports = {
       // SCRY_FEE_SPLITTER: "0x…",
 
       // ── Base + Solana mainnet USDC via Coinbase CDP (gas sponsored) ─────
-      // Only turn this on if you have CDP API creds in keys.env.
+      // Only turn this on if you have CDP API creds in keys.env. Each rail
+      // arms only when its pay-to is set (base falls back to SCRY_RH_PAY_TO).
       // SCRY_CDP_ENABLED: "1",
       // SCRY_CDP_AMOUNT: "100000",
       // SCRY_CDP_BASE_PAY_TO: "0xYOUR_EVM_PAY_TO",

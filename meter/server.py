@@ -60,7 +60,10 @@ from turn_record import Turn, channel_profile  # noqa: E402
 # *mainnet* rails can be re-added later when we fund receiving wallets + a
 # mainnet-settling facilitator on each — see rh_facilitator.py for the pattern.
 ISSUER = os.getenv("SCRY_METER_ISSUER", "scry.moreright.xyz")
-KEY_PATH = Path(os.getenv("SCRY_METER_KEY", "/data/apps/secrets/scry-meter-ed25519.key"))
+# Ed25519 key lives beside the code by default (gitignored); point SCRY_METER_KEY
+# somewhere durable in production and BACK IT UP — rotating invalidates attestations.
+KEY_PATH = Path(os.getenv("SCRY_METER_KEY",
+                          str(Path(__file__).resolve().parent / "scry-meter-ed25519.key")))
 DEMO_DAILY_LIMIT = int(os.getenv("SCRY_METER_DEMO_LIMIT", "50"))         # free reads / IP / day
 
 # The meter is on real mainnet money now — no testnet flag to report.
@@ -306,10 +309,13 @@ NETWORKS = []           # network ids, for /health + /
 RH_READY = False
 RH_FAC_ADDR = None
 RH_NETWORK = None
-RH_PAY_TO = os.getenv("SCRY_RH_PAY_TO", "0x24445EFddB08d4938E3E3627042B2Cf4063d9092")  # DEPLOYER
+# YOUR receiving wallet — no default: a self-host must name where its money goes.
+RH_PAY_TO = os.getenv("SCRY_RH_PAY_TO", "")
 # Gate documented everywhere as SCRY_RH_SETTLE=1; honor it (defaults ON to match
 # the reference deploy — set "0" to hold the rail down even with keys present).
-if os.getenv("SCRY_RH_SETTLE", "1") == "1":
+if not RH_PAY_TO:
+    print("[scry-meter] RH rail held down (SCRY_RH_PAY_TO not set — name your receiving wallet)")
+elif os.getenv("SCRY_RH_SETTLE", "1") == "1":
     try:
         from rh_facilitator import build_rh_facilitator, rh_payment_option
         from rh_facilitator import RH_NETWORK as _RH_NETWORK
@@ -348,17 +354,27 @@ if os.getenv("SCRY_CDP_ENABLED", "0") == "1":
         from x402.mechanisms.svm.exact.register import register_exact_svm_server  # noqa: F401
         _cdp_fac = _cdp.build_cdp_facilitator()
         _facilitators.append(_cdp_fac)
-        _base_pay_to = os.getenv("SCRY_CDP_BASE_PAY_TO", RH_PAY_TO)  # EVM: DEPLOYER
-        _sol_pay_to = os.getenv("SCRY_CDP_SOL_PAY_TO", "Morrcwy58qvXkfmhkpUre3EQqNNTrBugAukJ36Wc4b7")
-        _scheme_regs.append((_cdp.BASE_NETWORK, ExactEvmServerScheme()))
-        _svm_networks.append(_cdp.SOL_NETWORK)
-        _accepts.append(_cdp.base_payment_option(_base_pay_to))
-        _accepts.append(_cdp.sol_payment_option(_sol_pay_to))
-        RAILS.append(f"Base USDC ({_cdp.BASE_NETWORK}, CDP gas-sponsored, payTo {_base_pay_to})")
-        RAILS.append(f"Solana USDC ({_cdp.SOL_NETWORK}, CDP gas-sponsored, payTo {_sol_pay_to})")
-        NETWORKS.extend([_cdp.BASE_NETWORK, _cdp.SOL_NETWORK])
-        CDP_READY = True
-        print(f"[scry-meter] CDP Base+Solana mainnet USDC rails LIVE (gas sponsored)")
+        # YOUR receiving wallets — no defaults: each CDP rail arms only when its
+        # pay-to is named (base falls back to the RH pay-to, same EVM wallet).
+        _base_pay_to = os.getenv("SCRY_CDP_BASE_PAY_TO", RH_PAY_TO)
+        _sol_pay_to = os.getenv("SCRY_CDP_SOL_PAY_TO", "")
+        if _base_pay_to:
+            _scheme_regs.append((_cdp.BASE_NETWORK, ExactEvmServerScheme()))
+            _accepts.append(_cdp.base_payment_option(_base_pay_to))
+            RAILS.append(f"Base USDC ({_cdp.BASE_NETWORK}, CDP gas-sponsored, payTo {_base_pay_to})")
+            NETWORKS.append(_cdp.BASE_NETWORK)
+        else:
+            print("[scry-meter] CDP Base rail held down (no SCRY_CDP_BASE_PAY_TO / SCRY_RH_PAY_TO)")
+        if _sol_pay_to:
+            _svm_networks.append(_cdp.SOL_NETWORK)
+            _accepts.append(_cdp.sol_payment_option(_sol_pay_to))
+            RAILS.append(f"Solana USDC ({_cdp.SOL_NETWORK}, CDP gas-sponsored, payTo {_sol_pay_to})")
+            NETWORKS.append(_cdp.SOL_NETWORK)
+        else:
+            print("[scry-meter] CDP Solana rail held down (SCRY_CDP_SOL_PAY_TO not set)")
+        CDP_READY = bool(_base_pay_to or _sol_pay_to)
+        if CDP_READY:
+            print(f"[scry-meter] CDP mainnet USDC rail(s) LIVE (gas sponsored)")
     except Exception as e:  # noqa: BLE001
         print(f"[scry-meter] CDP rails FAILED to init — RH stays up: {e!r}")
 

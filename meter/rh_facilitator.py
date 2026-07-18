@@ -5,7 +5,7 @@ USDG has no EIP-3009 (verified on-chain). So scry settles RH-Chain payments
 ITSELF via the standard x402 Permit2 rail: the canonical Permit2 and the x402
 exact-permit2 proxy are both deployed on RH-Chain, and the official x402 python
 pkg's FacilitatorWeb3Signer submits the proxy `settle`. Proven live 2026-07-15
-(tx 0x32e7de284e…). See private/notes/research-robinhood-chain-2026-07.md §15c.
+(tx 0x32e7de284e…).
 
 Gated: only imported/mounted when SCRY_RH_SETTLE=1. The facilitator signs the
 on-chain settle and pays gas — its key is read from keys.env at runtime, never
@@ -29,7 +29,9 @@ RH_USDG = Web3.to_checksum_address(
     os.getenv("SCRY_RH_USDG", "0x5fc5360d0400a0fd4f2af552add042d716f1d168"))
 # default = $0.10 (USDG, 6 dp) — the one flat price; must match the other rails.
 RH_AMOUNT = os.getenv("SCRY_RH_AMOUNT", "100000")
-_KEYS_ENV = os.getenv("SCRY_RH_KEYS_ENV", "/data/apps/morr/private/secrets/keys.env")
+# keys.env lives beside this file by default; point SCRY_RH_KEYS_ENV elsewhere.
+_KEYS_ENV = os.getenv("SCRY_RH_KEYS_ENV",
+                      os.path.join(os.path.dirname(os.path.abspath(__file__)), "keys.env"))
 _KEY_NAME = os.getenv("SCRY_RH_FACILITATOR_KEY_NAME", "PRIVATE_KEY")
 
 
@@ -39,10 +41,9 @@ def _load_facilitator_key() -> str:
     if raw:
         return raw
     text = open(_KEYS_ENV).read()
-    for name in (_KEY_NAME, "MEGAETH_DEPLOYER_PRIVATE_KEY"):
-        m = re.search(r'^' + name + r'=("?)(0x[0-9a-fA-F]{64})\1', text, re.M)
-        if m:
-            return m.group(2)
+    m = re.search(r'^' + _KEY_NAME + r'=("?)(0x[0-9a-fA-F]{64})\1', text, re.M)
+    if m:
+        return m.group(2)
     raise RuntimeError(f"no RH facilitator key ({_KEY_NAME}) in {_KEYS_ENV}")
 
 

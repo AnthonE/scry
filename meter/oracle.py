@@ -40,7 +40,8 @@ ANTHROPIC_MODEL = os.getenv("SCRY_ORACLE_MODEL_ANTHROPIC", "claude-haiku-4-5")
 ORACLE_MAX_TOKENS = int(os.getenv("SCRY_ORACLE_MAX_TOKENS", "700"))
 ORACLE_DAILY_LIMIT = int(os.getenv("SCRY_ORACLE_LIMIT", "30"))    # LLM calls / IP / day
 _KEYS_ENV = os.getenv("SCRY_ORACLE_KEYS_ENV",
-                      os.getenv("SCRY_RH_KEYS_ENV", "/data/apps/morr/private/secrets/keys.env"))
+                      os.getenv("SCRY_RH_KEYS_ENV",
+                                os.path.join(os.path.dirname(os.path.abspath(__file__)), "keys.env")))
 
 # The Second Asking (the Azande benge was always put twice). A distinct SECOND
 # model re-reads the same measurement; we publish both + their agreement. Prefer
