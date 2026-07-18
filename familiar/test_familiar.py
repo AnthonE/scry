@@ -176,16 +176,17 @@ check("autonomy run is bracketed on the public record",
       any(e["kind"] == "autonomy_start" for e in afam.life())
       and any(e["kind"] == "autonomy_end" for e in afam.life()))
 
-# ── crew: hire an archetype at the flat price ─────────────────────────────
-check("crew roster marks every archetype flat-priced",
-      all(r["flat_price"] for r in crew.roster()) and len(crew.roster()) >= 4)
+# ── crew: hire a worker (ancient-base names, score-blind reads) ───────────
+check("crew roster is the ancient-base set with score-blind reads",
+      all(r["score_blind_reads"] for r in crew.roster())
+      and {"mithra", "sibyl", "mnemon", "herald", "lar"} <= {r["slug"] for r in crew.roster()})
 ckeeper = Keeper(surface=MockSurface(day=DAY), brain_factory=MockBrain,
                  state_dir=Path(tempfile.mkdtemp(prefix="familiar-crew-")), cap=6)
-hired = ckeeper.summon_crew("scribe")
+hired = ckeeper.summon_crew("mnemon")
 hfam = ckeeper.get(hired["familiar_id"])
-check("hiring the scribe sets its vow, goals, and archetype",
-      hfam.archetype == "scribe" and hfam.goals
-      and any(e["kind"] == "hired" and e["archetype"] == "scribe" for e in hfam.life()))
+check("hiring Mnemon sets its vow, goals, and archetype",
+      hfam.archetype == "mnemon" and hfam.goals
+      and any(e["kind"] == "hired" and e["archetype"] == "mnemon" for e in hfam.life()))
 try:
     ckeeper.summon_crew("senior-vp")
     check("unknown archetype refused", False)
@@ -221,11 +222,11 @@ try:
     check("console js is served with crew + autonomy controls",
           "btnSummon" in js and "hireCrew" in js and "btnRun" in js)
     cr = c.get("/crew").json()
-    check("host /crew lists flat-priced archetypes",
-          cr["crew"] and all(x["flat_price"] for x in cr["crew"]))
-    h = c.post("/hire", json={"slug": "augur"})
-    check("host /hire summons an archetype (201)",
-          h.status_code == 201 and h.json()["archetype"] == "augur")
+    check("host /crew lists workers with score-blind reads",
+          cr["crew"] and all(x["score_blind_reads"] for x in cr["crew"]))
+    h = c.post("/hire", json={"slug": "sibyl"})
+    check("host /hire summons a worker (201)",
+          h.status_code == 201 and h.json()["archetype"] == "sibyl")
     hid, htok = h.json()["familiar_id"], h.json()["owner_token"]
     a = c.post(f"/familiar/{hid}/autonomy",
                json={"owner_token": htok, "goal": "keep cadence", "max_steps": 4})

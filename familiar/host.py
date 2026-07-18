@@ -106,7 +106,8 @@ async def familiars():
 async def crew():
     from .crew import roster as crew_roster
     return {"crew": crew_roster(),
-            "note": "every archetype summons at the same flat price — variety, not tiers"}
+            "note": ("a marketplace of agent-workers — labor priced by tier / per-task; "
+                     "a worker's signed reads stay score-blind whatever it costs to hire it")}
 
 
 @app.post("/hire")

@@ -39,7 +39,7 @@ async function refreshCrew() {
       card.innerHTML =
         `<div class="name">${esc(c.name)}</div>` +
         `<div class="vow">${esc(c.title)}</div>` +
-        `<span class="badge">flat price</span>` +
+        `<span class="badge">score-blind reads</span>` +
         (c.tools || []).map((t) => `<span class="badge">${esc(t)}</span>`).join("");
       card.addEventListener("click", () => hireCrew(c.slug));
       box.appendChild(card);

@@ -8,17 +8,21 @@ What this IS (safe, built, on by default):
     RH-Chain RPC and nothing else, matching FAMILIAR.md's hard boundary;
   - a constrained tool surface the autonomy loop plans over.
 
-What this is NOT (and the code refuses to pretend it is):
-  - a security boundary against hostile CODE. A cwd + rlimits is a belt,
-    not a jail. Running other people's code on a shared VM needs real
-    kernel isolation (bubblewrap / nsjail / a container / a microVM).
-    So `run()` is DISABLED by default and only works when the host wires
-    a real `sandbox_backend`. This is the same posture as custody: the
-    dangerous capability waits behind an explicit operator-provided
-    mechanism, and until then we do not offer it.
+What a familiar's capability IS (operator call, 2026-07-19):
+  - **MCP + a curated tool allowlist.** A familiar acts through the MCP
+    servers scry has set up and a fixed set of vetted tools — plus the
+    safe workspace file ops above. That is the whole surface. It is
+    plenty: MCP already reaches real capability without ever handing an
+    agent a shell.
 
-The Workspace is the seam: swap a real backend in behind `run()` and the
-autonomy loop above it never changes.
+What this is NOT, by design (not a "later gate" — a standing decision):
+  - **arbitrary code execution.** We do not run other people's code.
+    A cwd + rlimits is a belt, not a jail, and hosting untrusted code on
+    a shared VM is a risk class we are choosing not to take. `run()`
+    therefore refuses. The `sandbox_backend` seam is kept ONLY as an
+    escape hatch a self-hoster could wire on their own box under their
+    own risk — the hosted product never wires it. Capability comes from
+    MCP + tools, not from a shell.
 """
 import os
 from pathlib import Path
@@ -90,17 +94,17 @@ class Workspace:
 
     # ── the gated exec seam ──────────────────────────────────────────────
     def run(self, argv, timeout: int = 20) -> dict:
-        """Execute inside the workspace — ONLY through a real sandbox backend.
+        """Refused by design. The hosted product does not run agent code —
+        capability is MCP + curated tools, never a shell (see module docstring).
 
-        With no backend wired this refuses, on purpose: a bare subprocess in
-        a cwd is not isolation and we will not label it as such. The host
-        supplies `sandbox_backend(argv, cwd, timeout) -> {rc, out, err}` that
-        actually runs under kernel isolation."""
+        The `sandbox_backend` hook exists ONLY so a self-hoster can wire their
+        own isolation on their own box at their own risk; the hosted keep
+        never sets it."""
         if self.sandbox_backend is None:
             raise WorkspaceError(
-                "code execution is disabled: no real sandbox backend wired. "
-                "A cwd + rlimits is not a security boundary. Provide a "
-                "bubblewrap/nsjail/container backend before running agent code.")
+                "code execution is off by design: familiars act through MCP + a "
+                "curated tool allowlist, not a shell. A cwd + rlimits is not a "
+                "security boundary and we do not host untrusted code.")
         return self.sandbox_backend(list(argv), str(self.root), timeout)
 
 

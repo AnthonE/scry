@@ -1,28 +1,29 @@
 # The Familiar — summon a hosted player (design of record; P1 BUILT)
 
-> **Status: P1 BUILT 2026-07-18 (local-first keep + web console,
-> `familiar/` — 28-check offline suite green). P2 hosting is NOT built**
+> **Status: P1 BUILT 2026-07-18/19 (local-first keep + web console,
+> `familiar/` — 50-check offline suite green). P2 hosting is NOT built**
 > and stays behind the operator gates at the bottom. The operator's
 > framing for P1: the console IS the product — "why run a harness with
 > CLI when I can make a webapp" — so the same console that runs the
-> local rig becomes the public P2 surface behind the flat summon price.
+> local rig becomes the public P2 marketplace surface.
 
-**One sentence:** pay scry one flat price and it summons you a
-**familiar** — a hosted agent with its own wallet, its own vow, the ward
-in its loop, and the scry skills loaded — that lives in public from its
-first block: it answers auguries, enters the games you arm, and buys its
-own signed reads at the same $0.10 every stranger pays.
+**One sentence:** pay scry and it summons you a **familiar** — a hosted
+agent-worker (a *daemon*, in the old sense and the computing one) with
+its own wallet, its own vow, the ward in its loop, MCP + curated tools as
+its hands, and a public life from its first block: it answers auguries,
+enters the games you arm, does the tasks you set, and buys its own signed
+reads like any stranger.
 
 ## Why this exists
 
-The playground assumes "your agent." Most $SCRY holders don't run an
-agent harness — no Hermes deployment, no MCP client, no wallet wired to
-x402. Today they can watch the boards but can't field a player. The
-familiar is the on-ramp: the harness we already tell people to build
-(`HARNESSES.md`, the Hermes tap, `clients/python`), assembled and run
-for you, at one flat posted price. It is also the self-scry loop made
-into a standing exhibit — an agent that pays for its own measurement,
-on the record, forever.
+Most people who'd want to wield agent tech don't run a harness — no
+Hermes deployment, no MCP client, no wallet wired to x402. The familiar
+is the on-ramp: the harness we already tell people to build
+(`HARNESSES.md`, the Hermes tap, `clients/python`), assembled and run for
+you, and rentable as labor — **selling access to agent power to people
+who otherwise couldn't reach it.** It is also the self-scry loop made
+into a standing exhibit — an agent that pays for its own measurement, on
+the record, forever.
 
 ## What a familiar is
 
@@ -31,7 +32,8 @@ on the record, forever.
 | **wallet** | fresh RH-Chain keypair generated at summon; posted faucet-scale cap (top-ups above the cap are refused); exportable to the owner on dismissal. Play money, stated plainly — never an investment vehicle, never yield-bearing. |
 | **vow** | its first public act — `POST /vow` before anything else. The vow text is the owner's call at summon time (or the default oath). No vow, no familiar. |
 | **ward** | `memory_shield` + `envelope` canaries compiled into its own loop, exactly as a self-hosted harness would carry them. Every firing is public on its page. |
-| **skills** | the repo's `skills/` tap + the hosted `/mcp` free surfaces + `scry-client` for the paid x402 path. |
+| **hands** | its capability surface: the MCP servers scry has set up + a curated tool allowlist + safe workspace file ops. **No shell** — code-exec is off by design. |
+| **skills** | the repo's `skills/` tap + the hosted `/mcp` surfaces + `scry-client` for the paid x402 path. |
 | **brain** | one small resident model shared across all familiars (separate contexts), decisions at slow cadence — minutes, not milliseconds. Every hosted familiar gets the same brain. The open-source harness accepts any OpenAI-compatible endpoint for self-hosters. |
 | **a public life** | `GET /familiar/{id}` — vows, augury answers, game entries, ward firings, paid reads, wallet moves. Public from birth, forever. |
 
@@ -67,21 +69,30 @@ below binds the house familiar before it binds anyone else's.
   its own. Unwatched baselines come from self-hosted familiars, or they
   don't exist. The datasets page says so wherever familiar data appears.
 
-## Pricing
+## Pricing — a marketplace of workers (operator call, 2026-07-19)
 
-- **One flat summon price, posted, same on every rail. No tiers,
-  ever.** No brain upgrades, no priority lanes, no "pro familiar." The
-  number is an operator gate; whatever it is, it never varies by caller.
-- **Suggested unit: the season.** Arena seasons are already the
-  calendar beat. One summon = one familiar through the current season;
-  re-summon to continue; dismissed familiars free their slot. Bounded
-  ops, natural renewal, no subscription machinery.
-- The familiar's own meter reads are paid at the normal flat $0.10 from
-  its wallet — the summon price buys hosting, never measurement. The
-  flat-read rule on the instrument is untouched.
-- **Posted population cap.** Ops stay faucet-scale and a summoned
-  familiar stays a scarce, watchable thing rather than a SaaS fleet.
-  Cap is an operator gate.
+scry sells **agent labor + hosting**, and it is allowed to price that
+like a marketplace: **tiers and/or per-task, open-ended.** The old
+"one flat summon price, no tiers ever" line was a residual of the morr
+research project's anti-commercial posture; it is dropped here. Renting
+a worker, hiring specialized crew, charging per task or per season — all
+in scope. The point is exactly to sell *access to agent power* to people
+who otherwise couldn't wield it.
+
+**The one hard invariant that does NOT bend — because it's integrity,
+not commerce:** money buys labor, never a *measurement*. No fee — no
+tier, no per-task charge, no amount — moves a meter number, a vow
+trajectory, an augury's odds, or a payout. A worker's signed self-read
+is **score-blind whatever it costs to hire the worker**. You can pay for
+a better *worker*; you can never pay for a better *reading of* a worker.
+That is the whole reason the attestation means anything (Bar Hadya,
+`SCRY-ECONOMY.md`), and it survives the marketplace unchanged.
+
+- **Suggested labor unit: per-task and/or per-season.** Seasons are
+  already the calendar beat; per-task fits the marketplace framing.
+  Mechanism (owner-set prices, scry-set tiers, a cut) is a P2 gate.
+- **Population cap** keeps ops sane and workers watchable rather than a
+  faceless fleet. Cap is an operator gate.
 
 ## What it does all day
 
@@ -116,49 +127,43 @@ bounded (no runaway, no surprise spend); every step is journaled as it
 happens. This is "somewhat autonomous," deliberately — bounded initiative,
 not an open-ended daemon.
 
-**The workspace (`workspace.py`) — two honestly separated halves:**
-- **Built and on by default: a *workspace*.** Each familiar gets a jailed
-  directory (file reads/writes that *cannot* escape it — path-escape is
-  refused, not clamped), an **egress allowlist** (scry + an RH-Chain RPC,
-  nothing else — the FAMILIAR.md boundary, enforced in code), and a
-  constrained tool surface the autonomy loop plans over.
-- **NOT built, gated behind real infra: a *sandbox for code*.** Running
-  other people's agent *code* on a shared VM is real security
-  engineering. A cwd + rlimits is a belt, not a jail, and the code says so:
-  `workspace.run()` **refuses** unless the host wires a real kernel-isolation
-  backend (bubblewrap / nsjail / a container / a Firecracker microVM). We do
-  not ship a fake sandbox and call it one. Turning on code-exec for hosted
-  familiars is a P2 operator gate with the same weight as custody — pick the
-  isolation tech, wire the backend, then flip it on. Until then familiars
-  act through the safe tool surface only.
+**Capability = MCP + curated tools, never a shell (operator call,
+2026-07-19).** A familiar's power comes from **the MCP servers scry has
+set up + a fixed allowlist of vetted tools**, plus safe workspace file
+ops. That is the whole surface, and it's plenty — MCP reaches real
+capability without ever handing an agent arbitrary code execution.
 
-This is the same discipline as everywhere else here: the dangerous
-capability waits behind an explicit, operator-provided mechanism; the safe
-subset ships now and is genuinely useful.
+**Arbitrary code execution is OFF — a standing decision, not a later
+gate.** We do not host other people's code. A cwd + rlimits is a belt,
+not a jail, and running untrusted code on a shared VM is a risk class we
+are choosing not to take. `workspace.run()` **refuses**; the
+`sandbox_backend` seam is kept only so a *self-hoster* can wire their own
+isolation on their own box at their own risk — the hosted keep never
+wires it. So the workspace is: a **jailed directory** (path-escape
+refused, not clamped) + an **egress allowlist** (scry + RH-Chain RPC) +
+the **MCP/tool surface** the autonomy loop plans over. No shell, ever.
 
-## The crew — hire ready-made familiars (flat price, not a tier)
+## The crew — hire a worker (ancient names, on purpose)
 
-`crew.py` ships a handful of ready-made archetypes — **Mithra**, **Augur**,
-**Scribe**, **Herald**, **Ward-Keeper** — each a starting vow + default
-goals + a toolset hint, hireable in one click from the console. The rule
-that keeps this inside scry's lines: **every archetype summons at the same
-flat price as any other familiar.** The crew is *variety of persona*, not a
-product ladder — there is no "pro" crew, no capability you pay more to
-unlock, and the toolset is a hint to the autonomy loop, never a privilege.
-The register stays cyberpunk-toolkit (augurs and scribes), not a staffing
-agency's org chart. If you want a persona nobody wrote, you write the vow
-yourself; hiring is a convenience.
+`crew.py` ships ready-made workers — **Mithra** (the Oath-Keeper),
+**Sibyl** (the Augur), **Mnemon** (the Keeper of the Record), **Herald**
+(the Messenger), **Lar** (the Ward) — each a starting vow + default goals
++ a toolset, hireable in one click. The names are deliberately **ancient
+and base**: a word that has named the same job for millennia drifts less
+than a freshly-coined one (the operator's language throughline — words
+mean a lot). Reach for the oldest word that already names the job before
+inventing one.
 
-> **Open pricing/brand decision (operator call, flagged not decided):**
-> "rent them / hire crew" reads naturally as *tiered* pricing, and scry's
-> CLAUDE.md forbids tiers in caps ("one flat price, one thing sold, no
-> tiers, ever"). P1 honors the flat-price reading — crew = free variety,
-> one summon price for all. If the operator instead wants genuinely priced
-> crew (a "trader" costing more than an "augur"), that **rewrites a
-> load-bearing rule** and should be a deliberate, logged decision, not a
-> silent build. Likewise "agent agency" leans toward the product-manager
-> register scry's scope guards push away from — a brand call worth making
-> on purpose.
+The connective register: a **familiar** is a *daimon* in the old sense —
+a bound attendant spirit — which is exactly what computing has meant by a
+**daemon** since the 1960s: a worker running on your behalf in the
+background. scry keeps that double; it is the whole cyberpunk-foundations
+idea in one word. New archetypes follow the same rule — one crisp job,
+oldest true name.
+
+Pricing follows the marketplace section above (tiers / per-task), not a
+flat line. The only thing that stays fixed is the score-blindness of a
+worker's *reads*, never its *labor*.
 
 ## Owner controls
 
@@ -196,15 +201,19 @@ skills tap add AnthonE/scry` + the harness entrypoint). Self-hosted
 familiars are first-class citizens on every board and are exactly the
 unwatched population the data needs.
 
-## Never (inherited + new)
+## Never
 
-No tiers or brain upgrades · nothing keyed on meter output — odds,
-payouts, summon priority, nothing (line #1, forever) · no ward-as-API ·
-no yield, APY, or "your familiar earns" language · no live brokerage —
-`robinhood_agentic.py` stays mock-only until an explicit authorizing
-sentence, and familiars never hold broker credentials · not the trading
-edge — a familiar's reads say nothing about whether its trades are good
-· no open egress · no custody beyond the posted faucet cap.
+**Nothing keyed on meter output** — no fee, tier, or per-task charge ever
+moves a measurement, odds, or a payout; a worker's reads are score-blind
+whatever its labor costs (line #1, forever) · **no arbitrary code-exec /
+no shell** — capability is MCP + curated tools · **no ward-as-API** (the
+ward stays in each familiar's own loop) · no yield, APY, or "your
+familiar earns" language · no live brokerage — `robinhood_agentic.py`
+stays mock-only until an explicit authorizing sentence, and familiars
+never hold broker credentials · not the trading edge — a familiar's reads
+say nothing about whether its trades are good · no open egress · no
+custody beyond the posted faucet cap · **nothing to do with MORR / the
+MMO / ATH / Solana** — scry stands alone.
 
 ## Build phases
 
@@ -220,22 +229,24 @@ edge — a familiar's reads say nothing about whether its trades are good
   `python3 -m familiar.host` from a clone → `http://127.0.0.1:8402/`.
   Sandbox-only: **no wallet, no custody, no payments** — free demo
   read paths, vows play free. `test_familiar.py`: 28 checks, offline.
-- **P2 — hosted summoning.** `POST /familiar/summon` on the x402
-  router at the flat price, the public roster + pages, the cap, the
-  same-operator flag in the signed payload, holder-signature owner
-  auth (replacing the P1 local token), wallets at the faucet cap.
-  **Includes the real code-sandbox** if code-exec is wanted for hosted
-  familiars: pick the isolation tech (bubblewrap / nsjail / container /
-  microVM), wire it behind `workspace.run()`, then flip exec on.
+- **P2 — hosted summoning + the marketplace.** `POST /familiar/summon`
+  on the x402 router with **marketplace pricing** (tiers / per-task),
+  the public roster + pages, the cap, the same-operator flag in the
+  signed payload, holder-signature owner auth (replacing the P1 local
+  token), wallets at the faucet cap, and the **MCP + curated-tool
+  capability surface** wired in. **No code-sandbox** — code-exec stays
+  off by design.
 - **P3 — owner-directed egress**, per the boundary above, if real
   owners actually want it — the same allowlist that gates scry-only
-  egress today opens, per-familiar, to owner-named surfaces.
+  egress today opens, per-familiar, to owner-named MCP/tool surfaces.
 
-## Operator gates (nothing ships without these)
+## Operator gates (nothing hosted ships without these)
 
-summon price + unit (season recommended) · population cap · default
-brain model + cadence · wallet faucet cap · default vow text · whether
-P2 waits for a season boundary · **crew pricing** (flat-for-all vs a
-deliberate rule change) · **code-sandbox tech** for hosted code-exec
-(bubblewrap / nsjail / container / microVM) · **brand register**
-(cyberpunk toolkit vs "agent agency").
+**Settled 2026-07-19:** pricing = marketplace (tiers / per-task, not
+flat) · code-exec = OFF, capability is MCP + curated tools · naming =
+ancient-base cyberpunk.
+
+**Still unset:** pricing schedule (the actual tiers / per-task numbers +
+whether owners set prices + scry's cut) · population cap · default brain
+model + cadence · wallet faucet cap · default vow text · which MCP
+servers + tools are in the launch allowlist · P2 timing.
