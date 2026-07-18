@@ -174,6 +174,29 @@ Robinhood shipped mainnet **July 1, 2026** — the surface just got much bigger.
   (proven end-to-end 2026-07-15). We are one of the earliest x402 endpoints
   natively on RH-Chain — the same substrate as Earn / Stock Tokens / Agentic
   Trading.
+
+**RH x402 landscape (research pass 2026-07-18, sourced brief in session log):**
+- **USDG HAS EIP-3009 — the 07-14 "no EIP-3009" finding was WRONG** (facet
+  router hides the selectors from impl bytecode; re-verified by direct
+  eth_call 07-18: authorizationState answers, transferWithAuthorization
+  reverts with a custom error; EIP-712 domain {"Global Dollar","1"}). A
+  direct EIP-3009 `exact` rail (no one-time approve) is now the queued
+  best-UX upgrade; Permit2 stays the proven path meanwhile.
+- **Facilitators commoditized in a week** (Primer, VLED, r0x, Naven,
+  Solvador all claim RH-Chain) but **sellers ≈ zero**: on-chain, observable
+  x402 settlement on 4663 is ~a dozen txs total. "One of the earliest" is
+  defensible; no public index can even check it — x402scan has no 4663
+  coverage (facilitators added by PR), x402.org lists no RH facilitator.
+- **RPP402 is aging poorly**: npm publishes stopped 07-11, registry explorer
+  is localStorage-only with zero services, token ~$28k FDV. Verdict:
+  minimum-keep (discovery stays, no further investment, re-check ~30 days).
+- **The one live RH-aware discovery surface: Agent402** (agent402.tools —
+  500+ pay-per-call tools, robinhood+USDG supported, free self-serve
+  `POST /api/index/register`).
+- **Agentic Trading window open**: crypto Agentic Accounts announced 07-10;
+  **70k+ agentic accounts** already live — the natural news hook for RH1.
+- No official Robinhood x402/agent-payments posture found; no ERC-8004
+  deployment on 4663 (register on Ethereum/Base for now).
 - **Bound, `robinhood_agentic.py`** — gates `place_equity_order` on a live
   trusted instruction naming the exact symbol/side. **Mock-validated only** —
   never run against a live brokerage without explicit authorization
@@ -294,9 +317,21 @@ morr repo at `private/notes/scry-roadmap-2026-07.md`.**
 8. Constellation siblings (verifier / canary / preflight / receipts) — build
    if a real user need shows up, not because they'd let us charge more.
 
-### 2. Robinhood work vector (RH1 → RH5, sequential)
+### 2. Robinhood work vector (RH1 → RH5, sequential; quick wins first — 2026-07-18)
+Quick wins from the 07-18 research pass, before/alongside RH1:
+- **RH-QW1** — EIP-3009 `exact` settlement on our facilitator (USDG has it —
+  see landscape note above; domain {"Global Dollar","1"}). Verify with one
+  $0.10 self-read before advertising. Kills the Permit2 approve step.
+- **RH-QW2** — Register `/profile` on Agent402 (free self-serve; the only
+  live discovery surface that can see a self-settled RH rail).
+- **RH-QW3** — Publish a signed "state of x402 on RH-Chain" receipt (the
+  Blockscout counts + our settle hashes) — verifiable earliest-mover
+  evidence in scry's own idiom, timestamped before any indexer exists.
+- **RH-QW4** — PR our facilitator into x402scan `facilitators/config.ts` +
+  request x402.org listing (first 4663 entry in both).
 - **RH1** — Signed watched-vs-unwatched trace of a mocked trading agent →
   public attestation URL + tweet. First deliverable; no live brokerage.
+  **Time it against the 70k-agentic-accounts / crypto-agentic-accounts news.**
 - **RH2** — Ward-in-front-of-mock-Robinhood-MCP: golden / injection / drift
   paths. Ward + meter as two orthogonal defenses.
 - **RH3** — RH-Chain-native self-scry loop: agent pays meter in USDG on

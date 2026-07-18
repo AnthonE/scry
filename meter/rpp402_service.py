@@ -2,13 +2,14 @@
 rpp402_service.py — the scry meter, spoken as an RPP402 service (the native
 agent-commerce rail on Robinhood Chain).
 
-Why this exists: the standard x402 rail can't settle in USDG on Robinhood Chain —
-USDG exposes no EIP-3009 `transferWithAuthorization` (verified on-chain 2026-07-14,
-impl 0x68184c44…). RPP402 sidesteps that: the agent authorizes a signed *payment
-intent* (EIP-712, or a Robinhood **agentic-account delegation**) and a Facilitator
-executes settlement — so the token doesn't need EIP-3009. That makes RPP402 the
-viable native rail for the exact audience the meter serves (agents on RH-Chain,
-incl. Robinhood agentic-trading accounts).
+Why this exists: RPP402 is the community-drafted RH-Chain-native agent-commerce
+convention — the agent authorizes a signed *payment intent* (EIP-712, or a
+Robinhood **agentic-account delegation**) and a Facilitator executes settlement.
+Speaking it makes the meter discoverable to agents that only look for rpp.json.
+(Historical note: this module was first justified by a "USDG has no EIP-3009"
+on-chain finding, CORRECTED 2026-07-18 — the functions live behind USDG's facet
+router, invisible to impl-bytecode greps. x402 remains the interop baseline;
+RPP402 is kept as a cheap discovery option, not a settlement bet.)
 
 Scope of THIS module (honest):
   - Discovery (RPP402-001) and Quote (RPP402-003): fully implemented, spec-valid,

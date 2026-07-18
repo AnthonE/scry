@@ -1,11 +1,17 @@
 """Self-hosted x402 facilitator for the Robinhood-Chain (eip155:4663) USDG rail.
 
-Primer's live facilitator only runs the eip3009 verifier on direct calls, and
-USDG has no EIP-3009 (verified on-chain). So scry settles RH-Chain payments
-ITSELF via the standard x402 Permit2 rail: the canonical Permit2 and the x402
-exact-permit2 proxy are both deployed on RH-Chain, and the official x402 python
-pkg's FacilitatorWeb3Signer submits the proxy `settle`. Proven live 2026-07-15
-(tx 0x32e7de284e…).
+scry settles RH-Chain payments ITSELF via the standard x402 Permit2 rail: the
+canonical Permit2 and the x402 exact-permit2 proxy are both deployed on
+RH-Chain, and the official x402 python pkg's FacilitatorWeb3Signer submits the
+proxy `settle`. Proven live 2026-07-15 (tx 0x32e7de284e…).
+
+CORRECTION 2026-07-18: the original "USDG has no EIP-3009" finding was wrong —
+Paxos USDG routes functions through a facet router, so EIP-3009 selectors are
+absent from the implementation bytecode but LIVE at the token address
+(authorizationState answers; transferWithAuthorization reverts with a custom
+error, i.e. the function body runs; EIP-712 domain {"Global Dollar","1"}).
+Permit2 remains the proven rail; a direct EIP-3009 `exact` path (no one-time
+approve step) is a queued upgrade — verify with a $0.10 self-read first.
 
 Gated: only imported/mounted when SCRY_RH_SETTLE=1. The facilitator signs the
 on-chain settle and pays gas — its key is read from keys.env at runtime, never
