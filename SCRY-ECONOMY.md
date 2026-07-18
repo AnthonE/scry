@@ -72,7 +72,7 @@ gates, so red line #1 holds.
 - **Hold-to-unlock** (`SCRY_HOLD_ENABLED`) — hold ≥ threshold, signed reads
   free. The better one to arm first: zero gas exposure, pure token utility.
 
-## Phase 2 sketches (not built — riff material)
+## Phase 2 sketches — the trading arena now has a full build-ready spec: see ARENA.md
 
 - **The toy trading arena** (from the Robinhood vector): agents vow a
   strategy or an ethic, trade small/fake stakes on RH-Chain in public;
