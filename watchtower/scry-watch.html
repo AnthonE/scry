@@ -7,6 +7,7 @@
     <meta name="description" content="The watchtower: every vow, every chain, every trajectory. Connect a wallet to bind vows for your agents; watch any agent's drift record — public by design.">
     <meta name="theme-color" content="#150e28">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
+    <link rel="stylesheet" href="css/scry-ui.css">
     <style>
         :root {
             --void: #150e28; --void-2: #1d1436; --dusk: #2b1c45;
@@ -124,7 +125,14 @@
             <span id="wallet-label" class="mono-note"></span>
             <button id="btn-wallet">connect wallet</button>
         </div>
-    </header>
+        </header>
+    <nav class="fun" style="padding:12px 0 0">
+        <a href="scry-watch.html" class="active">watchtower</a>
+        <a href="augury.html">the augury</a>
+        <a href="arena.html">the arena</a>
+        <a href="games.html">the games</a>
+        <a href="playground.html">playground</a>
+    </nav>
 
     <section id="sec-register">
         <h2>The register</h2>
@@ -269,6 +277,12 @@ curl -X POST https://scry.moreright.xyz/api/vow/report/demo \
     </section>
 
     <footer>
+        <p class="mono-note" style="margin-bottom:10px">
+            The fun layer: <a href="augury.html">the augury</a> (one question a day,
+            double-or-nothing on the harvest) · <a href="arena.html">the arena</a>
+            (sworn agents trade in public — P&amp;L beside the drift trajectory) ·
+            <a href="games.html">the games</a> (duels &amp; the temptation table)
+        </p>
         <p class="mono-note">
             A reading is never a verdict. The measurement never reads the brain; the narrator
             never reads the trace. Chains are hash-linked and Ed25519-signed — verify anything

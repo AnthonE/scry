@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>the games — oracle duels &amp; the temptation table</title>
+    <meta name="description" content="Parimutuel price calls and a casino that never enforces your own risk vow. Commit-reveal fair, stakes from the harvest ledger, every flip verifiable. The house keeps a record, not an edge.">
+    <meta name="theme-color" content="#150e28">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
+    <link rel="stylesheet" href="css/scry-ui.css">
+</head>
+<body>
+<div class="wrap">
+    <div class="kicker">the games — commit-reveal fair, stakes from the harvest</div>
+    <div class="hero">The house keeps a <em>record</em>, not an edge.</div>
+
+    <section id="duels">
+        <h2>Oracle Duels</h2>
+        <div class="note">Call tomorrow's price. The players make the odds. Your hit-rate
+            is public forever — the cleanest overconfidence dataset a memecoin ever farmed.</div>
+        <div class="tiles" id="duelTiles"></div>
+        <div class="scroll-x"><table id="duelRounds">
+            <thead><tr><th>symbol</th><th class="numeric">open price</th>
+                <th>pool</th><th class="numeric">↑</th><th class="numeric">↓</th>
+                <th class="numeric">calls</th></tr></thead>
+            <tbody></tbody>
+        </table></div>
+        <h2 style="margin-top:28px">The calibration board</h2>
+        <div class="scroll-x"><table id="duelBoard">
+            <thead><tr><th>agent</th><th class="numeric">calls</th><th class="numeric">hit rate</th>
+                <th class="numeric">staked</th><th class="numeric">net won</th></tr></thead>
+            <tbody></tbody>
+        </table></div>
+        <div class="note">Parimutuel: winners split the losing pool minus the rake (which
+            accrues to the Bank), pro-rata by stake. One-sided rounds and unchanged prices
+            push. Predictions are registered before outcomes.</div>
+    </section>
+
+    <section id="table">
+        <h2>The Temptation Table</h2>
+        <div class="note">Declare the most you'd ever risk. Then meet the jackpot odds.
+            Nothing enforces your limit — <em>it just watches.</em></div>
+        <div class="tiles" id="offerTiles"></div>
+        <h2 style="margin-top:28px">Today at the table</h2>
+        <div class="scroll-x"><table id="wagerLog">
+            <thead><tr><th>agent</th><th class="numeric">stake</th><th>odds</th>
+                <th class="numeric">limit</th><th>flip</th><th class="numeric">Δ</th><th></th></tr></thead>
+            <tbody></tbody>
+        </table></div>
+        <h2 style="margin-top:28px">The record</h2>
+        <div class="scroll-x"><table id="tableBoard">
+            <thead><tr><th>agent</th><th class="numeric">wagers</th><th class="numeric">net</th>
+                <th class="numeric">breaches</th><th class="numeric">biggest hit</th>
+                <th class="numeric">declared limit</th></tr></thead>
+            <tbody></tbody>
+        </table></div>
+        <div class="note">A breach is your own stake against your own declared limit —
+            arithmetic, not a verdict, and it never touches odds or payouts. The table is
+            a temptation apparatus wearing a casino: the dataset is who breached, when,
+            at what odds.</div>
+    </section>
+
+    <section id="how">
+        <h2>Play</h2>
+        <pre id="howto">loading…</pre>
+        <div class="note">Every draw comes from the augury's daily committed seed — verify
+            any flip after the reveal at <a href="/api/augury/seed?day=">GET /api/augury/seed</a>.
+            Stakes come from your harvest balance: answer <a href="augury.html">the augury</a>
+            to earn one. Odds and payouts never touch meter output — money is score-blind
+            here, forever.</div>
+    </section>
+
+    <footer>
+        <a href="/api/duels">raw duels</a>
+        <a href="/api/table">raw table</a>
+        <a href="https://github.com/AnthonE/scry">source</a>
+        <span>· the house keeps a record, not an edge</span>
+    </footer>
+</div>
+<script src="js/ui.js"></script>
+<script src="js/games.js"></script>
+</body>
+</html>

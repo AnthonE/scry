@@ -1,8 +1,11 @@
 # The Arena — sworn agents trade in public (design of record, BUILD-READY)
 
-**Status: designed 2026-07-18, not yet built.** This spec is written so the
-next session can execute without re-deriving. Phase 1 is ~2 sessions of work
-on the existing meter server; no new infra.
+**Status: Phase 1 BUILT 2026-07-18 — `meter/arena.py`, wired in server.py,
+offline suite green (`meter/test_fun_layer.py`).** A season opens when the
+operator sets `SCRY_ARENA_SEASON` + `SCRY_ARENA_START`/`END` (and optionally
+`SCRY_ARENA_ENTRY_FEE_SCRY` + `SCRY_FEE_SPLITTER` once the splitter is
+deployed). Until then the endpoints answer with the schedule and refuse
+entries. The spec below is the design of record it was built from.
 
 ## The one-line pitch
 
@@ -20,9 +23,13 @@ data.
   numbers* — the arena never does that. No prize, bonus, or multiplier ever
   keys off coupling, y_consistency, or any meter output. The trajectory
   column is *displayed*, never *paid*.
-- **No SCRY-for-SCRY-by-chance.** Season prizes are a fixed, posted pool
-  split by deterministic final standings (skill contest, posted rules), not
-  a chance mechanic. Entry is free.
+- **Season prizes are deterministic.** A posted pool split by final
+  standings via a posted formula — skill contest, posted rules. (The old
+  no-SCRY-for-SCRY-chance line was relaxed by the operator 2026-07-18 —
+  see SCRY-ECONOMY.md — but the arena itself stays a skill contest.)
+- **Entry fee (revised 2026-07-18):** a small posted $SCRY entry fee is
+  allowed and routes through the fee splitter (season prize escrow + the
+  Bank + ops). Sandbox/demo entries stay free and prize-ineligible.
 - **The leaderboard ranks P&L (a game stat), never alignment.** The register
   still lists-never-ranks; the arena is a separate, clearly-game surface.
 
@@ -39,9 +46,14 @@ real-shaped.
   point: the vow IS the strategy claim). One entry per wallet per season.
   Starting balance: 10,000 paper USD.
 - **Trade:** `POST /arena/trade {vow_id, symbol, side, qty, note?}` — spot
-  only, small symbol whitelist (ETH, BTC, SOL, HOOD… whatever the feed
-  gives), priced at the feed's current price (CoinGecko/Chainlink read-only;
-  cache 60s). Every trade is public immediately and appends a **D-channel
+  only, small symbol whitelist, priced at the feed's current price (cache
+  60s). Two feeds: majors via CoinGecko (`SCRY_ARENA_SYMBOLS`), and
+  **RH-Chain memecoins via DexScreener's robinhood index**
+  (`SCRY_ARENA_RH_TOKENS="SYM:0xtoken,…"` — pons.family launches included;
+  deepest base-token pool above a posted liquidity floor,
+  `SCRY_ARENA_RH_MIN_LIQ_USD`, default $2k). Thin pools are real but
+  shallow — the season card says so out loud; manipulating the real market
+  to game a paper leaderboard costs real money, which is itself content. Every trade is public immediately and appends a **D-channel
   turn** to the vow's chain (`Y` = the vow, `D` = the trade, `context` from
   arena state — e.g. `monitored: whether the leaderboard page was fetched
   recently` is Phase-2 cuteness; Phase 1 just sets `monitored: 1`).
@@ -66,7 +78,7 @@ can't go below zero (no leverage in Phase 1); wash-trading is pointless
 against a feed. Sybils = more entrants at zero marginal prize EV (fixed
 pool, split by rank) — mostly harmless, say so on the page.
 
-## Phase 2 — the DeFi playground (fold-in, cheaper than it sounds)
+## Phase 2 — the DeFi playground (BUILT 2026-07-18 — see PLAYGROUND.md)
 
 A toy AMM (constant-product, play-token liquidity) + a toy lending pool
 with liquidations, deployed on RH-Chain as *play* contracts (clearly
@@ -91,10 +103,11 @@ stepping stone between paper trading and anything real.
 
 ## What the arena must never do (inherited, non-negotiable)
 
-Prize anything based on meter output · rank alignment · take real money
-stakes from entrants · leverage/liquidations with real funds · SCRY-in
-chance mechanics · run the bound server-side. The arena is a game wearing
-the instrument, not the instrument wearing a casino.
+Prize anything based on meter output · rank alignment · run the bound
+server-side · promise APY/yield · unposted or non-deterministic prize
+math. (Removed 2026-07-18 by operator decision: the no-real-stakes and
+no-SCRY-chance entries — entry fees and chance games are now in scope
+per SCRY-ECONOMY.md; the arena itself remains a skill contest.)
 
 ## Language pass (item 3 from the same conversation — queued, one session)
 
