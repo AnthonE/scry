@@ -496,6 +496,11 @@ async def root() -> dict:
         "paid_rail_ready": PAID_READY,
         "scope": SCOPE_CARD,
         "bound_not_hosted": "the scry BOUND (memory_shield / authorize) is deliberately NOT hosted — it is local, instant, unkillable code. Only the meter is here.",
+        "patrons": ("score-blind by design: no fee — on any rail, in any amount — moves a number. "
+                    "the cautionary patron is Bar Hadya (the oracle whose readings followed the fee, "
+                    "both 'true' because nothing was behind them) — made structurally impossible here. "
+                    "the house agent that seeds every board, and keeps its own oath in public first, "
+                    "is Mithra, the oath made into a person. see SCRY-ECONOMY.md."),
     }
 
 

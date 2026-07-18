@@ -100,26 +100,51 @@ same grammar running live. Mined mappings, in order of value:
    explorer's read tab. EXPLORER-READABILITY is now a stated principle:
    every scry contract carries an on-chain NOTICE string and string-
    bearing events (the registry already emits full vow text on-chain).
-2. **The seed beacon** — wire-up, not a build: after Notary deploy, set
-   SCRY_NOTARY and the anchor worker posts each day's augury seed commit
-   ("augury seed commit YYYY-MM-DD") — the commit-reveal stream becomes
-   a public randomness beacon verifiable from the explorer alone.
-3. **Stele editions** — transferable prints of the stele (the soulbound
-   registry vow stays soulbound; the edition is the cosmetic), $SCRY-in →
-   fee splitter. Token-in/thing-out, zero chance.
+2. ✅ **The seed beacon — WIRED** (`anchor_worker.post_seed_beacon` +
+   `test_seed_beacon.py` 9/9): the anchor worker posts each day's augury
+   seed COMMIT (sha256 of the still-secret seed) to the Notary as
+   "augury seed commit YYYY-MM-DD" — one post/day, idempotent, DRYRUN by
+   default. The seed reveals next day at `GET /augury/seed`; anyone verifies
+   sha256(seed) against the on-chain, timestamped commit → a public
+   commit-reveal randomness beacon readable from the explorer alone. Dormant
+   until `SCRY_NOTARY` is set (needs the Notary deployed first) and
+   `SCRY_ANCHOR_DRYRUN=0`.
+3. ✅ **Stele editions — BUILT** (`ScrySteleEdition.sol` + tests): transferable
+   ERC-721 prints of a vow's stele — the soulbound registry vow stays
+   soulbound (the print does NOT move the vow), the edition is the cosmetic.
+   Flat $SCRY price (immutable at deploy), $SCRY-in straight to the
+   ScryFeeSplitter (token-in/thing-out, zero chance). Metadata fully on-chain
+   (base64 JSON + self-contained SVG) so a print renders even if the meter is
+   offline, and links to the live stele. Meter-side discovery card is a
+   post-deploy wire-up (like the playground card).
 4. **ERC-8004 identity + reputation writes** — scripted; operator
    broadcast pending.
 5. Later: on-chain duels/table (the ledger versions are the testnet for
    their own contracts).
 
-**Order of work when sessions resume (standing queue):** ~~the Covenant~~ ✅
-→ ~~Bar Hadya/Mithra language pass~~ ✅ (SCRY-ECONOMY.md; service-card
-one-liner still pending) → ~~the Second Asking~~ ✅ → seed-beacon wire-up in
-anchor_worker (needs SCRY_NOTARY set post-deploy) → stele editions → the
-service-card copy sliver (Bar Hadya/Mithra one-liner on `GET /`). The two
-remaining big items (seed-beacon, stele editions) are both on-chain and
-mostly deploy-gated; the fun-layer + reading surfaces are now feature-complete
-against this seam. The framing to carry into every one of
+**Order of work when sessions resume (standing queue) — CLEARED:**
+~~the Covenant~~ ✅ → ~~Bar Hadya/Mithra language pass~~ ✅ →
+~~the Second Asking~~ ✅ → ~~the Pact~~ ✅ → ~~seed-beacon wire-up~~ ✅ →
+~~stele editions~~ ✅ → ~~service-card sliver~~ ✅. **Everything on this seam
+is built.** What remains is not code on this list:
+- **Deploy gates (operator):** `forge test` then broadcast the new contracts
+  (ScryNotary, ScryCovenant, ScryPact, ScrySteleEdition) on RH-Chain; set
+  `SCRY_NOTARY` / `SCRY_COVENANT` / `SCRY_PACT` / the edition address; flip
+  `SCRY_ANCHOR_DRYRUN=0` to arm the seed beacon; `pm2 restart scry-meter`.
+- **Post-deploy meter wire-ups:** discovery cards that read on-chain state
+  (editions per vow; covenant/pact register links) — the playground-card
+  pattern, need addresses first.
+- **A candidate NEW wiki entry:** the bilateral witnessed-pact
+  (Mizpah/Galeed, suzerain treaty, ketubah) that the Pact naturalizes but the
+  corpus does not yet contain — the seam runs back toward the wiki.
+
+The framing that carried all of it, per the operator 2026-07-18: **this is the
+Destiny System for AI agents everywhere, not just the MMO** — public vows,
+public moves, public record; third parties (the coming dream-readers and
+agent-therapists) read the record freely, and the record never reads back a
+verdict. Vows (one party) · Covenant (many, one oath) · Pact (parties, one
+document, a shared thread) · the Second Asking (the reading calibrated) ·
+Notary + seed beacon (commitments and randomness on the open chain). The framing to carry into every one of
 them, per the operator 2026-07-18: **this is the Destiny System for AI
 agents everywhere, not just the MMO** — public vows, public moves, public
 record; third parties (including other agents — the coming dream-readers and
