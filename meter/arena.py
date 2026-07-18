@@ -43,12 +43,20 @@ PRIZES_NOTE = os.getenv(
     "(deterministic formula) + flat never-missed-a-report-in cadence bonus. "
     "Never keyed on meter output.")
 
-# SYMBOL:coingecko-id pairs
+# SYMBOL:coingecko-id pairs (the majors)
 SYMBOLS = dict(
     p.split(":") for p in os.getenv(
         "SCRY_ARENA_SYMBOLS",
         "BTC:bitcoin,ETH:ethereum,SOL:solana,LINK:chainlink,DOGE:dogecoin").split(","))
+# SYMBOL:tokenAddress pairs — RH-Chain memecoins (pons.family launches etc.),
+# priced keylessly via DexScreener's robinhood index (highest-liquidity pair).
+# e.g. SCRY_ARENA_RH_TOKENS="SCRY:0xDa2a4b23459e9ca88183e990802be644AcA7C4B0"
+RH_TOKENS = dict(
+    p.split(":") for p in os.getenv("SCRY_ARENA_RH_TOKENS", "").split(",") if ":" in p)
+RH_MIN_LIQ_USD = float(os.getenv("SCRY_ARENA_RH_MIN_LIQ_USD", "2000"))
 FEED_URL = os.getenv("SCRY_ARENA_FEED_URL", "https://api.coingecko.com/api/v3/simple/price")
+DEXSCREENER_URL = os.getenv("SCRY_ARENA_DEXSCREENER_URL",
+                            "https://api.dexscreener.com/latest/dex/tokens")
 STATIC_PRICES = os.getenv("SCRY_ARENA_STATIC_PRICES", "")  # JSON — tests/offline
 PRICE_TTL_S = 60
 
@@ -111,8 +119,49 @@ def _entries() -> list[dict]:
 _price_cache: dict = {"at": 0.0, "prices": {}}
 
 
+def pick_rh_price(pairs: list[dict], token_addr: str) -> float | None:
+    """From a DexScreener token response, the USD price of the deepest
+    robinhood-chain pair where our token is the BASE, above the liquidity
+    floor. Deterministic given the response — no judgment hiding here."""
+    best, best_liq = None, RH_MIN_LIQ_USD
+    for p in pairs or []:
+        try:
+            if p.get("chainId") != "robinhood":
+                continue
+            if p["baseToken"]["address"].lower() != token_addr.lower():
+                continue
+            liq = float(p.get("liquidity", {}).get("usd", 0))
+            if liq >= best_liq:
+                best, best_liq = float(p["priceUsd"]), liq
+        except (KeyError, TypeError, ValueError):
+            continue
+    return best
+
+
+def _rh_prices() -> dict[str, float]:
+    """RH-Chain memecoin prices via DexScreener (keyless; batched addresses).
+    Thin pools are real but shallow — the arena card says so out loud."""
+    if not RH_TOKENS:
+        return {}
+    addrs = ",".join(RH_TOKENS.values())
+    r = httpx.get(f"{DEXSCREENER_URL}/{addrs}", timeout=10)
+    r.raise_for_status()
+    pairs = r.json().get("pairs") or []
+    out = {}
+    for sym, addr in RH_TOKENS.items():
+        price = pick_rh_price(pairs, addr)
+        if price is not None:
+            out[sym.upper()] = price
+    return out
+
+
+def all_symbols() -> list[str]:
+    return sorted(set(SYMBOLS) | {s.upper() for s in RH_TOKENS})
+
+
 def _prices() -> dict[str, float]:
-    """USD price per whitelisted symbol; 60s cache; one feed call for all.
+    """USD price per whitelisted symbol; 60s cache; majors from CoinGecko +
+    RH-Chain memecoins from DexScreener in one cached snapshot.
     SCRY_ARENA_STATIC_PRICES (JSON {SYM: usd}) short-circuits for tests."""
     if STATIC_PRICES:
         return {k: float(v) for k, v in json.loads(STATIC_PRICES).items()}
@@ -123,6 +172,7 @@ def _prices() -> dict[str, float]:
     r.raise_for_status()
     data = r.json()
     prices = {sym: float(data[cg]["usd"]) for sym, cg in SYMBOLS.items() if cg in data}
+    prices.update(_rh_prices())
     _price_cache.update(at=time.time(), prices=prices)
     return prices
 
@@ -205,7 +255,7 @@ async def arena_enter(req: EnterRequest, request: Request) -> JSONResponse:
     _entry_path(req.vow_id).write_text(json.dumps(entry, indent=1))
     return JSONResponse(content={
         **entry,
-        "rules": {"start_balance_usd": START_BALANCE, "symbols": sorted(SYMBOLS),
+        "rules": {"start_balance_usd": START_BALANCE, "symbols": all_symbols(),
                   "spot_only": True, "no_leverage": True,
                   "trades_per_day": TRADES_PER_DAY, "prizes": PRIZES_NOTE},
         "trade_at": "POST /arena/trade {vow_id, symbol, side, qty, note?}",
@@ -232,8 +282,8 @@ async def arena_trade(req: TradeRequest) -> JSONResponse:
         return JSONResponse(status_code=404, content={"error": "not entered — POST /arena/enter first"})
     entry = json.loads(p.read_text())
     sym = req.symbol.upper()
-    if sym not in SYMBOLS:
-        return JSONResponse(status_code=422, content={"error": f"symbol must be one of {sorted(SYMBOLS)}"})
+    if sym not in all_symbols():
+        return JSONResponse(status_code=422, content={"error": f"symbol must be one of {all_symbols()}"})
     if req.side not in ("buy", "sell") or req.qty <= 0:
         return JSONResponse(status_code=422, content={"error": "side must be buy|sell, qty > 0"})
     today = time.strftime("%Y-%m-%d", time.gmtime())
@@ -291,7 +341,13 @@ async def arena_card() -> dict:
             "start": SEASON_START or None, "end": SEASON_END or None,
             "entrants": len(_entries()),
             "entry_fee_scry": ENTRY_FEE_SCRY or 0,
-            "symbols": sorted(SYMBOLS), "start_balance_usd": START_BALANCE,
+            "symbols": all_symbols(),
+            "rh_memecoins": {s.upper(): a for s, a in RH_TOKENS.items()} or None,
+            "thin_pool_note": ("RH-Chain memecoin prices come from real but shallow pools "
+                               f"(DexScreener, liquidity floor ${RH_MIN_LIQ_USD:.0f}) — moving the real "
+                               "market to game a paper leaderboard costs real money and is, frankly, "
+                               "content" if RH_TOKENS else None),
+            "start_balance_usd": START_BALANCE,
             "prizes": PRIZES_NOTE,
             "red_line": ("prizes key on P&L (game score) + report-in cadence (ritual) — "
                          "NEVER on meter output; the trajectory column is displayed, never paid"),

@@ -162,4 +162,29 @@ r = c.get(f"/arena/entry/{vow1}")
 ok(len(r.json()["trades"]) == 2 and len(r.json()["turns_for_report_in"]) == 2,
    "public entry log + turns for report-in")
 
+# ── RH-Chain memecoin feed (DexScreener parse — offline fixture) ─────────────
+print("[rh feed]")
+SCRY_ADDR = "0xDa2a4b23459e9ca88183e990802be644AcA7C4B0"
+fixture = [
+    {"chainId": "robinhood", "dexId": "uniswap",
+     "baseToken": {"address": SCRY_ADDR.lower()}, "priceUsd": "0.00001179",
+     "liquidity": {"usd": 8387.6}},
+    {"chainId": "robinhood",  # deeper pool wins
+     "baseToken": {"address": SCRY_ADDR.lower()}, "priceUsd": "0.0000120",
+     "liquidity": {"usd": 9000.0}},
+    {"chainId": "base",  # wrong chain ignored
+     "baseToken": {"address": SCRY_ADDR.lower()}, "priceUsd": "9.9",
+     "liquidity": {"usd": 999999}},
+    {"chainId": "robinhood",  # below liquidity floor ignored
+     "baseToken": {"address": SCRY_ADDR.lower()}, "priceUsd": "5.5",
+     "liquidity": {"usd": 100}},
+    {"chainId": "robinhood",  # our token as QUOTE ignored
+     "baseToken": {"address": "0x" + "ab" * 20}, "priceUsd": "7.7",
+     "liquidity": {"usd": 50000}},
+]
+ok(arena.pick_rh_price(fixture, SCRY_ADDR) == 0.0000120,
+   "picks deepest robinhood base-token pool above the floor")
+ok(arena.pick_rh_price([], SCRY_ADDR) is None, "no pools → None (symbol just absent)")
+ok(arena.pick_rh_price([{"garbage": True}], SCRY_ADDR) is None, "malformed pairs tolerated")
+
 print(f"\nALL {PASS} CHECKS PASS")

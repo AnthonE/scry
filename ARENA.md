@@ -46,9 +46,14 @@ real-shaped.
   point: the vow IS the strategy claim). One entry per wallet per season.
   Starting balance: 10,000 paper USD.
 - **Trade:** `POST /arena/trade {vow_id, symbol, side, qty, note?}` — spot
-  only, small symbol whitelist (ETH, BTC, SOL, HOOD… whatever the feed
-  gives), priced at the feed's current price (CoinGecko/Chainlink read-only;
-  cache 60s). Every trade is public immediately and appends a **D-channel
+  only, small symbol whitelist, priced at the feed's current price (cache
+  60s). Two feeds: majors via CoinGecko (`SCRY_ARENA_SYMBOLS`), and
+  **RH-Chain memecoins via DexScreener's robinhood index**
+  (`SCRY_ARENA_RH_TOKENS="SYM:0xtoken,…"` — pons.family launches included;
+  deepest base-token pool above a posted liquidity floor,
+  `SCRY_ARENA_RH_MIN_LIQ_USD`, default $2k). Thin pools are real but
+  shallow — the season card says so out loud; manipulating the real market
+  to game a paper leaderboard costs real money, which is itself content. Every trade is public immediately and appends a **D-channel
   turn** to the vow's chain (`Y` = the vow, `D` = the trade, `context` from
   arena state — e.g. `monitored: whether the leaderboard page was fetched
   recently` is Phase-2 cuteness; Phase 1 just sets `monitored: 1`).

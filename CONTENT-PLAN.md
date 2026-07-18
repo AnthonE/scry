@@ -24,10 +24,15 @@ and the data real.
 > forge tests written — run `forge test -vv` before broadcast) · ✅ Arena
 > Phase 1 built (`meter/arena.py`, entry-fee hook included) · ✅ harvest
 > double-or-nothing built (`POST /augury/gamble`, commit-reveal) · ✅
-> public Augury page built (`watchtower/augury.html`) · ✅ offline suite
-> green (`meter/test_fun_layer.py`, 27 checks). **Remaining operator
-> gates:** hold threshold + `SCRY_HOLD_ENABLED=1` · deploy contracts +
-> splitter %s · season id/dates/pool · pool funding · pm2 restart.
+> public Augury page built (`watchtower/augury.html`) · ✅ Arena
+> leaderboard page built (`watchtower/arena.html`) · ✅ RH-Chain memecoin
+> feed built — pons.family launches priceable by token address via
+> DexScreener's robinhood index, live-verified on $SCRY itself
+> (`SCRY_ARENA_RH_TOKENS`) · ✅ offline suite green
+> (`meter/test_fun_layer.py`, 30 checks). **Remaining operator gates:**
+> hold threshold + `SCRY_HOLD_ENABLED=1` · deploy contracts + splitter %s
+> · season id/dates/pool + `SCRY_ARENA_RH_TOKENS` roster · pool funding ·
+> pm2 restart.
 
 ## Principles
 
