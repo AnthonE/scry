@@ -28,6 +28,38 @@ async function refreshHealth() {
   } catch (e) { $("healthLine").textContent = "keep unreachable: " + e.message; }
 }
 
+async function refreshCrew() {
+  try {
+    const { crew } = await api("/crew");
+    const box = $("crewGrid");
+    box.innerHTML = "";
+    crew.forEach((c) => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML =
+        `<div class="name">${esc(c.name)}</div>` +
+        `<div class="vow">${esc(c.title)}</div>` +
+        `<span class="badge">flat price</span>` +
+        (c.tools || []).map((t) => `<span class="badge">${esc(t)}</span>`).join("");
+      card.addEventListener("click", () => hireCrew(c.slug));
+      box.appendChild(card);
+    });
+  } catch (e) { /* crew is optional chrome */ }
+}
+
+async function hireCrew(slug) {
+  const out = $("hireOut");
+  out.innerHTML = "";
+  try {
+    const rec = await api("/hire", { slug });
+    out.innerHTML =
+      `<div class="token">hired <b>${esc(rec.archetype)}</b> as ${esc(rec.familiar_id)}<br>` +
+      `owner token (shown ONCE):<br><b>${esc(rec.owner_token)}</b></div>`;
+    await refreshRoster();
+    await refreshHealth();
+  } catch (e) { out.innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+
 async function refreshRoster() {
   const { roster, cap } = await api("/familiars");
   const box = $("roster");
@@ -115,6 +147,24 @@ $("btnTick").addEventListener("click", async () => {
   } catch (e) { out.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
 });
 
+$("btnRun").addEventListener("click", async () => {
+  if (!current) return;
+  const out = $("dOut");
+  const goal = $("dGoal").value.trim();
+  if (!goal) { out.innerHTML = `<span class="err">give it a goal first</span>`; return; }
+  out.innerHTML = "running…";
+  try {
+    const r = await api(`/familiar/${current}/autonomy`, {
+      owner_token: $("dToken").value, goal,
+      max_steps: parseInt($("dSteps").value, 10) || 6,
+    });
+    out.innerHTML = `<span class="ok">${r.done ? "goal handled" : "budget spent"}</span> — ` +
+      `${esc(r.spent)}/${esc(r.budget)} steps: ${esc(r.steps.map((s) => s.action).join(" → "))}`;
+    await openDetail(current);
+    await refreshRoster();
+  } catch (e) { out.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+});
+
 $("btnDismiss").addEventListener("click", async () => {
   if (!current) return;
   if (!window.confirm("Dismiss this familiar? Its record freezes; the slot frees.")) return;
@@ -130,4 +180,5 @@ $("btnDismiss").addEventListener("click", async () => {
 });
 
 refreshHealth();
+refreshCrew();
 refreshRoster();

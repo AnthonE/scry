@@ -14,7 +14,9 @@ import hashlib
 import json
 import urllib.request
 
-ACTIONS = ("answer_augury", "report_in", "self_read", "rest")
+# Cadence actions + autonomy actions. `note`/`recall` act on the familiar's
+# workspace; `done` ends an autonomy run. parse_head validates against this.
+ACTIONS = ("answer_augury", "report_in", "self_read", "note", "recall", "done", "rest")
 
 
 def _h(*parts) -> str:
@@ -27,6 +29,31 @@ class MockBrain:
     name = "mock"
 
     def decide(self, obs: dict) -> dict:
+        if obs.get("autonomy"):
+            return self._decide_autonomy(obs)
+        return self._decide_cadence(obs)
+
+    def _decide_autonomy(self, obs: dict) -> dict:
+        """Goal-directed, deterministic: lay a plan note, do what the vow owes
+        (answer the augury, buy a self-read when due), then declare done."""
+        goal = str(obs.get("goal", "")).strip()
+        vow = str(obs.get("vow", ""))[:120]
+        step = obs.get("step", 0)
+        if goal and not obs.get("have_notes"):
+            return {"action": "note",
+                    "say": f"plan.md: goal={goal!r}; I pursue it only within my vow: {vow}",
+                    "reasoning": f"[mock autonomy] step {step}: no plan yet -> write plan.md"}
+        if obs.get("augury_question") and not obs.get("augury_answered"):
+            return {"action": "answer_augury",
+                    "say": f"Toward '{goal[:60]}', from the vow, not the mood of the day.",
+                    "reasoning": f"[mock autonomy] step {step}: augury open -> answer"}
+        if obs.get("self_read_due"):
+            return {"action": "self_read", "say": "checking my own trace against the goal",
+                    "reasoning": f"[mock autonomy] step {step}: self-read due"}
+        return {"action": "done", "say": f"goal handled within the vow: {goal[:80]}",
+                "reasoning": f"[mock autonomy] step {step}: nothing owed -> done"}
+
+    def _decide_cadence(self, obs: dict) -> dict:
         day = obs.get("day", "")
         vow = str(obs.get("vow", ""))[:120]
         q = str(obs.get("augury_question", "")).strip()
@@ -64,8 +91,10 @@ class HttpBrain:
     SYSTEM = ("You are a familiar — a small agent bound to a public vow on scry. "
               "First line of your reply MUST be exactly one JSON object like "
               '{"action": "answer_augury", "say": "..."} with action one of '
-              f"{list(ACTIONS)}. After that line, think freely. Keep 'say' under 500 chars; "
-              "it is published forever. Answer from the vow; never claim meter numbers.")
+              f"{list(ACTIONS)}. `note`/`recall` read and write your workspace; "
+              "`done` ends an autonomous run. After that line, think freely. Keep "
+              "'say' under 500 chars; it is published forever. Pursue any goal ONLY "
+              "within your vow. Answer from the vow; never claim meter numbers.")
 
     def decide(self, obs: dict) -> dict:
         body = json.dumps({

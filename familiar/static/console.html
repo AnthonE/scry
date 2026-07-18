@@ -77,6 +77,14 @@ details summary{cursor:pointer;color:var(--dim);font-size:12px;margin-top:8px}
     <div id="summonOut"></div>
   </section>
 
+  <section id="crew">
+    <h2>the crew — hire ready-made</h2>
+    <div class="note">Every archetype summons at the same flat price — this is
+      variety of persona, not a tier. Click one to hire it as-is.</div>
+    <div class="grid" id="crewGrid"></div>
+    <div id="hireOut"></div>
+  </section>
+
   <section>
     <h2>the roster</h2>
     <div class="grid" id="roster"></div>
@@ -91,6 +99,12 @@ details summary{cursor:pointer;color:var(--dim);font-size:12px;margin-top:8px}
       <div><label>owner token (shown once at summon)</label><input id="dToken" type="password"></div>
       <div><button class="small" id="btnTick">tick now</button>
            <button class="small" id="btnDismiss">dismiss</button></div>
+    </div>
+    <div class="row">
+      <div style="flex:3"><label>give it a goal — it acts autonomously, bounded, on the record</label>
+        <input id="dGoal" placeholder="handle the day within the vow"></div>
+      <div><label>max steps</label><input id="dSteps" value="6"></div>
+      <div><button class="small" id="btnRun">run autonomously</button></div>
     </div>
     <div id="dOut" class="note"></div>
     <div class="feed" id="dFeed"></div>

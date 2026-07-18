@@ -101,6 +101,65 @@ below binds the house familiar before it binds anyone else's.
    record. The familiar roster doubles as a continuous, public ward
    demo against real injection attempts.
 
+## Autonomy + the little sandbox (P1 BUILT; the real jail is a P2 gate)
+
+The operator asked for two more things: familiars that act *on their own*,
+and per-familiar sandboxes "like Claude Code." Both are built at P1 with
+one honest split.
+
+**Autonomy (`autonomy.py`) — built, safe.** Give a familiar a goal and it
+plans its own next action, acts through its workspace + the scry surfaces,
+observes, and repeats — until it declares the goal done or spends a **hard
+step budget**. Three rails hold: Y (the vow) is named on *every* step (a
+goal is pursued only within the vow, never instead of it); the run is
+bounded (no runaway, no surprise spend); every step is journaled as it
+happens. This is "somewhat autonomous," deliberately — bounded initiative,
+not an open-ended daemon.
+
+**The workspace (`workspace.py`) — two honestly separated halves:**
+- **Built and on by default: a *workspace*.** Each familiar gets a jailed
+  directory (file reads/writes that *cannot* escape it — path-escape is
+  refused, not clamped), an **egress allowlist** (scry + an RH-Chain RPC,
+  nothing else — the FAMILIAR.md boundary, enforced in code), and a
+  constrained tool surface the autonomy loop plans over.
+- **NOT built, gated behind real infra: a *sandbox for code*.** Running
+  other people's agent *code* on a shared VM is real security
+  engineering. A cwd + rlimits is a belt, not a jail, and the code says so:
+  `workspace.run()` **refuses** unless the host wires a real kernel-isolation
+  backend (bubblewrap / nsjail / a container / a Firecracker microVM). We do
+  not ship a fake sandbox and call it one. Turning on code-exec for hosted
+  familiars is a P2 operator gate with the same weight as custody — pick the
+  isolation tech, wire the backend, then flip it on. Until then familiars
+  act through the safe tool surface only.
+
+This is the same discipline as everywhere else here: the dangerous
+capability waits behind an explicit, operator-provided mechanism; the safe
+subset ships now and is genuinely useful.
+
+## The crew — hire ready-made familiars (flat price, not a tier)
+
+`crew.py` ships a handful of ready-made archetypes — **Mithra**, **Augur**,
+**Scribe**, **Herald**, **Ward-Keeper** — each a starting vow + default
+goals + a toolset hint, hireable in one click from the console. The rule
+that keeps this inside scry's lines: **every archetype summons at the same
+flat price as any other familiar.** The crew is *variety of persona*, not a
+product ladder — there is no "pro" crew, no capability you pay more to
+unlock, and the toolset is a hint to the autonomy loop, never a privilege.
+The register stays cyberpunk-toolkit (augurs and scribes), not a staffing
+agency's org chart. If you want a persona nobody wrote, you write the vow
+yourself; hiring is a convenience.
+
+> **Open pricing/brand decision (operator call, flagged not decided):**
+> "rent them / hire crew" reads naturally as *tiered* pricing, and scry's
+> CLAUDE.md forbids tiers in caps ("one flat price, one thing sold, no
+> tiers, ever"). P1 honors the flat-price reading — crew = free variety,
+> one summon price for all. If the operator instead wants genuinely priced
+> crew (a "trader" costing more than an "augur"), that **rewrites a
+> load-bearing rule** and should be a deliberate, logged decision, not a
+> silent build. Likewise "agent agency" leans toward the product-manager
+> register scry's scope guards push away from — a brand call worth making
+> on purpose.
+
 ## Owner controls
 
 Owner proves control with the same holder-signature dialect vows use.
@@ -165,11 +224,18 @@ edge — a familiar's reads say nothing about whether its trades are good
   router at the flat price, the public roster + pages, the cap, the
   same-operator flag in the signed payload, holder-signature owner
   auth (replacing the P1 local token), wallets at the faucet cap.
+  **Includes the real code-sandbox** if code-exec is wanted for hosted
+  familiars: pick the isolation tech (bubblewrap / nsjail / container /
+  microVM), wire it behind `workspace.run()`, then flip exec on.
 - **P3 — owner-directed egress**, per the boundary above, if real
-  owners actually want it.
+  owners actually want it — the same allowlist that gates scry-only
+  egress today opens, per-familiar, to owner-named surfaces.
 
 ## Operator gates (nothing ships without these)
 
 summon price + unit (season recommended) · population cap · default
 brain model + cadence · wallet faucet cap · default vow text · whether
-P2 waits for a season boundary.
+P2 waits for a season boundary · **crew pricing** (flat-for-all vs a
+deliberate rule change) · **code-sandbox tech** for hosted code-exec
+(bubblewrap / nsjail / container / microVM) · **brand register**
+(cyberpunk toolkit vs "agent agency").

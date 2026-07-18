@@ -17,6 +17,8 @@ sys.path.insert(0, str(_REPO))
 from familiar.brain import MockBrain, parse_head  # noqa: E402
 from familiar.core import Keeper  # noqa: E402
 from familiar.surface import MockSurface  # noqa: E402
+from familiar.workspace import Workspace, Egress, WorkspaceError  # noqa: E402
+from familiar import crew  # noqa: E402
 from turn_record import Turn  # noqa: E402
 
 DAY = "2026-07-18"
@@ -115,6 +117,81 @@ check("parse_head rejects unknown actions to rest",
 check("parse_head degrades unparseable replies to rest",
       parse_head("I simply refuse to emit JSON")[0] == "rest")
 
+# ── workspace: the little sandbox, honestly scoped ────────────────────────
+ws_root = Path(tempfile.mkdtemp(prefix="familiar-ws-"))
+ws = Workspace(ws_root)
+ws.write("plan.md", "goal: keep the record")
+check("workspace read/write/list within the jail",
+      ws.read("plan.md") == "goal: keep the record" and ws.list() == ["plan.md"])
+for bad in ("../escape.txt", "/etc/passwd", "a/../../b"):
+    try:
+        ws.write(bad, "x")
+        check(f"path escape refused: {bad}", False)
+    except WorkspaceError:
+        check(f"path escape refused: {bad}", True)
+try:
+    ws.run(["echo", "hi"])
+    check("code-exec refused without a real sandbox backend", False)
+except WorkspaceError as e:
+    check("code-exec refused without a real sandbox backend",
+          "not a security boundary" in str(e))
+ran = {}
+ws2 = Workspace(Path(tempfile.mkdtemp(prefix="familiar-ws2-")),
+                sandbox_backend=lambda argv, cwd, t: ran.setdefault("call", (argv, cwd)) or {"rc": 0})
+ws2.run(["echo", "hi"])
+check("code-exec runs only through a wired backend", ran["call"][0] == ["echo", "hi"])
+
+eg = Egress()
+check("egress allows scry, denies the open internet",
+      eg.allowed("https://scry.moreright.xyz/api/profile") and not eg.allowed("http://evil.example/x"))
+eg.allow("rpc.rh-chain.example")
+check("egress allowlist is additive", eg.allowed("rpc.rh-chain.example:443"))
+
+# ── autonomy: bounded, sandboxed, Y on every step ─────────────────────────
+akeeper = Keeper(surface=MockSurface(day=DAY), brain_factory=MockBrain,
+                 state_dir=Path(tempfile.mkdtemp(prefix="familiar-auto-")), cap=4)
+arec = akeeper.summon("worker", "I pursue goals only within my vow.", self_read_every=2)
+afam = akeeper.get(arec["familiar_id"])
+run = afam.autonomy("triage the day", max_steps=6, day=DAY)
+check("autonomy writes a plan into the workspace first",
+      "plan.md" in run["workspace"] and "plan.md" in afam.workspace().list())
+check("autonomy answers the augury toward the goal",
+      any(e["kind"] == "augury" for e in afam.life()))
+check("autonomy terminates with done inside the budget",
+      run["done"] and run["spent"] <= run["budget"])
+check("autonomy respects the step budget as a hard cap",
+      afam.autonomy("impossible", max_steps=2, day=DAY)["spent"] <= 2)
+# default-day path (no explicit day) — the real endpoint call shape; must
+# still terminate, not re-answer forever (regression guard for the live bug).
+dfam = akeeper.get(akeeper.summon("dworker", "I finish within my vow.",
+                                  self_read_every=2)["familiar_id"])
+drun = dfam.autonomy("triage with no day given", max_steps=6)
+check("autonomy with default day terminates cleanly (no re-answer loop)",
+      drun["done"] and not any(o["outcome"].get("error") == "already answered today"
+                               for o in drun["steps"] if isinstance(o["outcome"], dict)))
+aturns = afam.turns(limit=100)
+check("every autonomy turn still names Y = the vow (§220)",
+      aturns and all(t["Y"] == "I pursue goals only within my vow." for t in aturns))
+check("autonomy run is bracketed on the public record",
+      any(e["kind"] == "autonomy_start" for e in afam.life())
+      and any(e["kind"] == "autonomy_end" for e in afam.life()))
+
+# ── crew: hire an archetype at the flat price ─────────────────────────────
+check("crew roster marks every archetype flat-priced",
+      all(r["flat_price"] for r in crew.roster()) and len(crew.roster()) >= 4)
+ckeeper = Keeper(surface=MockSurface(day=DAY), brain_factory=MockBrain,
+                 state_dir=Path(tempfile.mkdtemp(prefix="familiar-crew-")), cap=6)
+hired = ckeeper.summon_crew("scribe")
+hfam = ckeeper.get(hired["familiar_id"])
+check("hiring the scribe sets its vow, goals, and archetype",
+      hfam.archetype == "scribe" and hfam.goals
+      and any(e["kind"] == "hired" and e["archetype"] == "scribe" for e in hfam.life()))
+try:
+    ckeeper.summon_crew("senior-vp")
+    check("unknown archetype refused", False)
+except KeyError:
+    check("unknown archetype refused", True)
+
 # ── host API + console ────────────────────────────────────────────────────
 try:
     from fastapi.testclient import TestClient
@@ -140,8 +217,23 @@ try:
           c.post(f"/familiar/{fid}/tick", json={"owner_token": tok}).status_code == 409)
     check("console is served at /",
           "familiar keep" in c.get("/").text)
-    check("console js is served",
-          "btnSummon" in c.get("/static/console.js").text)
+    js = c.get("/static/console.js").text
+    check("console js is served with crew + autonomy controls",
+          "btnSummon" in js and "hireCrew" in js and "btnRun" in js)
+    cr = c.get("/crew").json()
+    check("host /crew lists flat-priced archetypes",
+          cr["crew"] and all(x["flat_price"] for x in cr["crew"]))
+    h = c.post("/hire", json={"slug": "augur"})
+    check("host /hire summons an archetype (201)",
+          h.status_code == 201 and h.json()["archetype"] == "augur")
+    hid, htok = h.json()["familiar_id"], h.json()["owner_token"]
+    a = c.post(f"/familiar/{hid}/autonomy",
+               json={"owner_token": htok, "goal": "keep cadence", "max_steps": 4})
+    check("host autonomy runs bounded and returns a summary",
+          a.status_code == 200 and a.json()["spent"] <= 4)
+    check("host autonomy without token is 403",
+          c.post(f"/familiar/{hid}/autonomy",
+                 json={"owner_token": "no", "goal": "x"}).status_code == 403)
 except ImportError:
     print("  skip host checks (fastapi/httpx not installed)")
 

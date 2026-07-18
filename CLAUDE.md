@@ -327,9 +327,17 @@ morr repo at `private/notes/scry-roadmap-2026-07.md`.**
 9. **The Familiar** (`FAMILIAR.md`) — flat-price summon-a-hosted-player.
    **P1 BUILT 2026-07-18:** `familiar/` = local keep + web console
    (`python3 -m familiar.host` → :8402; sandbox-only, no
-   wallet/custody/payments; 28-check offline suite). All operator gates
-   (price/unit, cap, brain, faucet cap) still unset — do not build P2
-   hosting until the operator names them.
+   wallet/custody/payments; 50-check offline suite). Includes **bounded
+   autonomy** (goal → step-budgeted loop, Y on every step), a
+   **jailed workspace** (path-escape refused, egress allowlist) with
+   **code-exec gated OFF** behind a real-sandbox seam, and **crew
+   archetypes** (augur/scribe/herald/ward-keeper/mithra) — all
+   summonable at the *same flat price* (variety, not tiers). Open
+   operator calls flagged in FAMILIAR.md: crew pricing (holding the
+   flat-price line vs a deliberate rule change), the real code-sandbox
+   tech, and the "agent agency" brand register. All P2 gates
+   (price/unit, cap, brain, faucet cap, sandbox tech) still unset — do
+   not build hosting/custody/code-exec until the operator names them.
 
 ### 2. Robinhood work vector (RH1 → RH5, sequential; quick wins first — 2026-07-18)
 Quick wins from the 07-18 research pass, before/alongside RH1:

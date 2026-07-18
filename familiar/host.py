@@ -58,6 +58,16 @@ class OwnerRequest(BaseModel):
     owner_token: str
 
 
+class HireRequest(BaseModel):
+    slug: str
+    name: str | None = None
+
+
+class AutonomyRequest(OwnerRequest):
+    goal: str
+    max_steps: int = 6
+
+
 class DirectRequest(OwnerRequest):
     self_read_every: int | None = None
     report_every: int | None = None
@@ -90,6 +100,34 @@ async def summon(req: SummonRequest):
 @app.get("/familiars")
 async def familiars():
     return {"roster": keeper.roster(), "cap": CAP}
+
+
+@app.get("/crew")
+async def crew():
+    from .crew import roster as crew_roster
+    return {"crew": crew_roster(),
+            "note": "every archetype summons at the same flat price — variety, not tiers"}
+
+
+@app.post("/hire")
+async def hire(req: HireRequest):
+    try:
+        rec = keeper.summon_crew(req.slug, req.name)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except RuntimeError as e:
+        raise HTTPException(409, str(e))
+    return JSONResponse(rec, status_code=201)
+
+
+@app.post("/familiar/{familiar_id}/autonomy")
+async def autonomy(familiar_id: str, req: AutonomyRequest):
+    if not keeper.authorized(familiar_id, req.owner_token):
+        raise HTTPException(403, "owner token required")
+    fam = keeper.get(familiar_id)
+    if fam.dismissed:
+        raise HTTPException(409, "dismissed familiars do not act")
+    return fam.autonomy(req.goal, max_steps=max(1, min(req.max_steps, 20)))
 
 
 @app.get("/familiar/{familiar_id}")

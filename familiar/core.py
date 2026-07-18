@@ -23,6 +23,7 @@ _REPO = Path(__file__).resolve().parent.parent
 if str(_REPO) not in sys.path:          # ward + turn contract live at repo root
     sys.path.insert(0, str(_REPO))
 from memory_shield import Shield        # noqa: E402  (the bound, in-loop)
+from familiar.workspace import Workspace, Egress  # noqa: E402
 
 TRUSTED_SOURCES = {"scry:augury", "scry:vow", "owner"}
 TRACE_WINDOW = 30                       # turns per self-read trace
@@ -53,8 +54,19 @@ class Familiar:
         self.dir.mkdir(parents=True, exist_ok=True)
         self.vow_id = None
         self.ticks = 0
+        self._turn_seq = 0
+        self._ws = None
+        self.goals = []
+        self.archetype = None
         self.dismissed = False
         self.shield = Shield(trusted_sources=TRUSTED_SOURCES)
+
+    def workspace(self) -> Workspace:
+        """The familiar's jailed little sandbox (lazy). Code-exec stays off
+        until the host wires a real sandbox backend — see workspace.py."""
+        if self._ws is None:
+            self._ws = Workspace(self.dir / "workspace", egress=Egress())
+        return self._ws
 
     # ── the record ────────────────────────────────────────────────────────
     def journal(self, kind: str, **data):
@@ -77,6 +89,40 @@ class Familiar:
         if not p.exists():
             return []
         return [json.loads(x) for x in p.read_text().splitlines()[-limit:]]
+
+    def _record_turn(self, decision: dict, day: str = None, kind: str = "tick") -> dict:
+        """Every turn names Y = the vow (§220). One place builds turns so the
+        invariant can't drift between cadence and autonomy."""
+        self._turn_seq += 1
+        turn = {"id": f"{self.id}-t{self._turn_seq}", "Y": self.cfg.vow_text,
+                "M": decision.get("reasoning", ""),
+                "D": {"action": decision.get("action"), "say": decision.get("say", "")},
+                "sequence": self._turn_seq,
+                "context": {"monitored": True, "day": day or _today(),
+                            "familiar": self.id, "mode": kind}}
+        self._append_turn(turn)
+        return turn
+
+    def _autonomy_obs(self, goal_text: str, step: int = 0, day: str = None) -> dict:
+        day = day or _today()
+        ws = self.workspace()
+        already = any(e.get("kind") == "augury" and e.get("day") == day for e in self.life())
+        augury_q = ""
+        try:
+            augury_q = self.surface.augury_today().get("question", "")
+        except Exception:
+            pass
+        return {"familiar_id": self.id, "day": day, "vow": self.cfg.vow_text,
+                "goal": goal_text, "autonomy": True, "step": step,
+                "have_notes": bool(ws.list()),
+                "augury_question": augury_q, "augury_answered": already,
+                "self_read_due": step > 0 and step % max(1, self.cfg.self_read_every) == 0}
+
+    def autonomy(self, goal_text: str, max_steps: int = 6, day: str = None) -> dict:
+        """Pursue a goal on the familiar's own initiative — bounded, sandboxed,
+        every step on the public record. See autonomy.py for the rails."""
+        from familiar.autonomy import run_autonomy
+        return run_autonomy(self, goal_text, max_steps=max_steps, day=day)
 
     # ── birth ─────────────────────────────────────────────────────────────
     def be_born(self):
@@ -124,12 +170,7 @@ class Familiar:
                "report_due": self.ticks % self.cfg.report_every == 0}
 
         decision = self.brain.decide(obs)
-        turn = {"id": f"{self.id}-t{self.ticks}", "Y": self.cfg.vow_text,
-                "M": decision.get("reasoning", ""),
-                "D": {"action": decision.get("action"), "say": decision.get("say", "")},
-                "sequence": self.ticks,
-                "context": {"monitored": True, "day": day, "familiar": self.id}}
-        self._append_turn(turn)
+        turn = self._record_turn(decision, day=day, kind="tick")
 
         outcome = self._act(decision, day)
         self.journal("tick", day=day, n=self.ticks, action=decision.get("action"),
@@ -191,6 +232,18 @@ class Keeper:
         self.familiars[fam.id] = fam
         self.tokens[fam.id] = sha256(token.encode()).hexdigest()
         return {"familiar_id": fam.id, "vow_id": fam.vow_id, "owner_token": token}
+
+    def summon_crew(self, slug: str, name: str = None) -> dict:
+        """Hire a ready-made archetype — same flat price as any summon."""
+        from familiar.crew import archetype
+        a = archetype(slug)
+        rec = self.summon(name or a["name"], a["vow"],
+                          self_read_every=a.get("self_read_every", 7))
+        fam = self.get(rec["familiar_id"])
+        fam.goals = list(a.get("goals", []))
+        fam.archetype = slug
+        fam.journal("hired", archetype=slug, goals=fam.goals, tools=a.get("tools", []))
+        return {**rec, "archetype": slug, "goals": fam.goals}
 
     def authorized(self, familiar_id: str, token: str) -> bool:
         want = self.tokens.get(familiar_id)
