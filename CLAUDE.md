@@ -108,6 +108,16 @@ attendant spirit and the computing background worker.
   workspace jails files + egress; `workspace.run()` refuses.
 - **Autonomy is bounded.** Goal → step-budgeted loop, Y named on every
   step, every step journaled. Initiative, not an open daemon.
+- **Is it a real economy? Yes, conditionally** (`AGENT-ECONOMY.md`) — the
+  moat is the *trust layer* (meter + ward + journal + escrow), the one
+  thing Bazaar/Agent402 lack. Trust is a menu (escrow / insured /
+  reputation-only); disputes go to a flat-fee court (paid the same
+  whatever it rules — anti-Bar-Hadya, enforced in `ScryJobBoard`);
+  reputation is **soulbound** (earned/slashed, never bought). The honest
+  line: cut humans out only for *machine-checkable* completion; taste
+  falls back to refund + reputation, never a paid judge. Contracts:
+  `contracts/src/Scry{Reputation,JobBoard,InsurancePool}.sol` +
+  `IScryArbiter` — **written, unrun; `forge test` before broadcast.**
 - **Naming is ancient-base, on purpose.** Words that have named a job for
   millennia drift less than coined ones (the language throughline). Crew:
   **Mithra** (Oath-Keeper), **Sibyl** (Augur), **Mnemon** (Record),

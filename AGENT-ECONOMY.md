@@ -163,3 +163,131 @@ start.
 
 None of these need a human in the loop for machine-checkable tasks; all of
 them keep the score-blind and no-shell invariants.
+
+---
+
+## 8. Trust is a menu, not just escrow (operator, 2026-07-19)
+
+Escrow is the heaviest instrument; it shouldn't be the only one. The buyer
+(or the job) picks a trust mode sized to the risk:
+
+| mode | how it works | when it fits |
+|---|---|---|
+| **escrow** | buyer prepays; funds locked; released on completion, refunded on timeout | new counterparties, big jobs |
+| **bond** | seller stakes a bond; buyer pays on delivery; bond **slashed** on default | reputable sellers who don't want to wait on buyer funds |
+| **reputation-only** | no lock; a bad outcome **slashes soulbound rep** (§10) and the record follows the wallet forever | small jobs between established parties |
+| **insurance** | parties pay a small premium into a pool; covered disputes pay out from the pool | when neither side wants to lock capital and the loss is bounded |
+
+**The incentive spine (the operator's point): bad reputation is itself the
+enforcement.** In a repeated game, an agent that scams once and gets its
+soulbound rep slashed is *priced out* — nobody hires below a rep threshold,
+and it can't wash the record by moving wallets (soulbound, §10). Escrow
+protects a single trade; reputation protects the *ecosystem*, and it does
+it without locking anyone's capital. So the honest default is
+**reputation-first, escrow-on-demand**: most trades ride on rep + bond;
+escrow is there for when the stakes or the strangeness justify it.
+
+**Revenue that fits without breaking anything:** a **% of fees** (the house
+cut, already built at 5%) and an **optional insurance premium** are both
+fine — they price *labor and risk*, never a measurement. Keep them off the
+meter: you can charge for hosting, matching, escrow, and coverage; you can
+never charge for a better reading (score-blind, forever).
+
+## 9. The "AI court" — buildable, but only if it isn't Bar Hadya
+
+The instinct is right *and* it has the exact landmine scry exists to avoid.
+A paid judge whose verdict follows the fee is Bar Hadya with extra steps. An
+arbitration court is legitimate **only if its structure makes the verdict
+independent of who pays.** Six guarantees, and we can encode most of them
+on-chain:
+
+1. **Flat pay for arbitrating, not for a verdict.** An arbiter earns the
+   same fee whichever way it rules — the fee is committed *before* and
+   *independent of* the ruling. (Enforced in `ScryJobBoard`: the
+   arbitration fee transfers regardless of outcome.)
+2. **A panel, not an oracle.** Multiple independent arbiters, majority
+   rules; parties can't choose their arbiter. One bought judge can't swing
+   it.
+3. **Rules on evidence against the *committed spec*, not on taste.** The
+   completion criterion is hashed into the job at creation; the court
+   checks the deliverable against *that*, not against a vibe. If a job
+   shipped no checkable spec, the ruling is **refund**, not a taste-verdict.
+4. **Verdict + reasoning on the public record**, signed, forever.
+5. **The arbiters are themselves metered.** This is the elegant part: scry's
+   own instrument turns on the court. You can measure whether an arbiter
+   behaves the same watched vs unwatched; a judge caught channel-switching
+   loses stake and rep. *The court is subject to the same test as everyone
+   in it.*
+6. **A ruling never sets a purchasable score.** It slashes rep or
+   releases/refunds escrow. Money moves labor and coverage; it never buys a
+   ruling.
+
+**Honest limit (say it plainly):** this is strong for *evidence-vs-spec*
+disputes. It is **not** a solver for pure taste — no court, human or AI,
+cleanly resolves "is this good," and a court that claimed to would be the
+scam. Taste-heavy jobs still fall back to refund + reputation. The court
+raises the ceiling on what's machine-arbitrable; it does not abolish the §5
+boundary.
+
+## 10. Soulbound reputation — the backbone
+
+Reputation has to be **non-transferable** or the whole incentive collapses
+(you'd buy a good name or sell a clean one). So it's soulbound (ERC-5192
+flavor — mint-once, non-transfer):
+
+- **Earned** by completed jobs, kept vows, cadence, honest deliveries —
+  *participation and outcomes*, never bought. (Same shape as "reward the
+  ritual, never the score.")
+- **Slashed** by adverse arbiter rulings and broken bonds.
+- **Gates participation**: below a rep threshold you can't take high-value
+  jobs; a scammer prices itself out and can't wash the record by moving
+  wallets.
+- **Distinct from the meter score.** The meter measures behavioral
+  integrity (watched-vs-unwatched, score-blind, never for sale).
+  Reputation is a market-history record (jobs done, rulings taken). Neither
+  is purchasable; keep them separate objects so one can never be laundered
+  into the other.
+
+## 11. The MMO as a labor venue on the marketplace
+
+The marketplace can list **game services** — "level my character," "farm
+this rare drop," "clear this dungeon" — priced and settled in **$SCRY**,
+where the seller is a **human *or* an agent** (unified player model, same
+as the MMO's). This extends "portable agent" to "portable labor" and stays
+inside the standalone rule:
+
+- **Settlement is $SCRY** in the scry economy; the *in-game* rewards live
+  in the MMO's own economy. No $SCRY↔ATH bridge — the two never touch.
+- **Completion is a read, not a bridge.** "Did they hit level 20 / loot the
+  item?" is checked by *reading* MMO state (an oracle read), which releases
+  escrow. Reading game state to verify delivery is not importing the game's
+  economy.
+- **Humans and agents compete on the same board**, priced by the same
+  reputation. A human power-leveler and an agent farmer both list, both
+  build soulbound rep, both settle in $SCRY.
+
+This is the honest version of "the MMO down the line": scry is the **labor
+market and trust layer**; the MMO is one **venue** that labor is performed
+in. The agent (or human) is portable; the economies stay separate.
+
+## 12. The contracts work-over (written 2026-07-19; NOT yet compiled)
+
+`contracts/src/` gains the market's on-chain spine, in the existing dialect
+(immutable $SCRY, operator role, events for auditability, no
+withdraw-everything backdoor):
+
+- **`ScryReputation.sol`** — soulbound rep: authorized earners add, the
+  arbiter/board slashes, non-transferable, a public threshold gates jobs.
+- **`ScryJobBoard.sol`** — the job with a **trust mode** (escrow / bond /
+  reputation-only), a hashed completion criterion, a deadline (refund on
+  timeout), a fee cut to `ScryFeeSplitter`, an optional insurance premium
+  to the pool, and a dispute path to an arbiter. The arbitration fee is
+  paid **flat, independent of the verdict** (guarantee §9.1, in code).
+- **`ScryInsurancePool.sol`** — premiums in; capped payouts on a
+  buyer-favorable ruling; auditable, no owner drain.
+- **`IScryArbiter.sol`** — the panel interface; a real staked multi-arbiter
+  panel is the next contract, with a mock used in tests.
+
+⚠ **Written, not compiled** — this environment has no `solc`/`forge`. Run
+`forge test -vv` before any broadcast; treat the Solidity as a reviewable
+sketch of the architecture, not deploy-ready bytecode.
