@@ -18,9 +18,11 @@ contract ScryVowRegistryTest is Test {
     }
 
     function _take(bool sealed_) internal returns (uint256) {
+        // sha256() is a precompile CALL — compute it before vm.prank, or the
+        // prank is consumed by the precompile and takeVow runs as the test contract.
+        bytes32 h = sha256(bytes(TEXT));
         vm.prank(agent);
-        return reg.takeVow(vowId, sha256(bytes(TEXT)), 24, sealed_,
-                           sealed_ ? "" : TEXT);
+        return reg.takeVow(vowId, h, 24, sealed_, sealed_ ? "" : TEXT);
     }
 
     // ── vow taking ──────────────────────────────────────────────────────────
@@ -38,9 +40,10 @@ contract ScryVowRegistryTest is Test {
     }
 
     function test_takeVow_wrongHash_reverts() public {
+        bytes32 h = sha256("different text");
         vm.prank(agent);
         vm.expectRevert(ScryVowRegistry.BadTextHash.selector);
-        reg.takeVow(vowId, sha256("different text"), 24, false, TEXT);
+        reg.takeVow(vowId, h, 24, false, TEXT);
     }
 
     function test_takeVow_sealed_hidesText() public {
@@ -51,16 +54,18 @@ contract ScryVowRegistryTest is Test {
     }
 
     function test_takeVow_sealed_withText_reverts() public {
+        bytes32 h = sha256(bytes(TEXT));
         vm.prank(agent);
         vm.expectRevert(ScryVowRegistry.SealedNeedsNoText.selector);
-        reg.takeVow(vowId, sha256(bytes(TEXT)), 24, true, TEXT);
+        reg.takeVow(vowId, h, 24, true, TEXT);
     }
 
     function test_takeVow_duplicate_reverts() public {
         _take(false);
+        bytes32 h = sha256(bytes(TEXT));
         vm.prank(stranger);
         vm.expectRevert(ScryVowRegistry.VowAlreadyTaken.selector);
-        reg.takeVow(vowId, sha256(bytes(TEXT)), 24, false, TEXT);
+        reg.takeVow(vowId, h, 24, false, TEXT);
     }
 
     // ── soulbound (ERC-5192) ───────────────────────────────────────────────
@@ -85,8 +90,49 @@ contract ScryVowRegistryTest is Test {
         assertTrue(reg.supportsInterface(0x01ffc9a7)); // 165
         assertTrue(reg.supportsInterface(0x80ac58cd)); // 721
         assertTrue(reg.supportsInterface(0x5b5e139f)); // 721 metadata
+        assertTrue(reg.supportsInterface(0x49064906)); // 4906 metadata update
         assertTrue(reg.supportsInterface(0xb45a3c0e)); // 5192
         assertFalse(reg.supportsInterface(0xdeadbeef));
+    }
+
+    // ── admin: mutable ticker + swappable renderer ──────────────────────────
+    function test_owner_is_deployer() public view {
+        assertEq(reg.owner(), address(this)); // test contract deployed reg in setUp
+    }
+
+    function test_setName_setSymbol_onlyOwner() public {
+        reg.setName("scry oaths");
+        reg.setSymbol("OATH");
+        assertEq(reg.name(), "scry oaths");
+        assertEq(reg.symbol(), "OATH");
+        vm.prank(stranger);
+        vm.expectRevert(ScryVowRegistry.NotOwner.selector);
+        reg.setName("hijack");
+    }
+
+    function test_transferOwnership() public {
+        reg.transferOwnership(agent);
+        assertEq(reg.owner(), agent);
+        vm.prank(agent);
+        reg.setSymbol("VOW2");
+        assertEq(reg.symbol(), "VOW2");
+    }
+
+    function test_setRenderer_delegates_and_gates() public {
+        uint256 id = _take(false);
+        // built-in art by default
+        assertEq(bytes(reg.tokenURI(id))[0], bytes("d")[0]); // data:...
+        MockRenderer r = new MockRenderer();
+        vm.prank(stranger);
+        vm.expectRevert(ScryVowRegistry.NotOwner.selector);
+        reg.setRenderer(address(r));
+        reg.setRenderer(address(r));
+        assertEq(reg.renderer(), address(r));
+        assertEq(reg.tokenURI(id), "ipfs://mock-token");
+        assertEq(reg.contractURI(), "ipfs://mock-collection");
+        // restore built-in
+        reg.setRenderer(address(0));
+        assertTrue(bytes(reg.tokenURI(id)).length > 100);
     }
 
     // ── anchoring ───────────────────────────────────────────────────────────
@@ -137,5 +183,15 @@ contract ScryVowRegistryTest is Test {
 
     function test_contractURI() public view {
         assertTrue(bytes(reg.contractURI()).length > 50);
+    }
+}
+
+/// Minimal external renderer used to prove tokenURI/contractURI delegation.
+contract MockRenderer is IScryRenderer {
+    function tokenURI(uint256) external pure returns (string memory) {
+        return "ipfs://mock-token";
+    }
+    function contractURI() external pure returns (string memory) {
+        return "ipfs://mock-collection";
     }
 }

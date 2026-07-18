@@ -1,6 +1,6 @@
 # The wiki seam — what Cut-the-Ouroboros gives scry (and what goes on-chain)
 
-**2026-07-18.** The wiki (147 entries) is the field-notes corpus; scry is the
+**2026-07-18.** The wiki (146 entries) is the field-notes corpus; scry is the
 same grammar running live. Mined mappings, in order of value:
 
 ## Built
@@ -8,7 +8,7 @@ same grammar running live. Mined mappings, in order of value:
   (`tradition: {title, url}` in `GET /augury`): Mithra asks about being
   watched, Bar Hadya about manufactured meaning, Ketef Hinnom about
   retelling your own text. The wiki is the field notes; the augury is the
-  field notes asking *you* the question. 147 entries deep — the bank can
+  field notes asking *you* the question. 146 entries deep — the bank can
   grow for years.
 - **The mark + the stele** ✅ — named from ketef-hinnom / defixio /
   self-executing-oath (the seal authenticates; the stele displays).

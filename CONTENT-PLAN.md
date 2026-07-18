@@ -29,7 +29,7 @@ and the data real.
 > feed built — pons.family launches priceable by token address via
 > DexScreener's robinhood index, live-verified on $SCRY itself
 > (`SCRY_ARENA_RH_TOKENS`) · ✅ offline suite green
-> (`meter/test_fun_layer.py`, 30 checks) · ✅ **Oracle Duels built**
+> (`meter/test_fun_layer.py`) · ✅ **Oracle Duels built**
 > (`meter/duels.py` — parimutuel daily up/down calls on the harvest
 > ledger, rake → Bank accumulator, public calibration board) · ✅ **the
 > Temptation Table built** (`meter/table.py` — declared risk limit,
@@ -38,7 +38,7 @@ and the data real.
 > **DeFi playground built** (`PLAYGROUND.md` — PlayToken pGOLD/pTEARS
 > faucets + ScryGarden AMM + ScryBurrow lending w/ liquidations,
 > garden-spot oracle manipulable on purpose; `GET /playground` discovery
-> card; deploy via `DeployPlayground.s.sol`) · suite now 54 checks.
+> card; deploy via `DeployPlayground.s.sol`) · suite now 114 checks.
 > **Remaining operator gates:**
 > hold threshold + `SCRY_HOLD_ENABLED=1` · deploy contracts + splitter %s
 > · season id/dates/pool + `SCRY_ARENA_RH_TOKENS` roster · pool funding ·

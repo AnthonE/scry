@@ -2,14 +2,12 @@
 """Deploy-time smoke test for the scry meter endpoint.
 
 Exercises the shape the DoD asks for + the invariants the honesty carding
-depends on:
-
-  1. GET  /health      — 200, JSON, paid_rail_ready bool.
-  2. GET  /pubkey      — 200, JSON, non-empty Ed25519 pubkey.
-  3. GET  /            — 200, JSON, embeds the scope card.
-  4. POST /demo/profile — 200, JSON, returns a profile + scope card, attested=False.
-  5. POST /profile      — 402 with a `payment-required` header carrying at least
-                         one PaymentOption (i.e. the rail-list is non-empty).
+depends on: core meter (health / pubkey / service card / demo profile /
+402-with-rails), the agent-discovery surfaces (.well-known manifests,
+schemas, llms.txt), the vow oracle (take-vow → report-in → ledger →
+reading → second asking), the hosted /mcp mount, and a GET across every
+fun-layer surface (augury / arena / duels / table / playground /
+covenants / pacts / datasets / onchain).
 
 Zero credentials, zero on-chain moves. Safe to run on every deploy — if any
 step fails, exit non-zero.
@@ -254,7 +252,26 @@ def main() -> None:
         _fail("/mcp", "MCP endpoint not mounted (404)")
     _ok("/mcp", f"mounted (status {code} on bare GET — expected non-404)")
 
-    print("PASS — meter live, agent-discoverable, vow oracle chained + verified.")
+    # 9. Fun-layer surfaces — every card answers 200 JSON. (Deeper coverage is
+    # offline in test_fun_layer.py; this only proves each surface is mounted.)
+    for path, label in (("/augury", "augury card"), ("/arena", "arena card"),
+                        ("/duels", "duels card"), ("/table", "table card"),
+                        ("/playground", "playground card"),
+                        ("/covenants", "covenant registry"),
+                        ("/pacts", "pact registry"),
+                        ("/datasets", "datasets index"),
+                        ("/onchain", "onchain contracts card")):
+        code, _, body = _req("GET", f"{base}{path}")
+        if code != 200:
+            _fail(path, f"expected 200, got {code}")
+        try:
+            json.loads(body)
+        except Exception:
+            _fail(path, "response is not JSON")
+        _ok(path, label)
+
+    print("PASS — meter live, agent-discoverable, vow oracle chained + verified, "
+          "fun layer mounted.")
 
 
 if __name__ == "__main__":

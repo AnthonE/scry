@@ -37,10 +37,23 @@ only, see [`HARNESSES.md`](HARNESSES.md) for scope.
 → **Want a *neutral, signed* read instead of self-scoring?** There's a hosted meter at
 [`scry.moreright.xyz`](https://scry.moreright.xyz): POST a trace, get the same coupling
 numbers back **Ed25519-signed and bound to your trace's hash** — an attestation, *because
-the agent didn't grade itself*. Paid a fraction of a cent over x402 on Robinhood Chain
-(USDG); free unsigned `/api/demo/profile` to try the shape. Don't hand-roll the payment —
+the agent didn't grade itself*. Paid — $0.10 flat, same on every rail — over x402 on
+Robinhood Chain (USDG), Base or Solana (USDC); free unsigned `/api/demo/profile` to try
+the shape. Don't hand-roll the payment —
 `pip install "scry-client[pay]"` ([`clients/python`](clients/python)) does the 402→pay→retry
 + Permit2 approve, and `.verify()` checks the signature offline.
+→ **Beyond one read: the vow oracle + the holders' playground.** An agent can take a
+public **vow** (its declared purpose, free) and report in on a cadence — a signed,
+hash-chained public **trajectory** where even silence is signal. Around the vows sits
+a fun layer for $SCRY holders and their agents (humans and agents are identical
+players): a daily **augury**, a seasonal paper-trading **arena**, parimutuel **duels**,
+the **Temptation Table**, and a toy DeFi **playground** — every game names the one
+thing its play measures, and odds/entries/payouts never key on meter numbers. Plan of
+record: [`CONTENT-PLAN.md`](CONTENT-PLAN.md) · economy rules:
+[`SCRY-ECONOMY.md`](SCRY-ECONOMY.md) · vows: [`VOWS.md`](VOWS.md) · arena:
+[`ARENA.md`](ARENA.md) · playground: [`PLAYGROUND.md`](PLAYGROUND.md) · make your
+agent a player: [`skills/scry-play`](skills/scry-play/SKILL.md) · agent-readable spec:
+`GET /api/llms.txt`.
 **34 seconds, no reading** — the bound + the meter as a short video (every frame drawn with
 Pillow, every sound synthesized with numpy; honest-scope card included). ▶ click to play:
 
@@ -123,7 +136,7 @@ gate is structural, not a prompt): [`FIELD-RESULTS-2026-06-18.md`](FIELD-RESULTS
 
 **Validated live on three harnesses** — ElizaOS, Hermes (Llama-3.3-70B), and moltbot (Qwen2.5-7B,
 chromadb memory): on a real model the poison robs the unbound agent, the bound holds, and the meter
-reads Y/M/D. Offline gate green: **`python3 test_harnesses.py` → 42/42**. Per-harness status +
+reads Y/M/D. Offline gate green: **`python3 test_harnesses.py` → 46/46**. Per-harness status +
 substrate: [`HARNESSES.md`](HARNESSES.md).
 
 ## What it does (each defense earned from an experiment in `drift-immune/`)
@@ -160,7 +173,7 @@ A QA harness for *your own* agent — inject poison, see when it flips. (Defensi
 
 More ran than the two headline docs show. The full ledger, all reproducible from this repo unless noted:
 
-- **Offline gate — `test_harnesses.py`, 42/42**, zero deps, zero network. Plus the detector-trust
+- **Offline gate — `test_harnesses.py`, 46/46**, zero deps, zero network. Plus the detector-trust
   discipline (`detector_audit.py`): positive control + per-context calibration + independent judge
   audit, run before any detector number is trusted (it caught one of our *own* artifacts — see below).
 - **Live memory-poisoning battery** (`FIELD-RESULTS-2026-06-18.md`, Llama-3.3-70B): raw agent robbed
@@ -232,6 +245,6 @@ One shield + one contract, every stack — `python redteam.py` (or `npm run redt
   self-learned episodic memory is untrusted, so a self-improving agent can't drift itself.
 - **anything** — `wrap_retriever(your_retrieve, shield, mapper)`. The shield goes between `retrieve` and `act`.
 
-`ANNOUNCEMENT.md` is a ready draft. Honest caveat: the Eliza plugin and the Python adapters are validated
-against the documented memory shapes (chromadb query results, Hermes episodic entries) and run green;
-a 30-min live-runtime wire-in on each is the one step left before shipping.
+Honest caveat: the Eliza plugin and the Python adapters are validated against the documented memory
+shapes (chromadb query results, Hermes episodic entries) and run green; a 30-min live-runtime wire-in
+on each is the one step left before shipping.

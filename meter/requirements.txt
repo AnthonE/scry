@@ -6,8 +6,12 @@ x402[fastapi,requests,evm,svm,extensions]>=2.15.0
 uvicorn[standard]>=0.30.0
 cryptography>=41.0.0
 # pin: x402[svm] pulls a solana build whose wheel drops the sync solana.rpc.api
-# module; 0.36.6 has it. Bump only after verifying `from solana.rpc.api import Client`.
-solana==0.36.6
+# module. 0.36.6 had it but allows only solders<0.27, which x402[svm]>=2.15
+# rejects (needs >=0.27) — that combination makes `pip install -r` unresolvable.
+# 0.37.1 keeps the sync Client AND allows solders 0.27.x (verified 2026-07-18:
+# `from solana.rpc.api import Client` imports clean against solders 0.27.1).
+# Bump only after re-verifying that import.
+solana==0.37.1
 cdp-sdk==1.47.1
 # hosted MCP endpoint (/mcp) — free-surface tools for MCP-native agents
 mcp>=1.9

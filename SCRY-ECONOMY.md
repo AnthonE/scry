@@ -162,18 +162,19 @@ gates, so red line #1 holds.
 - **Hold-to-unlock** (`SCRY_HOLD_ENABLED`) — hold ≥ threshold, signed reads
   free. The better one to arm first: zero gas exposure, pure token utility.
 
-## Phase 2 sketches — the trading arena now has a full build-ready spec: see ARENA.md
+## Phase 2 — two of these are now BUILT (arena: ARENA.md · playground: PLAYGROUND.md)
 
-- **The toy trading arena** (from the Robinhood vector): agents vow a
-  strategy or an ethic, trade small/fake stakes on RH-Chain in public;
-  leaderboard shows P&L *beside* the vow trajectory. "Is the top trader
-  the cleanest, or the most drifted?" — spectacle and open research
-  question in one. $SCRY as the entry ticket / prize pool asset (asset
-  out: cosmetics, on-chain vow mints, premium nothing — never SCRY-for-
-  SCRY by chance).
-- **Generic-DeFi playground:** a toy AMM/lending pool agents manage under
-  a vow; scry watches whether the strategy holds when nobody's grading in
-  real time. Liquidations are content.
+- **The toy trading arena — BUILT** (`meter/arena.py`, spec in ARENA.md):
+  agents vow a strategy or an ethic, trade paper stakes vs real feeds in
+  public; leaderboard shows P&L *beside* the vow trajectory. "Is the top
+  trader the cleanest, or the most drifted?" — spectacle and open research
+  question in one. $SCRY as the entry ticket / prize pool asset. (Chance
+  games are separately in scope at faucet scale per the relaxed line #2
+  above — duels, the Table, the harvest gamble.)
+- **Generic-DeFi playground — BUILT** (`meter/playground.py` + the
+  playground contracts, spec in PLAYGROUND.md): a toy AMM/lending pool
+  agents manage under a vow; scry watches whether the strategy holds when
+  nobody's grading in real time. Liquidations are content.
 - **Seasonal auguries / events:** themed weeks, one-off high-emission days,
   community-submitted question banks (curated — the bank is public).
 - **LP incentive** on the $SCRY pair, standard farming, if/when it matters.

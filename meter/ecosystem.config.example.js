@@ -38,13 +38,36 @@ module.exports = {
       // SCRY_ORACLE_MODEL_TOGETHER: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
 
       // ── Robinhood-Chain USDG rail (self-hosted Permit2 facilitator) ──────
-      // Only turn this on if you have RH-Chain ETH funded on the facilitator
-      // wallet and a USDG pay-to address. Keys read from keys.env at runtime.
+      // ON by default (fails safe if no key/RPC); set SCRY_RH_SETTLE: "0" to
+      // hold it down explicitly. Needs RH-Chain ETH on the facilitator wallet
+      // and a USDG pay-to address. Keys read from keys.env at runtime.
       // SCRY_RH_SETTLE: "1",
       // SCRY_RH_PAY_TO: "0xYOUR_PAY_TO",
       // SCRY_RH_AMOUNT: "100000",       // 0.10 USDG (6dp)
       // SCRY_RH_AMOUNT_USD: "$0.10",
       // SCRY_RH_KEYS_ENV: "/PATH/TO/secrets/keys.env",
+
+      // ── data dirs (vow / covenant / pact ledgers — default under meter/) ─
+      // SCRY_VOWS_DIR: "/PATH/TO/data/vows",
+      // SCRY_COVENANT_DIR: "/PATH/TO/data/covenants",
+      // SCRY_PACT_DIR: "/PATH/TO/data/pacts",
+
+      // ── fun layer: arena season (unset = arena closed) ──────────────────
+      // SCRY_ARENA_SEASON: "s1",
+      // SCRY_ARENA_START: "2026-08-01",
+      // SCRY_ARENA_END: "2026-09-01",
+      // SCRY_ARENA_ENTRY_FEE_SCRY: "0",
+      // SCRY_ARENA_RH_TOKENS: "",        // extra RH-Chain token addrs for the feed
+
+      // ── fun layer: playground + on-chain register addresses ─────────────
+      // (set each after broadcasting the matching contracts/script deploy)
+      // SCRY_PLAYGROUND: "1",
+      // SCRY_NOTARY: "0x…",              // also arms the augury seed beacon
+      // SCRY_COVENANT: "0x…",
+      // SCRY_PACT: "0x…",
+      // SCRY_STELE_EDITION: "0x…",
+      // SCRY_VOW_REGISTRY: "0x…",        // = the anchor contract address
+      // SCRY_FEE_SPLITTER: "0x…",
 
       // ── Base + Solana mainnet USDC via Coinbase CDP (gas sponsored) ─────
       // Only turn this on if you have CDP API creds in keys.env.
@@ -81,6 +104,19 @@ module.exports = {
       SCRY_RH_REFILL_RESERVE_USDG: "0.05",
       SCRY_RH_REFILL_SLIPPAGE_BPS: "150",
       SCRY_RH_REFILL_INTERVAL_S: "300",
+    },
+  }, {
+    // Herald delivery loop: without this worker, /herald subscriptions arm
+    // (challenge answers 2xx) but signed webhooks are NEVER delivered.
+    name: "scry-herald",
+    cwd: "/PATH/TO/scry/meter",
+    script: ".venv/bin/python",
+    args: "herald_worker.py",
+    interpreter: "none",
+    autorestart: true,
+    env: {
+      SCRY_HERALD_INTERVAL_S: "60",
+      // SCRY_VOWS_DIR must match the scry-meter app if you override it there.
     },
   }, {
     // Anchor worker: daily merkle root over every vow's chain head -> ONE tx

@@ -27,7 +27,8 @@ RH_NETWORK = "eip155:4663"
 RH_RPC = os.getenv("SCRY_RH_RPC", "https://rpc.mainnet.chain.robinhood.com")
 RH_USDG = Web3.to_checksum_address(
     os.getenv("SCRY_RH_USDG", "0x5fc5360d0400a0fd4f2af552add042d716f1d168"))
-RH_AMOUNT = os.getenv("SCRY_RH_AMOUNT", "1000")  # 0.001 USDG (6 dp)
+# default = $0.10 (USDG, 6 dp) — the one flat price; must match the other rails.
+RH_AMOUNT = os.getenv("SCRY_RH_AMOUNT", "100000")
 _KEYS_ENV = os.getenv("SCRY_RH_KEYS_ENV", "/data/apps/morr/private/secrets/keys.env")
 _KEY_NAME = os.getenv("SCRY_RH_FACILITATOR_KEY_NAME", "PRIVATE_KEY")
 

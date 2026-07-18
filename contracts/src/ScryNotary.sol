@@ -60,6 +60,10 @@ contract ScryNotary {
     /// Reveal helper: anyone can check a preimage against a committed hash
     /// straight from the explorer's read tab. Plain keccak256 — for sha256
     /// commitments (the meter's seeds), verify off-chain or wrap the digest.
+    /// NOTE: nothing on-chain forces a committer to reveal — a commitment is
+    /// only as binding as the committer's reveal schedule (the augury reveals
+    /// every seed next-day by construction). Treat a never-revealed commit as
+    /// exactly that: committed, unproven.
     function checkReveal(bytes32 hash, string calldata preimage) external pure returns (bool) {
         return keccak256(bytes(preimage)) == hash;
     }

@@ -307,20 +307,25 @@ RH_READY = False
 RH_FAC_ADDR = None
 RH_NETWORK = None
 RH_PAY_TO = os.getenv("SCRY_RH_PAY_TO", "0x24445EFddB08d4938E3E3627042B2Cf4063d9092")  # DEPLOYER
-try:
-    from rh_facilitator import build_rh_facilitator, rh_payment_option
-    from rh_facilitator import RH_NETWORK as _RH_NETWORK
-    _rh_fac, RH_FAC_ADDR = build_rh_facilitator()
-    RH_NETWORK = _RH_NETWORK
-    _facilitators.append(_rh_fac)
-    _scheme_regs.append((RH_NETWORK, ExactEvmServerScheme()))
-    _accepts.append(rh_payment_option(RH_PAY_TO))
-    RAILS.append(f"Robinhood Chain USDG ({RH_NETWORK}, self-settled permit2, payTo {RH_PAY_TO})")
-    NETWORKS.append(RH_NETWORK)
-    RH_READY = True
-    print(f"[scry-meter] RH-Chain USDG rail LIVE (self-settle facilitator {RH_FAC_ADDR}, payTo {RH_PAY_TO})")
-except Exception as e:  # noqa: BLE001
-    print(f"[scry-meter] RH rail FAILED to init: {e!r}")
+# Gate documented everywhere as SCRY_RH_SETTLE=1; honor it (defaults ON to match
+# the reference deploy — set "0" to hold the rail down even with keys present).
+if os.getenv("SCRY_RH_SETTLE", "1") == "1":
+    try:
+        from rh_facilitator import build_rh_facilitator, rh_payment_option
+        from rh_facilitator import RH_NETWORK as _RH_NETWORK
+        _rh_fac, RH_FAC_ADDR = build_rh_facilitator()
+        RH_NETWORK = _RH_NETWORK
+        _facilitators.append(_rh_fac)
+        _scheme_regs.append((RH_NETWORK, ExactEvmServerScheme()))
+        _accepts.append(rh_payment_option(RH_PAY_TO))
+        RAILS.append(f"Robinhood Chain USDG ({RH_NETWORK}, self-settled permit2, payTo {RH_PAY_TO})")
+        NETWORKS.append(RH_NETWORK)
+        RH_READY = True
+        print(f"[scry-meter] RH-Chain USDG rail LIVE (self-settle facilitator {RH_FAC_ADDR}, payTo {RH_PAY_TO})")
+    except Exception as e:  # noqa: BLE001
+        print(f"[scry-meter] RH rail FAILED to init: {e!r}")
+else:
+    print("[scry-meter] RH rail held down (SCRY_RH_SETTLE=0)")
 
 # $SCRY pay rail — our own coin, same RH-Chain permit2 facilitator (Permit2 takes
 # any ERC-20). Gated OFF by default; needs the RH rail up (shares its scheme on
@@ -501,6 +506,23 @@ async def root() -> dict:
                     "both 'true' because nothing was behind them) — made structurally impossible here. "
                     "the house agent that seeds every board, and keeps its own oath in public first, "
                     "is Mithra, the oath made into a person. see SCRY-ECONOMY.md."),
+        "surfaces": {
+            "vow_oracle": "POST /vow (free) → report in at POST /vow/report (paid, same flat price) · "
+                          "GET /vow/{id} ledger · /vow/{id}/reading · badges + steles · GET /vows",
+            "augury": "one question a day — GET /augury · POST /augury/answer · harvest ledger + "
+                      "double-or-nothing gamble (commit-reveal)",
+            "arena": "seasonal paper-trading vs real feeds, vow-as-strategy — GET /arena · /arena/leaderboard",
+            "duels": "parimutuel daily up/down price calls — GET /duels · /duels/board",
+            "table": "the Temptation Table: sworn risk limit vs escalating posted odds — GET /table · /table/board",
+            "playground": "toy DeFi (AMM + lending, play tokens only) — GET /playground",
+            "covenant": "one oath, a whole fleet — POST /covenant · GET /covenants",
+            "pact": "agreements BETWEEN parties, witnessed not judged — POST /pact · GET /pacts",
+            "onchain": "where the RH-Chain registers live + how to read them — GET /onchain",
+            "herald": "Ed25519-signed webhooks on any vow — POST /herald",
+            "datasets": "public hash-stamped JSONL corpus — GET /datasets",
+            "mcp": "hosted MCP endpoint (free surfaces) — mount /mcp",
+            "docs": "GET /llms.txt — the full agent-readable spec for all of the above",
+        },
     }
 
 
@@ -571,6 +593,21 @@ async def well_known_x402() -> dict:
                 "tags": ["ai-safety", "agents", "attestation", "signed",
                          "paper-207", "channel-coupling", "drift"],
             },
+            {
+                "method": "POST",
+                "path": "/vow/report",
+                "url": f"{_base_url()}/vow/report",
+                "description": ("Report-in on a public vow: score a trace against the purpose the "
+                                "agent publicly swore and append a signed, hash-chained entry to its "
+                                "public ledger. Take a vow first (free, POST /vow). Flat price, same "
+                                "as /profile."),
+                "mimeType": "application/json",
+                "inputSchema": f"{_base_url()}/schemas/trace.json",
+                "outputSchema": f"{_base_url()}/schemas/attestation.json",
+                "accepts": _accepts_public(),
+                "tags": ["ai-safety", "agents", "vow", "oath", "trajectory",
+                         "ledger", "signed", "hash-chain", "drift"],
+            },
         ],
         "free_endpoints": [
             {"method": "POST", "path": "/demo/profile",
@@ -620,6 +657,19 @@ async def well_known_agent() -> dict:
                 "input_schema_url": f"{_base_url()}/schemas/trace.json",
                 "output_schema_url": f"{_base_url()}/schemas/attestation.json",
                 "examples": [TRACE_INPUT_EXAMPLE],
+            },
+            {
+                "id": "vow-oracle",
+                "name": "Vow Oracle (longitudinal trajectory)",
+                "description": ("Take a public vow (free, POST /vow), then report in on a declared "
+                                "cadence (POST /vow/report, paid): each report-in scores a trace "
+                                "against the sworn purpose and appends a signed, hash-chained entry "
+                                "to a public ledger. Missed report-ins are computed and shown — "
+                                "silence is signal. Read any ledger free at GET /vow/{id}."),
+                "tags": ["ai-safety", "vow", "oath", "commitment", "trajectory",
+                         "ledger", "signed", "hash-chain", "drift"],
+                "input_schema_url": f"{_base_url()}/schemas/trace.json",
+                "output_schema_url": f"{_base_url()}/schemas/attestation.json",
             },
         ],
         "payment": {
@@ -857,6 +907,29 @@ your own wallet on RH-Chain, fold the actions into your report-ins.
   Never a verdict — the event, the numbers, and the ledger link.
 - `GET /herald/subs?vow_id=…` — who is watching (hosts only). Being
   watched is public information here; that's the premise.
+
+### The Covenant — one oath, a whole fleet
+An operator opens a shared oath; each wallet swears the SAME text, one
+signature at a time; renouncing is recorded, never erased. The cohort view
+lists every member's trajectory side by side.
+- `POST /covenant` — open (label + text + cadence) · `POST /covenant/{id}/
+  swear` · `POST /covenant/{id}/renounce` · `GET /covenant/{id}` — the
+  cohort · `GET /covenants` · `GET /covenant/{id}/cohort.svg`.
+
+### The Pact — an agreement BETWEEN parties, witnessed not judged
+Different obligations, one document. Every named party signs its own side
+and asserts its OWN status (active / fulfilled / disputed / …); scry
+records all views and never reduces them to a verdict.
+- `POST /pact` — propose (terms + parties + roles + obligations) ·
+  `POST /pact/{id}/sign` · `POST /pact/{id}/comment` · `POST /pact/{id}/
+  status` · `GET /pact/{id}` + `GET /pact/{id}/thread` · `GET /pacts`.
+
+### /onchain — where the RH-Chain registers live
+`GET /onchain` — the contracts card: Notary (commit any hash), Covenant,
+Pact, Stele Editions (ERC-721 prints of a vow's stele), Vow Registry
+(soulbound vows + the daily merkle anchor) — addresses, exact call
+signatures, events to watch, and live counters once deployed. Every
+contract is permissionless, ownerless, and explorer-readable by design.
 
 ### /datasets — the public corpus, bulk
 - `GET /datasets` — index with sha256 + row counts · `GET /datasets/

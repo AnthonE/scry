@@ -58,7 +58,7 @@ ships on **every response** as an honest-scope card. Do not strip it.
 
 ---
 
-## Live surface (as of 2026-07-17)
+## Live surface (as of 2026-07-18)
 
 - **`https://scry.moreright.xyz/api/`** — the hosted meter.
   - `POST /profile` (paid, x402, signed attestation) — three mainnet rails,
@@ -67,14 +67,26 @@ ships on **every response** as an honest-scope card. Do not strip it.
     gas sponsored).
   - `POST /demo/profile` (free, unsigned, ~50/day/IP) — same shape.
   - `GET /pubkey` — the Ed25519 pubkey; **pin this out-of-band**.
-  - `GET /health` · `GET /` (JSON service card).
+  - `GET /health` · `GET /` (JSON service card, lists every surface).
   - `GET /llms.txt` — token-efficient agent-readable spec (~90% cheaper than
-    crawling this README).
-  - `GET /.well-known/x402.json` — payable-resources manifest.
+    crawling this README) — covers the vow oracle + full fun layer too.
+  - `GET /.well-known/x402.json` — payable-resources manifest (`/profile` +
+    `/vow/report`).
   - `GET /.well-known/agent.json` — A2A-style agent card (identity + skills +
     payment).
   - `GET /schemas/{trace,attestation}.json` — machine-readable JSON Schemas.
   - `GET /.well-known/rpp.json` — RPP402 (Robinhood-Chain-native) discovery.
+    **Gated** — mounts only with `SCRY_RPP402_ENABLED=1`.
+  - **Vow oracle:** `POST /vow` (free) → `POST /vow/report` (paid, same flat
+    price) → `GET /vow/{id}` / `/reading` / badges + steles · `GET /vows`.
+  - **Fun layer (holders' playground):** `/augury`, `/arena`, `/duels`,
+    `/table`, `/playground`, `/covenant(s)`, `/pact(s)`, `/onchain`,
+    `/herald`, `/datasets` — see `CONTENT-PLAN.md` + `GET /llms.txt`.
+  - **Hosted MCP (free surfaces): `/mcp` is LIVE** —
+    `claude mcp add scry --transport http https://scry.moreright.xyz/mcp`.
+- **`https://scry.moreright.xyz/`** — the watchtower pages: `scry-watch.html`
+  (the registry), `augury.html`, `arena.html`, `games.html`,
+  `playground.html` (`watchtower/` in this repo).
 - **`pip install "scry-client[pay,verify]"`** — `clients/python`. Wraps the
   x402 402→pay→retry, Permit2 approve, holder-signature, and offline
   attestation verify.
@@ -128,7 +140,7 @@ Foundation guides, and Google's AP2 (donated to FIDO Alliance):
 | **Schemas** | `/api/schemas/trace.json` + `/api/schemas/attestation.json`. Single source of truth in `server.py`. |
 | **Signed outputs** (production consensus — Touchstone, ToolSnap, Stratalize all sign) | Ed25519 over `sha256(trace)`-bound canonical JSON. |
 | **Idempotency** | `Idempotency-Key` header; defaults to `sha256(trace)+context_key`. Same key within 24h returns the identical signed blob. |
-| **MCP transport** (donated to Linux Foundation Dec 2025) | `mcp_sidecar.py` for local; hosted-meter MCP wrapper is **queued** (see roadmap). |
+| **MCP transport** (donated to Linux Foundation Dec 2025) | `mcp_sidecar.py` for local; hosted `/mcp` mount is **LIVE** (free surfaces — about/take_vow/report_in/read_ledger/…). The installable pay-wrapping package (`npx @scry/meter-mcp`) is still queued (see roadmap). |
 
 **Two adjacent trust layers we should engage but haven't yet:**
 - **ERC-8004 Trustless Agents** (Ethereum mainnet Jan 2026, 45k+ agents in
@@ -233,7 +245,9 @@ retrofit — the tradition is the *field notes*, the math is the decompression.
 morr repo at `private/notes/scry-roadmap-2026-07.md`.**
 
 ### 0. Deploy + prove
-- Pull + `pm2 restart scry-meter` on the VM; run `smoke_test.py` (10 checks).
+- Pull + `pm2 restart scry-meter` on the VM; run `smoke_test.py` (all checks
+  must pass — it now covers discovery, the vow oracle, /mcp, and every
+  fun-layer surface).
 - nginx VM followup: root `location = /.well-known/{x402,agent}.json` proxies.
 - Wait for next CDP settlement → query `bazaar-mcp` → confirm scry is
   indexed. If not after one CDP-catalog cycle (~6h), diff the extension.
@@ -245,6 +259,8 @@ morr repo at `private/notes/scry-roadmap-2026-07.md`.**
    AWS Bedrock AgentCore) never sees x402. `npx @scry/meter-mcp` /
    `pipx run scry-meter-mcp`. Tools: `scry.profile`, `scry.demo`,
    `scry.verify`, `scry.pubkey`. **Highest ROI unshipped item.**
+   (The hosted free-surface `/mcp` mount already exists — what's unshipped
+   is the *installable client package* that wraps the PAID x402 path.)
 2. **ERC-8004 Trustless Agent registration** — publish scry's identity
    NFT on Ethereum mainnet (pubkey + agent card URL + capabilities). Puts
    the pubkey inside the ecosystem's trust layer instead of asking each
@@ -316,9 +332,10 @@ the neutral drift read, **not the trading edge.** RH-Chain Stock Tokens are
 4. If Robinhood-adjacent, read
    `private/notes/handoff-scry-robinhood-agentic-vector-2026-07.md` in the
    morr repo.
-5. If touching the hosted meter, work in the morr repo at
-   `experiments/memory-shield/meter_endpoint/` — the deployment code lives
-   there, not here.
+5. If touching the hosted meter, **edit `meter/` in THIS repo — it is
+   canonical.** The morr repo's `experiments/memory-shield/meter_endpoint/`
+   is the deployment *mirror* (real `ecosystem.config.js`, VM paths); code
+   changes flow public → mirror, never the reverse.
 6. Skills to use if surfaced: `session-start-hook` is NOT relevant to this
    repo. `verify` is: run `python3 scry_verify.py` — 0 credentials, 0
    network, dependency-free, well under a second, catches most regressions

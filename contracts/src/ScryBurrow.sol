@@ -122,6 +122,11 @@ contract ScryBurrow {
     // ── the content ─────────────────────────────────────────────────────────
     /// Anyone repays an underwater borrower's full debt and seizes collateral
     /// worth debt × (1 + bonus) at the oracle price (capped at what's there).
+    /// KNOWN LIMIT (deliberate, play-tokens-only): there is no close factor or
+    /// partial path — the liquidator always fronts the FULL debt. Once a
+    /// position is underwater past the bonus (collateral value < debt × 1.1),
+    /// liquidating loses money and nobody calls: the position sits as bad debt.
+    /// That failure mode is part of the toy; never point real value at this.
     function liquidate(address borrower) external {
         accrue();
         require(healthFactor(borrower) < 1e18, "healthy");
