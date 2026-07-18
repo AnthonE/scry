@@ -1069,6 +1069,17 @@ app.include_router(_covenant.router)
 print("[scry-meter] the Covenant mounted (POST /covenant; a fleet swears one oath, "
       "individually chained; cohort view + on-chain register are explorer-readable)")
 
+# The Pact — a public agreement BETWEEN parties (human<->AI, AI<->AI): different
+# obligations, one document, a shared hash-chained thread both sides write to.
+# The bilateral cousin of the Covenant. Witnessed, never judged; holds no funds,
+# enforces nothing. Each party asserts its own status; scry never rules who kept
+# faith (WIKI-SEAM.md; the Mizpah/suzerain-treaty shape).
+import pact as _pact  # noqa: E402
+_pact.init(sign_fn=_sign_str, pubkey_b64=_PUB_B64, issuer=ISSUER)
+app.include_router(_pact.router)
+print("[scry-meter] the Pact mounted (POST /pact; agreements between parties, "
+      "shared signed thread, record-never-verdict, no escrow)")
+
 # The Augury — daily question farm ($SCRY game economy, SCRY-ECONOMY.md).
 # Reward the ritual, never the score: emission math is deterministic and
 # score-blind; the LLM poses questions, it never gates money.

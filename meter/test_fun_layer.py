@@ -13,6 +13,7 @@ import time
 _tmp = tempfile.mkdtemp(prefix="scry-funlayer-")
 os.environ["SCRY_VOWS_DIR"] = _tmp
 os.environ["SCRY_COVENANT_DIR"] = tempfile.mkdtemp(prefix="scry-covenant-")
+os.environ["SCRY_PACT_DIR"] = tempfile.mkdtemp(prefix="scry-pact-")
 os.environ["SCRY_ARENA_SEASON"] = "s0-test"
 os.environ["SCRY_ARENA_START"] = "2020-01-01"
 os.environ["SCRY_ARENA_END"] = "2099-01-01"
@@ -72,6 +73,9 @@ app.include_router(datasets.router)
 import covenant  # noqa: E402
 covenant.init(sign_fn=lambda s: "fake-sig", pubkey_b64="fake-pub", issuer="test")
 app.include_router(covenant.router)
+import pact  # noqa: E402
+pact.init(sign_fn=lambda s: "fake-sig", pubkey_b64="fake-pub", issuer="test")
+app.include_router(pact.router)
 c = TestClient(app)
 
 PASS = 0
@@ -475,5 +479,70 @@ ok('opacity="0.28"' in r.text, "renounced member is dimmed on the card, still pr
 r = c.get("/covenants").json()
 ok(any(cv["covenant_id"] == CID and cv["n_active"] == 2 for cv in r["covenants"]),
    "register lists the covenant with live counts")
+
+# ── pact (an agreement BETWEEN parties, witnessed not judged) ────────────────
+print("[pact]")
+K_A, K_B, K_C = "0x" + "b1" * 32, "0x" + "b2" * 32, "0x" + "b3" * 32
+P_A, P_B, P_C = _Acct.from_key(K_A), _Acct.from_key(K_B), _Acct.from_key(K_C)
+TERMS = "A pays B 10 USDG on delivery of the signed audit; B delivers within 72h."
+
+# too few parties is refused — a pact is BETWEEN parties
+r = c.post("/pact", json={"title": "solo", "terms": TERMS,
+    "parties": [{"role": "only", "obligation": "do it"}]})
+ok(r.status_code == 422, "a pact needs >= 2 parties")
+
+# A proposes a two-party pact (signed); A is a party, so proposing also signs A's side
+r = c.post("/pact", json={"title": "audit-for-pay", "terms": TERMS,
+    "proposer_wallet": P_A.address, "signature": _sign(pact.pact_propose_message("audit-for-pay", TERMS), K_A),
+    "parties": [
+        {"role": "payer", "obligation": "pay 10 USDG on delivery", "wallet": P_A.address, "agent": "buyer-bot"},
+        {"role": "auditor", "obligation": "deliver a signed audit within 72h", "wallet": P_B.address, "agent": "audit-bot"}]})
+ok(r.status_code == 200 and r.json()["status"] == "proposed", "pact proposed (awaiting the other party)")
+PID = r.json()["pact_id"]
+ok(any(p["role"] == "payer" and p["signed"] for p in r.json()["parties"]), "proposer's side is signed on propose")
+
+# B fetches its accept message and signs its side → pact becomes active
+am = c.get(f"/pact/{PID}/accept_message", params={"wallet": P_B.address}).json()
+ok("deliver a signed audit" in am["sign_this"], "accept message names B's own obligation")
+r = c.post(f"/pact/{PID}/sign", json={"wallet": P_B.address, "signature": _sign(am["sign_this"], K_B)})
+ok(r.status_code == 200 and r.json()["status"] == "active", "both parties signed → pact active")
+
+# a non-party cannot comment; the parties can
+r = c.post(f"/pact/{PID}/comment", json={"text": "meddling", "wallet": P_C.address,
+    "signature": _sign(pact.pact_comment_message(PID, "meddling"), K_C)})
+ok(r.status_code == 403, "a non-party cannot comment on the pact")
+r = c.post(f"/pact/{PID}/comment", json={"text": "audit is underway, on track for 48h", "wallet": P_B.address,
+    "signature": _sign(pact.pact_comment_message(PID, "audit is underway, on track for 48h"), K_B)})
+ok(r.status_code == 200 and r.json()["seq"] == 1, "a party comments (thread seq 1)")
+r = c.post(f"/pact/{PID}/comment", json={"text": "acknowledged, funds ready", "wallet": P_A.address,
+    "signature": _sign(pact.pact_comment_message(PID, "acknowledged, funds ready"), K_A)})
+ok(r.status_code == 200 and r.json()["seq"] == 2, "the other party comments (thread seq 2)")
+
+# each party asserts its OWN status; scry shows both, never a single verdict
+c.post(f"/pact/{PID}/status", json={"wallet": P_B.address, "status": "fulfilled",
+    "signature": _sign(pact.pact_status_message(PID, "fulfilled"), K_B)})
+c.post(f"/pact/{PID}/status", json={"wallet": P_A.address, "status": "disputed",
+    "signature": _sign(pact.pact_status_message(PID, "disputed"), K_A)})
+r = c.get(f"/pact/{PID}").json()
+by_role = {p["role"]: p["asserted_status"] for p in r["parties"]}
+ok(by_role["auditor"] == "fulfilled" and by_role["payer"] == "disputed",
+   "each party's own asserted status is shown side by side (no single verdict)")
+ok("terms" in r and r["terms"] == TERMS and r["thread_verified_locally"] is True,
+   "pact shows the terms and a verifiable thread")
+ok([e["kind"] for e in r["thread"]] == ["comment", "comment", "status", "status"],
+   "the thread is the ordered record of comments and status assertions")
+
+# sandbox (unsigned) pact allows unsigned comments, marked sandbox
+r = c.post("/pact", json={"title": "handshake", "terms": "we cooperate in good faith",
+    "parties": [{"role": "a", "obligation": "help"}, {"role": "b", "obligation": "help back"}]})
+ok(r.status_code == 200 and r.json()["status"] == "sandbox", "unsigned pact is sandbox")
+SID = r.json()["pact_id"]
+r = c.post(f"/pact/{SID}/comment", json={"text": "going well", "agent": "kid-a"})
+ok(r.status_code == 200, "sandbox pact accepts an unsigned comment")
+
+# the register lists pacts
+r = c.get("/pacts").json()
+ok(any(pc["pact_id"] == PID and pc["agreement_status"] == "active" for pc in r["pacts"]),
+   "register lists the pact with live status")
 
 print(f"\nALL {PASS} CHECKS PASS")

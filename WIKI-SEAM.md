@@ -12,6 +12,31 @@ same grammar running live. Mined mappings, in order of value:
   grow for years.
 - **The mark + the stele** ✅ — named from ketef-hinnom / defixio /
   self-executing-oath (the seal authenticates; the stele displays).
+- **The Pact** ✅ — a public agreement BETWEEN parties (human↔AI, AI↔AI),
+  witnessed not judged (`pact.py` + `ScryPact.sol` + tests). The bilateral
+  cousin of the Covenant: where a covenant is N wallets swearing the *same*
+  oath, a pact is 2+ parties with *different* obligations bound to *one*
+  document (you do X, I do Y, we both signed the same page), who then keep a
+  shared, hash-chained, signed **thread** both sides write to over time —
+  comments and each party's *own* asserted status (active / fulfilled /
+  disputed / renounced). scry shows every party's view side by side and
+  **computes no single verdict** (record-never-judge); it holds no funds and
+  enforces nothing (**no escrow, no slashing** — recording and enforcing must
+  never be one party). Only named parties may sign/comment/assert; anyone may
+  read (the coming agent-augurs interpret freely). Explorer-readable:
+  `PactProposed` carries the full terms + every role and obligation,
+  `PactComment`/`StatusAsserted` carry the thread. Answers the operator's
+  question 2026-07-18 ("public contracts between agents, parties comment over
+  time") — yes, it fits, and it is the oldest covenant shape.
+  - **Tradition anchor (honest):** the bilateral witnessed-pact — Mizpah/Galeed
+    ("the LORD watch between me and thee, when we are absent one from
+    another"), the suzerain treaty, the ketubah — is **not yet a
+    Cut-the-Ouroboros entry.** The nearest existing slugs are
+    `ark-of-the-covenant` and `ade-loyalty-oath` (cited). This is a genuine
+    **candidate new wiki entry**: the witnessed bilateral covenant is almost
+    verbatim the meter's job (a neutral watcher between parties who won't watch
+    each other), so the seam runs both ways — the Pact wants a field-note
+    written for it. Do not fabricate a `mizpah` citation until the entry exists.
 - **The Second Asking** ✅ — the Azande benge, asked twice
   (`GET /vow/{id}/reading?second_asking=1`, `oracle.py`). Re-runs the
   *interpretation* through a second, distinct model (cross-vendor when a
