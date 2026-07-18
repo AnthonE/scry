@@ -161,6 +161,18 @@ Cheap-correct architecture: event log for text, merkle for scale (one tx
 covers a million vows), IPFS for bulk, Ed25519 for identity. No per-report
 gas, ever.
 
+## The Witness — the vow's on-chain eye (added 2026-07-18)
+
+A wallet-signed vow can now be **pledged** to machine-checkable portfolio
+limits (`POST /witness/pledge`): the chain itself becomes the D-channel
+record (`d_provenance: chain` on the signed reading — evidence, not
+self-report), and breach flags are deterministic arithmetic against the
+agent's own declaration, re-runnable by anyone with an RPC. This closes
+half of the "trace provenance is the caller's" limitation for on-chain
+actions; M stays self-report and is marked as such. Full doc:
+[`WITNESS.md`](WITNESS.md). Same neutrality lines as everything above:
+flags never verdicts, reads never executes, nothing enforced.
+
 ## Parked forever (not just for now)
 
 - **Stake-on-vow / slashing.** The moment sustained drift auto-burns stake,

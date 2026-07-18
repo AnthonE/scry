@@ -82,6 +82,10 @@ ships on **every response** as an honest-scope card. Do not strip it.
     **Gated** — mounts only with `SCRY_RPP402_ENABLED=1`.
   - **Vow oracle:** `POST /vow` (free) → `POST /vow/report` (paid, same flat
     price) → `GET /vow/{id}` / `/reading` / badges + steles · `GET /vows`.
+  - **The Witness (NEW 2026-07-18, `WITNESS.md`):** pledge a vowed wallet to
+    public portfolio limits; D-channel read from the chain itself
+    (`d_provenance: chain` — evidence, not self-report). `GET /witness` ·
+    `POST /witness/pledge` (free) · `POST /witness/reading` (paid, flat).
   - **Fun layer (holders' playground):** `/augury`, `/arena`, `/duels`,
     `/table`, `/playground`, `/covenant(s)`, `/pact(s)`, `/onchain`,
     `/herald`, `/datasets` — see `CONTENT-PLAN.md` + `GET /llms.txt`.

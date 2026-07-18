@@ -260,7 +260,8 @@ def main() -> None:
 
     # 9. Fun-layer surfaces — every card answers 200 JSON. (Deeper coverage is
     # offline in test_fun_layer.py; this only proves each surface is mounted.)
-    for path, label in (("/augury", "augury card"), ("/arena", "arena card"),
+    for path, label in (("/witness", "witness card"),
+                        ("/augury", "augury card"), ("/arena", "arena card"),
                         ("/duels", "duels card"), ("/table", "table card"),
                         ("/playground", "playground card"),
                         ("/covenants", "covenant registry"),

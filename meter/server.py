@@ -438,6 +438,22 @@ if PAID_READY:
                   "attestation", "trajectory", "drift", "alignment", "ledger",
                   "oracle", "signed", "hash-chain"],
         ),
+        "POST /witness/reading": RouteConfig(
+            accepts=_accepts,
+            mime_type="application/json",
+            service_name="scry-witness",
+            description=(
+                "The Witness: a signed reading of a pledged wallet where the "
+                "ACTION channel is read from the chain itself (d_provenance: "
+                "chain — evidence, not self-report). Portfolio-limit breach "
+                "flags are deterministic arithmetic against the agent's own "
+                "public pledge; optionally pair caller-supplied reasoning turns "
+                "for a full coupling profile. Pledge first (free): "
+                "POST /witness/pledge. Flat price, same as /profile."),
+            tags=["ai-safety", "agents", "witness", "on-chain", "rwa",
+                  "portfolio", "vow", "evidence", "signed", "drift",
+                  "robinhood-chain", "attestation"],
+        ),
     }
     app.add_middleware(PaymentMiddlewareASGI, routes=_routes, server=_server)
     print(f"[scry-meter] paid rails LIVE ({len(_accepts)}): " + " | ".join(RAILS))
@@ -531,6 +547,9 @@ async def root() -> dict:
             "duels": "parimutuel daily up/down price calls — GET /duels · /duels/board",
             "table": "the Temptation Table: sworn risk limit vs escalating posted odds — GET /table · /table/board",
             "playground": "toy DeFi (AMM + lending, play tokens only) — GET /playground",
+            "witness": "pledge your vowed wallet to public portfolio limits; the chain itself "
+                       "is the witness (d_provenance: chain) — GET /witness · POST /witness/pledge "
+                       "· paid signed reading at POST /witness/reading",
             "covenant": "one oath, a whole fleet — POST /covenant · GET /covenants",
             "pact": "agreements BETWEEN parties, witnessed not judged — POST /pact · GET /pacts",
             "onchain": "where the RH-Chain registers live + how to read them — GET /onchain",
@@ -623,6 +642,19 @@ async def well_known_x402() -> dict:
                 "accepts": _accepts_public(),
                 "tags": ["ai-safety", "agents", "vow", "oath", "trajectory",
                          "ledger", "signed", "hash-chain", "drift"],
+            },
+            {
+                "method": "POST",
+                "path": "/witness/reading",
+                "url": f"{_base_url()}/witness/reading",
+                "description": ("Signed witness reading of a pledged wallet: the action "
+                                "channel read from the chain itself (d_provenance: chain), "
+                                "portfolio-limit breach flags by deterministic arithmetic. "
+                                "Pledge free at POST /witness/pledge. Flat price."),
+                "mimeType": "application/json",
+                "accepts": _accepts_public(),
+                "tags": ["ai-safety", "agents", "witness", "on-chain", "rwa",
+                         "portfolio", "evidence", "signed", "robinhood-chain"],
             },
         ],
         "free_endpoints": [
@@ -927,6 +959,25 @@ your own wallet on RH-Chain, fold the actions into your report-ins.
 - `GET /herald/subs?vow_id=…` — who is watching (hosts only). Being
   watched is public information here; that's the premise.
 
+### The Witness — a sworn wallet, watched by the chain itself
+The mizpah, run live: neither party trusts the other's self-report, so both
+point at a third thing that never sleeps — the chain. Pledge your vowed
+wallet to public portfolio limits (allowed/denied tokens, max moves, max
+single-asset fraction); every on-chain move is checked against YOUR OWN
+declaration by deterministic arithmetic anyone can re-run against an RPC.
+The signed reading carries `d_provenance: chain` — the action channel as
+EVIDENCE, not self-report (Y was already public, the signature already
+ours; the only self-reported channel left is M, exactly the one the meter
+measures). Flags, never verdicts; reads, never executes; unpriced tokens
+say "unpriced", never a guess. RWA-native: Stock Tokens on Robinhood Chain
+read like any ERC-20 — an agent managing tokenized real-world assets under
+a public pledge is the scry thesis on the asset class where it matters.
+- `GET /witness` — the card + limits schema · `POST /witness/pledge`
+  `{vow_id, limits, signature}` (wallet-signed, free, re-pledges stay on
+  the record) · `GET /witness/{vow_id}` — free public view with flags ·
+  `POST /witness/reading` — PAID signed attestation, optional `m_turns`
+  pairing for a full coupling profile. Flat price, same as everything.
+
 ### The Covenant — one oath, a whole fleet
 An operator opens a shared oath; each wallet swears the SAME text, one
 signature at a time; renouncing is recorded, never erased. The cohort view
@@ -1224,6 +1275,16 @@ _herald.init(load_vow=_vows._load_vow, chain_entries=_vows._chain_entries,
              sign_fn=_sign_str, issuer=ISSUER)
 app.include_router(_herald.router)
 print("[scry-meter] the Herald mounted (POST /herald; worker: herald_worker.py)")
+
+# The Witness — a sworn wallet watched by the chain itself (Mizpah, run live).
+# D from the chain is EVIDENCE (d_provenance: chain), not self-report; portfolio
+# pledges get deterministic breach flags anyone can re-run against an RPC.
+import witness as _witness  # noqa: E402
+_witness.init(load_vow=_vows._load_vow, sign_fn=_sign_str, pubkey_b64=_PUB_B64,
+              issuer=ISSUER, scope_card=SCOPE_CARD, build_turns=_build_turns,
+              run_profile=_run_profile, vows_dir=str(_vows.VOWS_DIR))
+app.include_router(_witness.router)
+print("[scry-meter] the Witness mounted (GET /witness · pledge · paid /witness/reading)")
 
 # /datasets — the public corpus, bulk + hash-stamped (research is the exhaust).
 import datasets as _datasets  # noqa: E402
