@@ -653,7 +653,7 @@ async def well_known_agent() -> dict:
             "Paper-207 profile the agent could not have minted about itself."),
         "url": _base_url(),
         "version": app.version,
-        "provider": {"name": "MoreRight", "url": "https://moreright.xyz"},
+        "provider": {"name": "scry", "url": "https://scry.moreright.xyz"},
         "attestation": {
             "sig_alg": "ed25519",
             "pubkey_b64": _PUB_B64,

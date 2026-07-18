@@ -3,9 +3,12 @@
 ## Framing — read this first
 
 scry is a **small cyberpunk toolkit for AI-agent enthusiasts**. Not a
-product. Not a business unit. A sub-artifact in the larger MoreRight
-constellation (wiki, game, papers) that sits at `moreright.xyz` as one door
-among several. Audience is people who think it's cool their agent can pay
+product. Not a business unit. **Its own thing** (operator, restated
+2026-07-18): it happens to be hosted at `scry.moreright.xyz`, but it is NOT
+a sub-artifact of morr, the MMO, the papers, or the old morr skill
+surfaces — own token ($SCRY), own chain (RH-Chain), own contracts, own
+skills, own brand ("scry", never "MoreRight") on every agent-facing
+surface. Audience is people who think it's cool their agent can pay
 another endpoint for a signed read of its own behavior.
 
 **Pricing is one flat cost per service, forever.** Currently `$0.10` per
@@ -271,11 +274,11 @@ morr repo at `private/notes/scry-roadmap-2026-07.md`.**
    consider exposing `scry.profile` as a paid tool on the hosted `/mcp` via
    the x402-mcp pattern (payment inside the tool call, no install at all).
 1b. **Publish the hosted `/mcp` to registry.modelcontextprotocol.io** —
-   `server.json` is prepared at repo root; run `mcp-publisher` under the
-   `xyz.moreright/scry` namespace (DNS TXT on moreright.xyz) or
-   `io.github.anthone` (OAuth). One sitting; feeds GitHub/PulseMCP/most
-   marketplace catalogs at once. Until then the hosted MCP is undiscoverable
-   outside our own docs.
+   `server.json` is prepared at repo root under `io.github.anthone/scry`
+   (GitHub-OAuth namespace — deliberately not a moreright domain namespace;
+   scry stands alone). Run `mcp-publisher` once; feeds GitHub/PulseMCP/most
+   marketplace catalogs. Until then the hosted MCP is undiscoverable outside
+   our own docs.
 2. **ERC-8004 Trustless Agent registration** — publish scry's identity
    NFT on Ethereum mainnet (pubkey + agent card URL + capabilities). Puts
    the pubkey inside the ecosystem's trust layer instead of asking each

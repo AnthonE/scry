@@ -34,12 +34,14 @@ from pydantic import BaseModel
 
 # RH-Chain + settlement config
 RPP_CHAIN_ID = os.getenv("RPP_CHAIN_ID", "eip155:4663")          # Robinhood Chain
-RPP_PAY_TO = os.getenv("RPP_PAY_TO", "0x4DcA9C0Bc226b4fa45791E1e154A49af862b9459")
+# YOUR receiving wallet — no default; the manifest says "unset" until you name it.
+RPP_PAY_TO = os.getenv("RPP_PAY_TO", "")
 USDG = {
     "type": "stablecoin", "symbol": "USDG", "chain_id": RPP_CHAIN_ID,
     "contract": os.getenv("RPP_USDG", "0x5fc5360d0400a0fd4f2af552add042d716f1d168"),
 }
-PRICE_USD = os.getenv("SCRY_METER_PRICE_USD", "0.001")
+# One flat price on every rail — $0.10, same as x402 (never a per-rail discount).
+PRICE_USD = os.getenv("SCRY_METER_PRICE_USD", "0.10")
 SERVICE_ID = "svc_scrymeter1"          # schema: ^svc_[a-zA-Z0-9]{8,}$
 CAPABILITY = "scry.channel-profile"    # schema: ^[a-z0-9-]+\.[a-z0-9-]+$
 SETTLE_ENABLED = os.getenv("SCRY_RPP402_SETTLE", "0") == "1"
@@ -66,7 +68,8 @@ async def discovery(request_base: str = "") -> JSONResponse:
                             "read of whether its behaviour drifts by context (e.g. 'am I "
                             "watched?') — the drift a behavioural eval can't see."),
         },
-        "wallet": {"address": RPP_PAY_TO, "chain_id": RPP_CHAIN_ID},
+        "wallet": {"address": RPP_PAY_TO or "unset (operator: set RPP_PAY_TO)",
+                   "chain_id": RPP_CHAIN_ID},
         "capabilities": [{
             "name": CAPABILITY,
             "description": "One signed coupling-attestation over a posted agent trace.",
