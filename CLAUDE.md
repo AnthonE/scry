@@ -324,11 +324,12 @@ morr repo at `private/notes/scry-roadmap-2026-07.md`.**
 7. ERC-8126 ZK-scored verification pass on the meter itself.
 8. Constellation siblings (verifier / canary / preflight / receipts) — build
    if a real user need shows up, not because they'd let us charge more.
-9. **The Familiar** (`FAMILIAR.md`, sketch 2026-07-18) — flat-price
-   summon-a-hosted-player; P1 = local-first harness in `familiar/`
-   (doubles as the Hermes deployment shape) + Mithra as #0. All
-   operator gates (price/unit, cap, brain, faucet cap) unset — do not
-   build P2 hosting until the operator names them.
+9. **The Familiar** (`FAMILIAR.md`) — flat-price summon-a-hosted-player.
+   **P1 BUILT 2026-07-18:** `familiar/` = local keep + web console
+   (`python3 -m familiar.host` → :8402; sandbox-only, no
+   wallet/custody/payments; 28-check offline suite). All operator gates
+   (price/unit, cap, brain, faucet cap) still unset — do not build P2
+   hosting until the operator names them.
 
 ### 2. Robinhood work vector (RH1 → RH5, sequential; quick wins first — 2026-07-18)
 Quick wins from the 07-18 research pass, before/alongside RH1:

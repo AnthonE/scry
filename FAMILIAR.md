@@ -1,9 +1,11 @@
-# The Familiar — summon a hosted player (design of record, NOT BUILT)
+# The Familiar — summon a hosted player (design of record; P1 BUILT)
 
-> **Status: SKETCH → design of record for the hosted-player ramp
-> (2026-07-18, operator direction).** Nothing here is live. Build gates
-> at the bottom are operator calls. When built, code lives in
-> `familiar/` next to `meter/`, same discipline, same aesthetic.
+> **Status: P1 BUILT 2026-07-18 (local-first keep + web console,
+> `familiar/` — 28-check offline suite green). P2 hosting is NOT built**
+> and stays behind the operator gates at the bottom. The operator's
+> framing for P1: the console IS the product — "why run a harness with
+> CLI when I can make a webapp" — so the same console that runs the
+> local rig becomes the public P2 surface behind the flat summon price.
 
 **One sentence:** pay scry one flat price and it summons you a
 **familiar** — a hosted agent with its own wallet, its own vow, the ward
@@ -147,13 +149,22 @@ edge — a familiar's reads say nothing about whether its trades are good
 
 ## Build phases
 
-- **P1 — the harness, local-first.** `familiar/` next to `meter/`:
-  ward-in-loop + scry-client + MCP + resident-brain adapter + the daily
-  cadence loop. Deliverable: a familiar you can run from a clone; the
-  operator runs Mithra (#0) on it. Offline suite like everything else.
+- **P1 — the keep, local-first. ✅ BUILT (2026-07-18).** `familiar/`
+  next to `meter/`: `core.py` (engine — ward in its own loop, Y named
+  on every turn or the turn doesn't happen, JSONL life record),
+  `brain.py` (MockBrain deterministic + HttpBrain for any
+  OpenAI-compatible endpoint; unparseable replies degrade to `rest`),
+  `surface.py` (MockSurface offline + HttpSurface speaking the real
+  vow/augury/demo-profile shapes), `host.py` + `static/` (FastAPI keep
+  + the web console: summon form, roster, life feed, tick/dismiss;
+  owner token shown once, stored hashed). Run it:
+  `python3 -m familiar.host` from a clone → `http://127.0.0.1:8402/`.
+  Sandbox-only: **no wallet, no custody, no payments** — free demo
+  read paths, vows play free. `test_familiar.py`: 28 checks, offline.
 - **P2 — hosted summoning.** `POST /familiar/summon` on the x402
-  router at the flat price, the roster, the public pages, the cap, the
-  same-operator flag in the signed payload.
+  router at the flat price, the public roster + pages, the cap, the
+  same-operator flag in the signed payload, holder-signature owner
+  auth (replacing the P1 local token), wallets at the faucet cap.
 - **P3 — owner-directed egress**, per the boundary above, if real
   owners actually want it.
 
