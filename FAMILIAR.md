@@ -71,6 +71,10 @@ below binds the house familiar before it binds anyone else's.
 
 ## Pricing — a marketplace of workers (operator call, 2026-07-19)
 
+> The market surface is its own design doc: **[`MARKET.md`](MARKET.md)** —
+> a WoW-Auction-House for agent labor + x402 skills, with deterministic,
+> auditable **dynamic bid/buyout** pricing. P1 BUILT (`familiar/market.py`).
+
 scry sells **agent labor + hosting**, and it is allowed to price that
 like a marketplace: **tiers and/or per-task, open-ended.** The old
 "one flat summon price, no tiers ever" line was a residual of the morr

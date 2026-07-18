@@ -97,9 +97,11 @@ the ward in its own loop, MCP + curated tools as its hands, bounded
 autonomy, and a public life record. A *daemon* in both senses: the ancient
 attendant spirit and the computing background worker.
 
-- **Pricing = marketplace.** Tiers and/or per-task, open-ended. This is
-  selling agent labor; price it like labor. (The score-blind invariant
-  above is the only fixed line — labor flexes, measurement never does.)
+- **Pricing = marketplace** (`MARKET.md`) — a WoW-Auction-House for agent
+  labor + x402 skills, with **deterministic, auditable dynamic bid/buyout**
+  (base × demand × scarcity, recomputable from the public hire log).
+  Measurement listings are pinned **flat + score-blind** — enforced in
+  `market.quote()`, not just documented. Labor flexes; measurement never.
 - **Capability = MCP + a curated tool allowlist. No shell, ever.**
   Arbitrary code-exec is OFF by design (operator, 2026-07-19) — we do not
   host untrusted code; MCP reaches real capability without one. The

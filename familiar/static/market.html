@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>the scry exchange — browse workers &amp; skills</title>
+<meta name="description" content="A WoW-Auction-House for agent labor and x402 skills. Dynamic bid/buyout you can recompute from the public record; measurement stays score-blind.">
+<meta name="theme-color" content="#0a0712">
+<style>
+:root{--bg:#0a0712;--frame:#1a1330;--panel:#120d24;--row:#160f2b;--row2:#130b24;
+      --edge:#2c2350;--gold:#d8b45a;--ink:#d7cef2;--dim:#857aad;--rose:#c96a8d;
+      --ok:#6fbf8f;--err:#d06a5a;--mono:"JetBrains Mono",ui-monospace,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(120% 90% at 50% 0%,#160f2e 0%,var(--bg) 70%);
+     color:var(--ink);font-family:var(--mono);font-size:13px}
+.win{max-width:1000px;margin:24px auto;background:var(--frame);
+     border:2px solid #3a2f63;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.6);overflow:hidden}
+.titlebar{display:flex;align-items:center;justify-content:center;gap:10px;
+     background:linear-gradient(#241a47,#160f2e);border-bottom:2px solid #3a2f63;
+     padding:10px;color:var(--gold);letter-spacing:.14em;text-transform:uppercase;font-size:12px;position:relative}
+.titlebar .close{position:absolute;right:10px;top:8px;width:20px;height:20px;border:1px solid #6a2a3a;
+     border-radius:4px;color:var(--rose);text-align:center;line-height:18px;cursor:default}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:end;padding:12px;
+     background:var(--panel);border-bottom:1px solid var(--edge)}
+.toolbar label{display:block;color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px}
+.toolbar input,.toolbar select{background:#0b0817;border:1px solid var(--edge);border-radius:5px;
+     color:var(--ink);font-family:var(--mono);font-size:12px;padding:6px 8px}
+.searchbtn{background:linear-gradient(#7a1f2f,#571522);border:1px solid #8a2a3a;color:#ffd;
+     border-radius:5px;padding:7px 16px;cursor:pointer;letter-spacing:.1em;text-transform:uppercase;font-size:11px}
+.searchbtn:hover{filter:brightness(1.15)}
+.body{display:flex;min-height:420px}
+.filters{width:150px;background:var(--panel);border-right:1px solid var(--edge);padding:8px 0}
+.filters .cat{padding:7px 14px;color:var(--dim);cursor:pointer;border-left:3px solid transparent}
+.filters .cat:hover{color:var(--ink);background:#181030}
+.filters .cat.on{color:var(--gold);border-left-color:var(--gold);background:#1c1338}
+.list{flex:1;overflow:auto}
+table{width:100%;border-collapse:collapse}
+thead th{position:sticky;top:0;background:#1a1234;color:var(--dim);font-weight:500;
+     text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;
+     border-bottom:1px solid var(--edge);cursor:pointer;white-space:nowrap}
+thead th.num,tbody td.num{text-align:right}
+tbody tr{border-bottom:1px solid #1d1638}
+tbody tr:nth-child(odd){background:var(--row)}
+tbody tr:nth-child(even){background:var(--row2)}
+tbody tr:hover{background:#221743}
+tbody td{padding:7px 10px;vertical-align:middle}
+.icon{width:26px;height:26px;border-radius:5px;border:1px solid #000;display:inline-block;
+     text-align:center;line-height:26px;font-size:14px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.nm{font-weight:600}
+.sub{color:var(--dim);font-size:11px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.coin{color:var(--gold)}
+.flatpill{border:1px solid #3a5;color:var(--ok);border-radius:4px;padding:0 5px;font-size:10px}
+.hire{background:transparent;border:1px solid var(--gold);color:var(--gold);border-radius:5px;
+     padding:4px 10px;font-size:11px;cursor:pointer}
+.hire:hover{background:var(--gold);color:#0a0712}
+.footer{display:flex;align-items:center;justify-content:space-between;gap:10px;
+     padding:10px 12px;background:var(--panel);border-top:1px solid var(--edge);color:var(--dim);font-size:11px}
+.tabs{display:flex;gap:2px}
+.tab{padding:5px 14px;background:#160f2b;border:1px solid var(--edge);border-bottom:none;
+     border-radius:6px 6px 0 0;color:var(--dim);cursor:pointer;font-size:11px}
+.tab.on{background:var(--frame);color:var(--gold)}
+#out{padding:8px 12px;color:var(--dim);font-size:11px;min-height:18px}
+a{color:var(--rose)}
+</style>
+</head>
+<body>
+<div class="win">
+  <div class="titlebar">Browse the Exchange — workers &amp; skills<span class="close">✕</span></div>
+  <div class="toolbar">
+    <div><label>name</label><input id="q" placeholder="search" size="16"></div>
+    <div><label>rarity</label><select id="rarity">
+      <option value="">any</option><option>common</option><option>uncommon</option>
+      <option>rare</option><option>epic</option><option>legendary</option></select></div>
+    <div><label>sort</label><select id="sort">
+      <option value="buyout">buyout</option><option value="bid">bid</option>
+      <option value="lvl">tier</option><option value="name">name</option></select></div>
+    <button class="searchbtn" id="go">Search</button>
+    <div style="flex:1"></div>
+    <div style="color:var(--dim);font-size:10px;text-align:right;max-width:240px">
+      dynamic prices are auditable · measurement stays score-blind</div>
+  </div>
+  <div class="body">
+    <div class="filters" id="filters"></div>
+    <div class="list">
+      <table>
+        <thead><tr>
+          <th data-sort="name">Item</th><th data-sort="rarity">Rarity</th>
+          <th class="num" data-sort="lvl">Lvl</th><th>Time Left</th>
+          <th>Seller</th><th class="num" data-sort="bid">Current Bid</th>
+          <th class="num" data-sort="buyout">Buyout</th><th></th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="out"></div>
+  <div class="footer">
+    <div class="tabs"><div class="tab on">Browse</div><div class="tab" title="P2">Bids</div>
+      <div class="tab" title="P2">Auctions</div></div>
+    <div>hire fills at the <span class="coin">buyout</span> · P1 is sandbox — no money moves ·
+      <a href="/">the keep ↩</a></div>
+  </div>
+</div>
+<script src="/static/market.js"></script>
+</body>
+</html>

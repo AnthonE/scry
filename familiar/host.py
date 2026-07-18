@@ -26,7 +26,10 @@ from pydantic import BaseModel
 
 from .brain import HttpBrain, MockBrain
 from .core import Keeper
+from .market import Market
+from .payment import default_payment
 from .surface import HttpSurface, MockSurface
+from . import tools
 
 _HERE = Path(__file__).resolve().parent
 
@@ -39,6 +42,7 @@ TICK_MINUTES = int(os.environ.get("FAMILIAR_TICK_MINUTES", "0"))
 surface = MockSurface() if MODE == "mock" else HttpSurface(SCRY_API)
 keeper = Keeper(surface=surface, brain_factory=MockBrain,
                 state_dir=STATE_DIR, cap=CAP)
+market = Market(keeper=keeper)
 
 app = FastAPI(title="familiar keep", version="0.1.0")
 
@@ -60,6 +64,11 @@ class OwnerRequest(BaseModel):
 
 class HireRequest(BaseModel):
     slug: str
+    name: str | None = None
+
+
+class MarketHireRequest(BaseModel):
+    listing_id: str
     name: str | None = None
 
 
@@ -119,6 +128,51 @@ async def hire(req: HireRequest):
     except RuntimeError as e:
         raise HTTPException(409, str(e))
     return JSONResponse(rec, status_code=201)
+
+
+@app.get("/market")
+async def market_browse(category: str = None, search: str = None,
+                        rarity: str = None, sort: str = "buyout"):
+    return {"listings": market.browse(category=category, search=search,
+                                      rarity=rarity, sort=sort),
+            "note": ("dynamic prices are auditable — recompute any quote from the "
+                     "hire log + schedule; measurement listings stay flat + score-blind"),
+            "schedule_is_a_proposal": True}
+
+
+@app.get("/market/quote/{listing_id:path}")
+async def market_quote(listing_id: str):
+    L = next((x for x in market.listings() if x["id"] == listing_id), None)
+    if L is None:
+        raise HTTPException(404, "no such listing")
+    return {"listing": L, "quote": market.quote(L)}
+
+
+@app.post("/market/hire")
+async def market_hire(req: MarketHireRequest):
+    try:
+        return market.hire(req.listing_id, payment=default_payment(),
+                           keeper=keeper, name=req.name)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except RuntimeError as e:
+        raise HTTPException(409, str(e))
+
+
+@app.get("/market/tools")
+async def market_tools():
+    return {"allowlist": tools.ALLOWLIST, "tools": tools.allowed_tools(),
+            "note": "a hired worker's hands — MCP + curated tools, no shell"}
+
+
+@app.get("/market.html")
+async def market_page():
+    return FileResponse(_HERE / "static" / "market.html")
+
+
+@app.get("/static/market.js")
+async def market_js():
+    return FileResponse(_HERE / "static" / "market.js", media_type="text/javascript")
 
 
 @app.post("/familiar/{familiar_id}/autonomy")

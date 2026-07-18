@@ -234,11 +234,24 @@ class Keeper:
         return {"familiar_id": fam.id, "vow_id": fam.vow_id, "owner_token": token}
 
     def summon_crew(self, slug: str, name: str = None) -> dict:
-        """Hire a ready-made archetype — same flat price as any summon."""
+        """Hire an archetype. Auto-numbers the name so you can field many of
+        the same worker (Sibyl, Sibyl #2, …) without a collision."""
         from familiar.crew import archetype
         a = archetype(slug)
-        rec = self.summon(name or a["name"], a["vow"],
-                          self_read_every=a.get("self_read_every", 7))
+        base = name or a["name"]
+        attempt, rec = base, None
+        for k in range(2, 200):
+            try:
+                rec = self.summon(attempt, a["vow"],
+                                  self_read_every=a.get("self_read_every", 7))
+                break
+            except RuntimeError as e:
+                if "already stands" in str(e):
+                    attempt = f"{base} #{k}"      # collision → next number
+                    continue
+                raise                              # roster-full etc. propagate
+        if rec is None:
+            raise RuntimeError(f"could not find a free name for {base!r}")
         fam = self.get(rec["familiar_id"])
         fam.goals = list(a.get("goals", []))
         fam.archetype = slug

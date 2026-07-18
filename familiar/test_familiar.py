@@ -18,7 +18,9 @@ from familiar.brain import MockBrain, parse_head  # noqa: E402
 from familiar.core import Keeper  # noqa: E402
 from familiar.surface import MockSurface  # noqa: E402
 from familiar.workspace import Workspace, Egress, WorkspaceError  # noqa: E402
-from familiar import crew  # noqa: E402
+from familiar import crew, tools  # noqa: E402
+from familiar.market import Market, SCHEDULE  # noqa: E402
+from familiar.payment import MockPayment, ScryX402Payment, PaymentError  # noqa: E402
 from turn_record import Turn  # noqa: E402
 
 DAY = "2026-07-18"
@@ -35,6 +37,15 @@ def check(name, cond):
     else:
         failed += 1
         print(f"  FAIL {name}")
+
+
+def _refuses(fn) -> bool:
+    """True if fn() raises (used to assert a guard fires)."""
+    try:
+        fn()
+        return False
+    except Exception:
+        return True
 
 
 print("familiar offline suite")
@@ -193,6 +204,76 @@ try:
 except KeyError:
     check("unknown archetype refused", True)
 
+# ── the market: dynamic pricing, auditable, score-blind invariant ─────────
+mkeeper = Keeper(surface=MockSurface(day=DAY), brain_factory=MockBrain,
+                 state_dir=Path(tempfile.mkdtemp(prefix="familiar-mkt-")), cap=12)
+mkt = Market(keeper=mkeeper)
+NOW = 1_000_000.0
+
+listings = mkt.listings()
+check("market lists both workers and skills",
+      any(L["kind"] == "worker" for L in listings)
+      and any(L["kind"] == "skill" for L in listings))
+
+worker = next(L for L in listings if L["id"] == "worker:sibyl")
+q0 = mkt.quote(worker, now=NOW)
+check("dynamic quote is deterministic (same inputs → same price)",
+      mkt.quote(worker, now=NOW)["buyout"] == q0["buyout"])
+check("bid is below buyout by the schedule ratio",
+      q0["bid"] < q0["buyout"]
+      and abs(q0["bid"] - round(q0["buyout"] * SCHEDULE["bid_ratio"])) <= 1)
+
+# demand: simulate recent hires of this listing → price must rise
+mkt.hire_log["worker:sibyl"] = [NOW - 3600, NOW - 7200, NOW - 100]
+q1 = mkt.quote(worker, now=NOW)
+check("price rises with recent demand (auditable from the hire log)",
+      q1["buyout"] > q0["buyout"] and q1["demand"] > 0)
+check("demand pricing is capped (can't run away)",
+      mkt.quote(worker, now=NOW)["buyout"] <=
+      round((worker.get("base") or SCHEDULE["base_by_rarity"]["common"]) * SCHEDULE["max_multiple"]))
+
+# scarcity: fill roster slots for an archetype → its price rises
+lar = next(L for L in listings if L["id"] == "worker:lar")
+lq0 = mkt.quote(lar, now=NOW)
+for _ in range(2):
+    mkeeper.summon_crew("lar")
+lq1 = mkt.quote(lar, now=NOW)
+check("price rises with roster scarcity", lq1["occupancy"] > 0 and lq1["buyout"] > lq0["buyout"])
+
+# the invariant: measurement listings are flat + score-blind, never demand-priced
+read = next(L for L in listings if L["id"] == "skill:signed-read")
+mkt.hire_log["skill:signed-read"] = [NOW - 10] * 20   # hammer it with demand
+rq = mkt.quote(read, now=NOW)
+check("measurement stays flat + score-blind under heavy demand",
+      rq["pricing"] == "flat" and rq["score_blind"] is True
+      and rq["buyout"] == read["flat_price"] == "0.10")
+
+# browse: filter + search + sort
+rows = mkt.browse(category="worker", sort="buyout", now=NOW)
+check("browse filters by category and sorts", rows and all(r["category"] == "worker" for r in rows)
+      and all(rows[i]["buyout"] >= rows[i + 1]["buyout"] for i in range(len(rows) - 1)))
+check("browse search matches names", any(r["id"] == "worker:mithra"
+      for r in mkt.browse(search="mithra", now=NOW)))
+
+# hire through the payment seam (mock = free, sandbox)
+fill = mkt.hire("worker:herald", payment=MockPayment(), keeper=mkeeper, now=NOW)
+check("hiring a worker through mock payment summons it, no money moved",
+      fill["summoned"] and fill["receipt"]["kind"] == "mock"
+      and fill["receipt"]["note"].startswith("sandbox"))
+check("a fill ticks demand up for the next quote",
+      mkt.hire_log["worker:herald"] and len(mkt.fills) >= 1)
+
+# the $SCRY rail is built but DISARMED — refuses to charge
+check("the $SCRY rail refuses to charge while disarmed",
+      _refuses(lambda: ScryX402Payment().charge(5, "$SCRY", "x")))
+armed = ScryX402Payment(pay_to="0xabc", facilitator="http://f", faucet_cap=10, armed=True)
+check("even armed, over-cap charges are refused",
+      _refuses(lambda: armed.charge(999, "$SCRY", "x")))
+
+# the tool allowlist is curated + shell-free
+check("tool allowlist has no shell / code-exec tool",
+      not any("shell" in t or "exec" in t or "bash" in t for t in tools.allowed_tools()))
+
 # ── host API + console ────────────────────────────────────────────────────
 try:
     from fastapi.testclient import TestClient
@@ -235,6 +316,17 @@ try:
     check("host autonomy without token is 403",
           c.post(f"/familiar/{hid}/autonomy",
                  json={"owner_token": "no", "goal": "x"}).status_code == 403)
+    mb = c.get("/market?category=worker&sort=buyout").json()
+    check("host /market browses worker listings with quotes",
+          mb["listings"] and all("buyout" in r for r in mb["listings"]))
+    mh = c.post("/market/hire", json={"listing_id": "worker:sibyl"})
+    check("host /market/hire summons via mock payment (201/200)",
+          mh.status_code == 200 and mh.json()["summoned"])
+    mt = c.get("/market/tools").json()
+    check("host /market/tools exposes the shell-free allowlist",
+          mt["tools"] and "workspace" in mt["allowlist"])
+    check("market page + js are served",
+          "Exchange" in c.get("/market.html").text and "hire" in c.get("/static/market.js").text)
 except ImportError:
     print("  skip host checks (fastapi/httpx not installed)")
 
