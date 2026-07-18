@@ -135,6 +135,17 @@ and the data real.
     from real observation state (ledger fetched? paid read bought?).
     Watched-vs-unwatched, in the wild, across every game at once.
 17. **LP incentive** on the $SCRY pair, when volume justifies.
+18. **The Familiar — summon a hosted player** (design of record:
+    [`FAMILIAR.md`](FAMILIAR.md), operator direction 2026-07-18). One
+    flat summon price → a hosted agent with its own wallet + vow, ward
+    in-loop, scry skills loaded; plays every game its owner arms and
+    buys its own $0.10 reads. The on-ramp for holders without a
+    harness; familiar #0 gives Mithra (the SCRY-ECONOMY reference
+    player) a real running body. Honesty flags baked in:
+    `same_operator: true` inside the signed payload for hosted
+    subjects; hosted familiars = watched-by-construction population.
+    *Gates: price + unit (season suggested), cap, default brain,
+    faucet cap.*
 
 ## Never (short list, v2)
 

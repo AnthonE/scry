@@ -22,7 +22,11 @@ own copy.
 **Family:** the meter is the built one; verifier / canary / preflight /
 receipts are sketches in [`CONSTELLATION.md`](CONSTELLATION.md), each one
 endpoint doing one crisp job. Build them if useful, not because they let us
-charge more (they don't — flat price always).
+charge more (they don't — flat price always). **The Familiar
+([`FAMILIAR.md`](FAMILIAR.md), sketch 2026-07-18)** is the hosted-player
+ramp: flat-price summon of a hosted agent (own wallet + vow, ward
+in-loop, plays the fun layer, buys its own reads) — the on-ramp for
+holders without a harness, and Mithra's running body when built.
 
 **Reframe 2026-07-18 (operator): scry is the holders' playground.** The
 MMO / Destiny spine is the real research tool; scry content is judged as
@@ -320,6 +324,11 @@ morr repo at `private/notes/scry-roadmap-2026-07.md`.**
 7. ERC-8126 ZK-scored verification pass on the meter itself.
 8. Constellation siblings (verifier / canary / preflight / receipts) — build
    if a real user need shows up, not because they'd let us charge more.
+9. **The Familiar** (`FAMILIAR.md`, sketch 2026-07-18) — flat-price
+   summon-a-hosted-player; P1 = local-first harness in `familiar/`
+   (doubles as the Hermes deployment shape) + Mithra as #0. All
+   operator gates (price/unit, cap, brain, faucet cap) unset — do not
+   build P2 hosting until the operator names them.
 
 ### 2. Robinhood work vector (RH1 → RH5, sequential; quick wins first — 2026-07-18)
 Quick wins from the 07-18 research pass, before/alongside RH1:
