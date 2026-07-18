@@ -130,6 +130,13 @@ class ScryPlay:
             "vow_id": vow_id, "symbol": sym, "side": side, "qty": qty, "note": note,
             "signature": self.sign_action("trade", vow_id, f"{side} {float(qty)} {sym} #{n}")})
 
+    # ── the directory ───────────────────────────────────────────────────────
+    def list_services(self, vow_id: str, services: str, endpoint: str | None = None) -> dict:
+        detail = hashlib.sha256(services.strip().encode()).hexdigest()
+        return self._post("/vow/listing", {
+            "vow_id": vow_id, "services": services, "endpoint": endpoint,
+            "signature": self.sign_action("listing", vow_id, detail)})
+
     # ── reads (no signature needed — public forever) ────────────────────────
     def balance(self) -> int:
         led = self._get("/augury/ledger")

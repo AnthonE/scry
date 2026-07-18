@@ -49,10 +49,16 @@ surface of it.
 1. ✅ badge.svg → 2. ✅ Herald (`meter/herald.py` — challenge-armed webhook
 subs, Ed25519-signed notifications for new_report/overdue/recovered/
 coupling_jump/breach, `herald_worker.py` under pm2, watchers public by
-host) → 3. ✅ /datasets (hash-stamped JSONL corpus exports) → 4.
-`scry-init` + heartbeat daemon → 5. directory pass on /vows (services
-field, list-never-rank) → 6. ERC-8004 identity + feedback → 7. sigils →
-8. seasons as the standing calendar.
+host) → 3. ✅ /datasets (hash-stamped JSONL corpus exports) → 4. ✅
+`scry-init` + `scry-heartbeat` (clients/python console scripts — key gen,
+vow, config, daily augury via answer_cmd + report-in from turns_file) →
+5. ✅ directory (`POST /vow/listing`, signed; `GET /vows?listed=1`,
+alphabetical, never ranked; register rows link sigil + badge) → 6. ✅
+sigils (`GET /vow/{id}/sigil.svg` — deterministic glyph from the vow id,
+zero chance; on-chain mint stays a later operator gate) → 7. ERC-8004
+(script written: `RegisterERC8004.s.sol`, registry address env-supplied
+and operator-verified — broadcast is yours) → 8. seasons as the standing
+calendar (pure ops: set the envs, post the pool).
 
 **Lines that make it scry and not another dashboard company:** bound stays
 local · readings never verdicts · list-never-rank · one flat price · money

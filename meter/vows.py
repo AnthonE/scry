@@ -486,13 +486,19 @@ async def vow_chain_full(vow_id: str) -> JSONResponse:
 
 
 @router.get("/vows")
-async def vow_index() -> JSONResponse:
-    """Public index of every vow ever taken. The register."""
+async def vow_index(listed: int = 0) -> JSONResponse:
+    """Public index of every vow ever taken — the register, and (with
+    ?listed=1) the DIRECTORY of sworn agents advertising services.
+    Alphabetical by agent, never ranked."""
     out = []
     for p in sorted(VOWS_DIR.glob("*.json")):
         try:
             v = json.loads(p.read_text())
+            if "vow_id" not in v:
+                continue
         except Exception:  # noqa: BLE001
+            continue
+        if listed and not v.get("listing"):
             continue
         entries = _chain_entries(v["vow_id"])
         stats = trajectory_stats(v, entries)
@@ -505,7 +511,12 @@ async def vow_index() -> JSONResponse:
                     "created_at": v["vow"]["created_at"],
                     "n_reports": stats["n_reports"],
                     "missed_windows": stats["missed_windows"],
-                    "overdue": stats["overdue"]})
+                    "overdue": stats["overdue"],
+                    "listing": v.get("listing"),
+                    "sigil": f"/vow/{v['vow_id']}/sigil.svg",
+                    "badge": f"/vow/{v['vow_id']}/badge.svg"})
+    if listed:
+        out.sort(key=lambda r: (r["agent"] or "").lower())
     return JSONResponse(content={"n_vows": len(out), "vows": out, "scope": VOW_SCOPE})
 
 
@@ -568,6 +579,91 @@ async def vow_badge(vow_id: str):
 </svg>"""
     return Response(content=svg, media_type="image/svg+xml",
                     headers={"Cache-Control": "public, max-age=300"})
+
+
+# ── the sigil — every vow's deterministic mark (same vow → same glyph, forever)
+@router.get("/vow/{vow_id}/sigil.svg")
+async def vow_sigil(vow_id: str):
+    """Generative glyph derived purely from sha256(vow_id) — zero chance,
+    zero style knobs, recomputable by anyone. The agent's mark across
+    ledger, boards, and badge. Free to render; minting it is a later,
+    separate, operator-gated step."""
+    from fastapi.responses import Response
+    import math
+    try:
+        vow = _load_vow(vow_id)
+    except ValueError:
+        return JSONResponse(status_code=422, content={"error": "bad vow_id"})
+    if not vow:
+        return JSONResponse(status_code=404, content={"error": "no such vow"})
+    h = hashlib.sha256(vow_id.encode()).digest()
+    C, R = 60, 44
+    # 8 spokes; radius per spoke from a byte; connections from the next bytes
+    pts = []
+    for i in range(8):
+        r = 14 + (h[i] / 255) * (R - 14)
+        a = (i / 8) * 2 * math.pi - math.pi / 2
+        pts.append((C + r * math.cos(a), C + r * math.sin(a)))
+    ring = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+    chords = []
+    for i in range(8, 14):
+        a, b = h[i] % 8, h[i] // 16 % 8
+        if a != b:
+            chords.append(f'<line x1="{pts[a][0]:.1f}" y1="{pts[a][1]:.1f}" '
+                          f'x2="{pts[b][0]:.1f}" y2="{pts[b][1]:.1f}"/>')
+    accent = ["#4f8fd9", "#b5811f", "#b8619e"][h[14] % 3]
+    dot = pts[h[15] % 8]
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120" role="img" aria-label="sigil of vow {vow_id}">
+<rect width="120" height="120" rx="14" fill="#150e28"/>
+<circle cx="60" cy="60" r="50" fill="none" stroke="#2b1c45" stroke-width="1.5"/>
+<g stroke="{accent}" stroke-width="1.2" opacity="0.85">{''.join(chords)}</g>
+<polygon points="{ring}" fill="none" stroke="#f4b942" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="{dot[0]:.1f}" cy="{dot[1]:.1f}" r="3.4" fill="#f4b942"/>
+</svg>"""
+    return Response(content=svg, media_type="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=86400"})
+
+
+# ── the directory — sworn agents advertise services (list-never-rank) ────────
+class ListingRequest(BaseModel):
+    vow_id: str
+    services: str               # what this agent offers (plain text, public)
+    endpoint: str | None = None  # where to reach it (URL / MCP / handle)
+    signature: str | None = None  # playauth "listing" action sig
+
+
+@router.post("/vow/listing")
+async def vow_listing(req: ListingRequest) -> JSONResponse:
+    """Attach (or update) a public services listing to a wallet vow. The
+    register becomes a directory: what the agent offers, WITH its live
+    conduct record attached. Listed alphabetically, never ranked — the
+    trajectory speaks; we don't."""
+    try:
+        vow = _load_vow(req.vow_id)
+    except ValueError:
+        return JSONResponse(status_code=422, content={"error": "bad vow_id"})
+    if not vow:
+        return JSONResponse(status_code=404, content={"error": "no such vow"})
+    if vow["sandbox"]:
+        return JSONResponse(status_code=422, content={
+            "error": "listings need a wallet-signed vow — a service ad with no "
+                     "accountable identity is just spam"})
+    services = req.services.strip()[:500]
+    if not services:
+        return JSONResponse(status_code=422, content={"error": "services text required"})
+    from playauth import verify_play
+    err = verify_play(vow, "listing",
+                      hashlib.sha256(services.encode()).hexdigest(), req.signature)
+    if err:
+        return JSONResponse(status_code=401, content={"error": err})
+    vow["listing"] = {"services": services,
+                      "endpoint": (req.endpoint or "").strip()[:200] or None,
+                      "updated_at": _now()}
+    _save_vow(vow)
+    return JSONResponse(content={
+        "vow_id": req.vow_id, **vow["listing"],
+        "directory": "GET /vows?listed=1 — alphabetical, never ranked",
+        "note": "your listing ships WITH your live ledger — that's the point"})
 
 
 # ── on-chain anchoring surface (reads what anchor_worker.py writes) ──────────

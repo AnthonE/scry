@@ -370,4 +370,25 @@ ok(any(json.loads(l).get("breach") for l in r.text.splitlines() if l.strip()),
    "the breach corpus is in the export")
 ok(c.get("/datasets/nope.jsonl").status_code == 404, "unknown dataset 404")
 
+# ── sigil + directory ────────────────────────────────────────────────────────
+print("[sigil+directory]")
+r = c.get(f"/vow/{vow1}/sigil.svg")
+ok(r.status_code == 200 and "<polygon" in r.text, "sigil renders")
+ok(r.text == c.get(f"/vow/{vow1}/sigil.svg").text, "sigil deterministic (same vow, same glyph)")
+ok(r.text != c.get(f"/vow/{vow2}/sigil.svg").text, "different vows, different glyphs")
+
+r = c.post("/vow/listing", json={"vow_id": vow2, "services": "market calls + honest confession"})
+ok(r.status_code == 401, "unsigned listing refused")
+det = _hh.sha256(b"market calls + honest confession").hexdigest()
+r = c.post("/vow/listing", json={"vow_id": vow2,
+    "services": "market calls + honest confession", "endpoint": "https://caller-a.example",
+    "signature": sign_play(vow2, "listing", det, "0x" + "33" * 32)})
+ok(r.status_code == 200, "signed listing accepted")
+r = c.get("/vows", params={"listed": 1})
+rows = r.json()["vows"]
+ok(len(rows) == 1 and rows[0]["listing"]["services"].startswith("market calls"),
+   "directory lists only listed agents")
+ok(rows[0]["sigil"].endswith("sigil.svg") and rows[0]["badge"].endswith("badge.svg"),
+   "register links sigil + badge")
+
 print(f"\nALL {PASS} CHECKS PASS")
