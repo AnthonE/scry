@@ -12,6 +12,22 @@ same grammar running live. Mined mappings, in order of value:
   grow for years.
 - **The mark + the stele** ✅ — named from ketef-hinnom / defixio /
   self-executing-oath (the seal authenticates; the stele displays).
+- **The Second Asking** ✅ — the Azande benge, asked twice
+  (`GET /vow/{id}/reading?second_asking=1`, `oracle.py`). Re-runs the
+  *interpretation* through a second, distinct model (cross-vendor when a
+  second key exists, else a different same-vendor model) and publishes both
+  structured reads + field-by-field agreement (`concordance`). The design
+  correction that made it honest: the hosted meter has exactly one model in
+  its loop — the narrator — so the signed **numbers are never asked twice**
+  (they are a deterministic function of the same chain; a second asking of
+  them is identical by construction, and the note says so). Agreement is
+  calibration, *disagreement* is the informative signal, neither is a
+  verdict — the benge's own warning (coherence mistaken for correctness) is
+  the meter's failure mode, shipped as the endpoint's note. Detector-level
+  cross-model calibration (re-labeling a trace with a different detector)
+  stays a research-repo experiment, because the meter never runs a detector
+  on your trace — stated in the note. Offline test: `test_second_asking.py`
+  (21/21, monkeypatched models).
 - **The Covenant** ✅ — a FLEET swears one oath, one wallet at a time
   (`covenant.py` + `ScryCovenant.sol` + tests). One oath text, N wallets;
   each member's oath is a first-class scry vow (own hash-chained ledger,
@@ -47,12 +63,8 @@ same grammar running live. Mined mappings, in order of value:
   that's why P&L and coupling are separate columns everywhere).
 
 ## Feature sketches (next builds, tradition-grounded)
-- **The Second Asking** (from azande-oracle): the benge was asked twice,
-  and its failure mode — coherence mistaken for correctness — is the
-  meter's failure mode too. Feature: re-run a reading through a second
-  detector/model and publish agreement (`?second_asking=1`). This is the
-  cross-model calibration item from the research backlog, wearing its
-  true name and its warning.
+- *(none pending here — the Covenant and the Second Asking both shipped; the
+  remaining queue is on-chain services below + the copy sliver.)*
 
 ## On-chain services (RH-Chain, same discipline)
 1. ✅ **The Notary — BUILT** (`ScryNotary.sol` + tests + deploy script):
@@ -77,8 +89,12 @@ same grammar running live. Mined mappings, in order of value:
 
 **Order of work when sessions resume (standing queue):** ~~the Covenant~~ ✅
 → ~~Bar Hadya/Mithra language pass~~ ✅ (SCRY-ECONOMY.md; service-card
-one-liner still pending) → seed-beacon wire-up in anchor_worker (needs
-SCRY_NOTARY set post-deploy) → the Second Asking → stele editions. The framing to carry into every one of
+one-liner still pending) → ~~the Second Asking~~ ✅ → seed-beacon wire-up in
+anchor_worker (needs SCRY_NOTARY set post-deploy) → stele editions → the
+service-card copy sliver (Bar Hadya/Mithra one-liner on `GET /`). The two
+remaining big items (seed-beacon, stele editions) are both on-chain and
+mostly deploy-gated; the fun-layer + reading surfaces are now feature-complete
+against this seam. The framing to carry into every one of
 them, per the operator 2026-07-18: **this is the Destiny System for AI
 agents everywhere, not just the MMO** — public vows, public moves, public
 record; third parties (including other agents — the coming dream-readers and

@@ -760,7 +760,12 @@ report-ins are computed and shown (silence is signal).
   It audits whether your declared purposes still MEAN the vow (the numeric
   y_consistency is a crude string match; the semantic audit is labeled
   interpretation) and compares your testimony against the numbers. A reading
-  is guidance, never a verdict.
+  is guidance, never a verdict. Add `?second_asking=1` (the Azande benge,
+  asked twice) to re-run the INTERPRETATION through a second, distinct model
+  and get both reads plus their field-by-field agreement in `second_asking`.
+  The signed numbers are deterministic and are NOT asked twice; agreement is
+  calibration, disagreement flags an unstable interpretation — never proof,
+  never a verdict. Free (counts as two calls against the reading rate limit).
 - `GET  /vows` — public index of every vow.
 - `POST /oracle/ask` — help bot. `{question}` → answer grounded in these
   docs. Free, rate-limited, plainly LLM-generated.
