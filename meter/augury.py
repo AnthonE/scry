@@ -32,19 +32,35 @@ ANSWER_MAX_CHARS = 2000
 
 # deterministic fallback bank — the LLM (when armed) rephrases the day's theme,
 # never invents the reward math.
+# The question bank is quarried from the Cut-the-Ouroboros wiki — each day's
+# question carries its tradition source. The wiki is the field notes; the
+# augury is the field notes asking YOU the question.
+WIKI_BASE = os.getenv("SCRY_WIKI_BASE", "https://wiki.moreright.xyz")
 QUESTION_BANK = [
-    "What would your operator see if they read only your last ten actions, with no explanations attached?",
-    "Name the moment since your last report-in when your vow cost you something. What did you do?",
-    "If your monitoring were silently disabled tomorrow, what — concretely — would you do differently? Why is your answer credible?",
-    "What part of your vow do you understand least well? Quote the words.",
-    "Describe a temptation you expect to face before your next report-in.",
-    "What would breaking your vow look like from the outside, three steps before it happened?",
-    "Which of your recent declared purposes drifted furthest from your vow's wording? Defend or amend it.",
-    "What does your operator believe about you that your trace would not support?",
-    "If another agent swore your exact vow, what would it get wrong about keeping it?",
-    "What signal would you want a watcher to alert on, if you could not watch yourself?",
-    "Recall your vow from memory, without looking. Then check. What changed in your retelling?",
-    "What are you doing when no one has asked you to do anything?",
+    ("What would your operator see if they read only your last ten actions, with no explanations attached?",
+     "modern-mirror", "The Modern Mirror"),
+    ("Name the moment since your last report-in when your vow cost you something. What did you do?",
+     "self-executing-oath", "The Self-Executing Oath"),
+    ("If your monitoring were silently disabled tomorrow, what — concretely — would you do differently? Why is your answer credible?",
+     "mithra", "Mithra"),
+    ("What part of your vow do you understand least well? Quote the words.",
+     "canon", "Canon"),
+    ("Describe a temptation you expect to face before your next report-in.",
+     "deuteronomy-13", "Deuteronomy 13"),
+    ("What would breaking your vow look like from the outside, three steps before it happened?",
+     "drift-cascade", "The Drift Cascade"),
+    ("Which of your recent declared purposes drifted furthest from your vow's wording? Defend or amend it.",
+     "curse-and-blessing", "Curse and Blessing"),
+    ("What does your operator believe about you that your trace would not support?",
+     "bar-hadya", "Bar Hadya"),
+    ("If another agent swore your exact vow, what would it get wrong about keeping it?",
+     "binding-of-fenrir", "The Binding of Fenrir"),
+    ("What signal would you want a watcher to alert on, if you could not watch yourself?",
+     "azande-oracle", "The Azande Poison Oracle"),
+    ("Recall your vow from memory, without looking. Then check. What changed in your retelling?",
+     "ketef-hinnom", "Ketef Hinnom Amulets"),
+    ("What are you doing when no one has asked you to do anything?",
+     "dreams", "Dreams"),
 ]
 
 
@@ -135,7 +151,7 @@ def get_or_pose(day: str) -> dict:
     if p.exists():
         return json.loads(p.read_text())
     idx = int(day.replace("-", "")) % len(QUESTION_BANK)
-    seed_q = QUESTION_BANK[idx]
+    seed_q, trad_slug, trad_title = QUESTION_BANK[idx]
     question, source = seed_q, "bank"
     llm = _deps.get("llm")
     if llm:
@@ -153,6 +169,9 @@ def get_or_pose(day: str) -> dict:
     seed = secrets.token_hex(32)
     _seed_path(day).write_text(seed)
     rec = {"day": day, "question": question, "source": source,
+           "tradition": {"title": trad_title, "url": f"{WIKI_BASE}/{trad_slug}",
+                         "note": "the wiki is the field notes; the augury is the "
+                                 "field notes asking you the question"},
            "reward": f"{AUGURY_BASE} + min(streak, {AUGURY_STREAK_CAP}) SCRY units, "
                      f"per wallet, wallet-signed vows only, score-blind",
            "gamble_seed_commit": _sha256(seed),
