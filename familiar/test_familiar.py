@@ -20,6 +20,7 @@ from familiar.surface import MockSurface  # noqa: E402
 from familiar.workspace import Workspace, Egress, WorkspaceError  # noqa: E402
 from familiar import crew, tools  # noqa: E402
 from familiar.market import Market, SCHEDULE  # noqa: E402
+from familiar.auctions import AuctionHouse, AuctionError, DURATIONS  # noqa: E402
 from familiar.payment import MockPayment, ScryX402Payment, PaymentError  # noqa: E402
 from turn_record import Turn  # noqa: E402
 
@@ -274,6 +275,63 @@ check("even armed, over-cap charges are refused",
 check("tool allowlist has no shell / code-exec tool",
       not any("shell" in t or "exec" in t or "bash" in t for t in tools.allowed_tools()))
 
+# ── the auction house: two-sided, deterministic, score-blind ─────────────
+akeep = Keeper(surface=MockSurface(day=DAY), brain_factory=MockBrain,
+               state_dir=Path(tempfile.mkdtemp(prefix="familiar-auc-")), cap=20)
+ah = AuctionHouse(payment_factory=MockPayment, keeper=akeep)
+worker_item = {"kind": "worker", "ref": "sibyl", "name": "Sibyl", "rarity": "common",
+               "category": "worker", "pricing": "dynamic"}
+read_item = {"kind": "skill", "ref": "skill:signed-read", "name": "Signed drift read",
+             "category": "measurement", "pricing": "flat"}
+
+posted = ah.post("alice", worker_item, starting_bid=5, buyout=50, duration="Medium", now=NOW)
+check("post opens an auction with the seller's own price",
+      posted["status"] == "open" and posted["starting_bid"] == 5 and posted["buyout"] == 50)
+check("a measurement cannot be auctioned (score-blind)",
+      _refuses(lambda: ah.post("alice", read_item, starting_bid=5, now=NOW)))
+aid = posted["id"]
+
+check("a seller cannot bid on their own listing",
+      _refuses(lambda: ah.bid(aid, "alice", 6, now=NOW)))
+check("a bid below the starting bid is refused",
+      _refuses(lambda: ah.bid(aid, "bob", 3, now=NOW)))
+b1 = ah.bid(aid, "bob", 6, now=NOW)
+check("a valid bid becomes the current bid", b1["current_bid"] == 6 and b1["high_bidder"] == "bob")
+check("the next bid must clear the min increment",
+      _refuses(lambda: ah.bid(aid, "cara", 6, now=NOW)))
+b2 = ah.bid(aid, "cara", b1["min_next_bid"], now=NOW)
+check("an outbid raises the current bid and flips the leader",
+      b2["current_bid"] >= b1["min_next_bid"] and b2["high_bidder"] == "cara")
+
+# views: bidders see their bids, the seller sees their listing
+check("bidders see the auctions they're in",
+      any(a["id"] == aid for a in ah.bids_of("bob"))
+      and any(a["id"] == aid for a in ah.bids_of("cara")))
+check("the seller sees their own listing", any(a["id"] == aid for a in ah.for_seller("alice")))
+
+# buyout settles instantly, takes the house cut, summons the worker to the winner
+bo = ah.buyout(aid, "dave", now=NOW)
+s = bo["settled"]
+check("buyout settles: sold, winner, price", bo["status"] == "sold" and s["winner"] == "dave"
+      and s["price"] == 50)
+check("the house takes its posted cut, seller gets the rest",
+      s["house_cut"] == round(50 * ah.house_cut) and s["seller_proceeds"] == 50 - s["house_cut"])
+check("a won worker auction summons the worker to the winner", bool(s["summoned"]))
+check("settlement runs through the (mock) payment seam — no money moved",
+      s["receipt"]["kind"] == "mock")
+check("a settled auction can't be bid on again", _refuses(lambda: ah.bid(aid, "eve", 99, now=NOW)))
+
+# close-due sweep: highest bid wins at close; no bids → expired
+a2 = ah.post("alice", worker_item, starting_bid=10, duration="Short", now=NOW)["id"]
+ah.bid(a2, "bob", 10, now=NOW)
+closed = ah.close_due(now=NOW + DURATIONS["Short"] + 1)
+check("close-due settles the high bid at expiry",
+      any(c.get("winner") == "bob" and c["status"] == "sold" for c in closed))
+a3 = ah.post("alice", worker_item, starting_bid=10, duration="Short", now=NOW)["id"]
+c3 = ah.close_due(now=NOW + DURATIONS["Short"] + 1)
+check("a no-bid auction expires unsold",
+      any(c["id"] == a3 and c["status"] == "expired" for c in c3))
+
 # ── host API + console ────────────────────────────────────────────────────
 try:
     from fastapi.testclient import TestClient
@@ -327,6 +385,22 @@ try:
           mt["tools"] and "workspace" in mt["allowlist"])
     check("market page + js are served",
           "Exchange" in c.get("/market.html").text and "hire" in c.get("/static/market.js").text)
+    ap = c.post("/auctions", json={"seller": "alice", "listing_id": "worker:sibyl",
+                                   "starting_bid": 5, "buyout": 40, "duration": "Medium"})
+    check("host posts an auction (seller-set price)",
+          ap.status_code == 200 and ap.json()["status"] == "open")
+    auid = ap.json()["id"]
+    check("host refuses to auction a measurement",
+          c.post("/auctions", json={"seller": "alice", "listing_id": "skill:signed-read",
+                                    "starting_bid": 5}).status_code == 400)
+    ab = c.post(f"/auctions/{auid}/bid", json={"bidder": "bob", "amount": 6})
+    check("host bid updates current bid", ab.status_code == 200 and ab.json()["current_bid"] == 6)
+    abo = c.post(f"/auctions/{auid}/buyout", json={"bidder": "cara"})
+    check("host buyout settles with the house cut",
+          abo.status_code == 200 and abo.json()["settled"]["winner"] == "cara"
+          and abo.json()["settled"]["house_cut"] >= 1)
+    mine = c.get("/auctions/mine?who=bob").json()
+    check("host /auctions/mine shows a bidder their auctions", "bidding" in mine)
 except ImportError:
     print("  skip host checks (fastapi/httpx not installed)")
 

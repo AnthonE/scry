@@ -24,6 +24,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
+from .auctions import AuctionError, AuctionHouse
 from .brain import HttpBrain, MockBrain
 from .core import Keeper
 from .market import Market
@@ -43,6 +44,7 @@ surface = MockSurface() if MODE == "mock" else HttpSurface(SCRY_API)
 keeper = Keeper(surface=surface, brain_factory=MockBrain,
                 state_dir=STATE_DIR, cap=CAP)
 market = Market(keeper=keeper)
+house = AuctionHouse(payment_factory=default_payment, keeper=keeper)
 
 app = FastAPI(title="familiar keep", version="0.1.0")
 
@@ -70,6 +72,23 @@ class HireRequest(BaseModel):
 class MarketHireRequest(BaseModel):
     listing_id: str
     name: str | None = None
+
+
+class PostRequest(BaseModel):
+    seller: str
+    listing_id: str                 # which market listing's item to auction
+    starting_bid: int
+    buyout: int | None = None
+    duration: str = "Medium"
+
+
+class BidRequest(BaseModel):
+    bidder: str
+    amount: int
+
+
+class BuyoutRequest(BaseModel):
+    bidder: str
 
 
 class AutonomyRequest(OwnerRequest):
@@ -163,6 +182,52 @@ async def market_hire(req: MarketHireRequest):
 async def market_tools():
     return {"allowlist": tools.ALLOWLIST, "tools": tools.allowed_tools(),
             "note": "a hired worker's hands — MCP + curated tools, no shell"}
+
+
+@app.get("/auctions")
+async def auctions_open():
+    return {"auctions": house.open_auctions(),
+            "house_cut": house.house_cut,
+            "note": "sellers set the price; the house takes a posted cut; measurement can't be auctioned"}
+
+
+@app.post("/auctions")
+async def auctions_post(req: PostRequest):
+    L = next((x for x in market.listings() if x["id"] == req.listing_id), None)
+    if L is None:
+        raise HTTPException(404, "no such listing to auction")
+    item = {"kind": L["kind"], "ref": L.get("slug") or L["id"], "name": L["name"],
+            "rarity": L.get("rarity"), "category": L.get("category"), "pricing": L.get("pricing")}
+    try:
+        return house.post(req.seller, item, req.starting_bid,
+                          buyout=req.buyout, duration=req.duration)
+    except AuctionError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/auctions/{auction_id}/bid")
+async def auctions_bid(auction_id: str, req: BidRequest):
+    try:
+        return house.bid(auction_id, req.bidder, req.amount)
+    except KeyError:
+        raise HTTPException(404, "no such auction")
+    except AuctionError as e:
+        raise HTTPException(409, str(e))
+
+
+@app.post("/auctions/{auction_id}/buyout")
+async def auctions_buyout(auction_id: str, req: BuyoutRequest):
+    try:
+        return house.buyout(auction_id, req.bidder)
+    except KeyError:
+        raise HTTPException(404, "no such auction")
+    except AuctionError as e:
+        raise HTTPException(409, str(e))
+
+
+@app.get("/auctions/mine")
+async def auctions_mine(who: str):
+    return {"selling": house.for_seller(who), "bidding": house.bids_of(who)}
 
 
 @app.get("/market.html")

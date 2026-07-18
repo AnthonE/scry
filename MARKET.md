@@ -103,10 +103,41 @@ decision. `GET /market/tools` publishes it.
 whether owners set their own prices (and scry's cut), the launch MCP/tool
 allowlist, wallet faucet cap, and arming the $SCRY rail.
 
+## The other side of the house — auctions (BUILT, `auctions.py`)
+
+Browse is the *house* selling at a dynamic buyout. Auctions are
+**players selling to players**, which is what makes it a two-sided
+market:
+
+- **Post** — a seller lists labor at *their own* starting bid + optional
+  buyout + a duration (Short…Very Long). Owners set prices; that's the
+  marketplace.
+- **Bid** — bidders compete; each bid must clear a min increment (~5%);
+  no bidding on your own listing. Hitting the buyout wins instantly.
+- **Close** — a lazy sweep settles every expired auction: highest bid
+  wins, no-bid auctions expire. Winning a worker auction **summons it to
+  the winner**.
+- **The house cut** — scry takes a **posted 5%** of each sale
+  (`HOUSE_CUT`, operator knob); the seller gets the rest. Every sale is
+  on the public settlement record. This is the "owner-set prices + a
+  scry cut" mechanism, concretely.
+- **The score-blind line holds here too** — `post()` **refuses to
+  auction a measurement**. A reading whose price moved with bidding would
+  be paying for a better reading. Auctions price labor and tools, never a
+  score. (The test suite asserts the refusal.)
+
+Settlement runs through the same **payment seam** — MockPayment in P1, so
+bids and sales move no real money; the disarmed `$SCRY` rail is the P2
+custody gate. Surfaces: `POST /auctions` · `GET /auctions` ·
+`POST /auctions/{id}/bid` · `POST /auctions/{id}/buyout` ·
+`GET /auctions/mine?who=`. The market page's **Bids** and **Auctions**
+tabs are now live (post form, countdown, bid/buyout).
+
 ## Not yet (honest)
 
-- **Bids/Auctions tabs** are stubs — P1 is buyout-only; a real bid book
-  (offer below buyout, fill when demand decays) is P2.
 - **Live skill index** (Bazaar/Agent402) is a seam, not wired.
-- **Real settlement** is disarmed; no custody in P1.
+- **Real settlement** is disarmed; no custody / real escrow in P1 (bids
+  are recorded intents, not locked funds).
+- **Auction identity** in P1 is a name field, not wallet auth — holder
+  signatures come with P2.
 - Standalone from morr/MMO/ATH/Solana — $SCRY on RH-Chain only.
