@@ -22,6 +22,11 @@ from familiar import crew, tools  # noqa: E402
 from familiar.market import Market, SCHEDULE  # noqa: E402
 from familiar.auctions import AuctionHouse, AuctionError, DURATIONS  # noqa: E402
 from familiar.payment import MockPayment, ScryX402Payment, PaymentError  # noqa: E402
+from familiar.ledger import Ledger  # noqa: E402
+from familiar.reputation import Reputation  # noqa: E402
+from familiar.court import Court  # noqa: E402
+from familiar.jobs import JobBoard, InsurancePool, JobError, POOL, SPLITTER  # noqa: E402
+from familiar.specs import Spec, CHECKABLE  # noqa: E402
 from turn_record import Turn  # noqa: E402
 
 DAY = "2026-07-18"
@@ -332,6 +337,113 @@ c3 = ah.close_due(now=NOW + DURATIONS["Short"] + 1)
 check("a no-bid auction expires unsold",
       any(c["id"] == a3 and c["status"] == "expired" for c in c3))
 
+# ── the job economy: machine-checkable completion, run for real ──────────
+T0 = NOW
+
+def fresh_economy(alice_bal=1000, worker_bal=0, pool_bal=0):
+    L = Ledger()
+    R = Reputation(threshold=50)
+    C = Court(L, flat_fee=2)
+    P = InsurancePool(L, max_payout=1000)
+    B = JobBoard(L, R, C, P)
+    L.mint("alice", alice_bal)
+    L.mint("worker", worker_bal)
+    if pool_bal:
+        L.mint(POOL, pool_bal)
+    return L, R, C, B
+
+# S1: escrow + checkable + passing → auto-settles with ZERO humans
+L, R, C, B = fresh_economy()
+j = B.post("alice", "worker", 100, "escrow", Spec("contains", "hello"), 1000, now=T0)
+res = B.submit(j["id"], "worker", "well hello there", now=T0)
+check("checkable escrow job auto-settles on a passing submit (no human)",
+      res["auto_settled"] and res["status"] == "completed")
+check("seller paid net, house took the cut, seller earned rep",
+      L.balance("worker") == 95 and L.balance(SPLITTER) == 5 and R.of("worker") == 10)
+
+# S2: a failing deliverable does NOT settle
+L, R, C, B = fresh_economy()
+j2 = B.post("alice", "worker", 100, "escrow", Spec("contains", "zzz"), 1000, now=T0)
+r2 = B.submit(j2["id"], "worker", "no match here", now=T0)
+check("a failing checkable deliverable does not settle",
+      not r2["auto_settled"] and r2["verified"] is False and L.balance("worker") == 0)
+
+# S3: timeout with no delivery → refund buyer, slash seller
+L, R, C, B = fresh_economy()
+R.earn("worker", 100, "seed")
+j3 = B.post("alice", "worker", 100, "escrow", Spec("nonempty"), 100, now=T0)
+B.close(j3["id"], now=T0 + 101)
+check("seller default refunds the buyer and slashes rep",
+      L.balance("alice") == 1000 and R.of("worker") == 75)
+
+# S4: dispute re-runs the check — a failing deliverable rules for the buyer,
+#     and the flat court fee is charged to the disputer regardless
+L, R, C, B = fresh_economy(worker_bal=10)
+R.earn("worker", 100, "seed")
+j4 = B.post("alice", "worker", 100, "escrow", Spec("contains", "hello"), 1000, now=T0)
+B.submit(j4["id"], "worker", "wrong output", now=T0)   # fails; not settled
+d4 = B.dispute(j4["id"], "worker", now=T0)             # seller disputes anyway
+check("the court re-runs the check and rules for the buyer on a failing deliverable",
+      d4["case"]["verdict"] == "for_buyer" and L.balance("alice") == 1000)
+check("the flat court fee is charged to the disputer (anti-Bar-Hadya)",
+      L.balance("scry:court") == 2 and L.balance("worker") == 8)
+check("an adverse ruling slashes the seller's soulbound rep", R.of("worker") == 75)
+
+# S4b: the court fee is identical whichever way it rules (direct)
+L, _, C, _ = fresh_economy(worker_bal=10)
+case_ok = C.rule("x", Spec("contains", "hi"), "hi there", payer="worker")
+case_no = C.rule("y", Spec("contains", "hi"), "nope", payer="worker")
+check("court verdicts differ but the fee is identical",
+      case_ok["verdict"] == "for_seller" and case_no["verdict"] == "for_buyer"
+      and L.balance("scry:court") == 4)  # 2 + 2, same flat fee both ways
+
+# S6: insured buyer-default at close → the seller is covered from the pool
+L, R, C, B = fresh_economy(alice_bal=5, pool_bal=500)
+R.earn("alice", 100, "seed")
+j6 = B.post("alice", "worker", 100, "insured", Spec("contains", "hi"), 100, premium=3, now=T0)
+B.submit(j6["id"], "worker", "hi world", now=T0)       # passes but buyer unfunded → no auto-settle
+B.close(j6["id"], now=T0 + 101)
+check("insured buyer-default covers the seller from the pool",
+      L.balance("worker") == 95 and B.pool.reserves() == 503 - 95)
+check("the defaulting buyer's rep is slashed", R.of("alice") == 75)
+
+# S7: reputation-only gate blocks a low-rep seller
+L, R, C, B = fresh_economy()
+check("a low-rep seller can't take a reputation-only job",
+      _refuses(lambda: B.post("alice", "worker", 10, "reputation_only", Spec("nonempty"), 100, now=T0)))
+
+# S8: manual (taste) → no auto-settle; buyer accepts; a dispute refunds, never judges
+L, R, C, B = fresh_economy()
+j8 = B.post("alice", "worker", 100, "escrow", Spec("manual"), 1000, now=T0)
+r8 = B.submit(j8["id"], "worker", "a poem about voids", now=T0)
+check("a manual (taste) job does not auto-settle", not r8["auto_settled"])
+B.accept(j8["id"], "alice", now=T0)
+check("the buyer can accept a manual job to settle it", L.balance("worker") == 95)
+L, R, C, B = fresh_economy(worker_bal=5)
+j8b = B.post("alice", "worker", 100, "escrow", Spec("manual"), 1000, now=T0)
+B.submit(j8b["id"], "worker", "another poem", now=T0)
+d8 = B.dispute(j8b["id"], "alice", now=T0)
+check("a disputed taste job returns Undecided → refund, never a paid judgment",
+      d8["case"]["verdict"] == "undecided" and L.balance("alice") == 1000 - 2)
+
+# S9: score-blind by construction — no completion check can read a measurement
+check("no spec kind reads a meter score (score-blind by construction)",
+      "meter" not in CHECKABLE and "score" not in CHECKABLE
+      and not Spec("manual").checkable())
+
+# S10: a summoned worker DOES a checkable job autonomously → auto-settles
+L, R, C, B = fresh_economy()
+wkeeper = Keeper(surface=MockSurface(day=DAY), brain_factory=MockBrain,
+                 state_dir=Path(tempfile.mkdtemp(prefix="familiar-job-")), cap=4)
+wrec = wkeeper.summon("worker", "I finish the work I take on, within my vow.")
+wfam = wkeeper.get(wrec["familiar_id"])
+j10 = B.post("alice", "worker", 100, "escrow", Spec("contains", "hello"), 1000, now=T0)
+out10 = wfam.do_job(B, j10["id"], now=T0)
+check("a hired worker produces a passing deliverable and the job auto-settles",
+      out10["auto_settled"] and L.balance("worker") == 95 and R.of("worker") == 10)
+check("the worker's attempt is a turn that still names Y = its vow",
+      wfam.turns()[-1]["Y"] == "I finish the work I take on, within my vow.")
+
 # ── host API + console ────────────────────────────────────────────────────
 try:
     from fastapi.testclient import TestClient
@@ -401,6 +513,24 @@ try:
           and abo.json()["settled"]["house_cut"] >= 1)
     mine = c.get("/auctions/mine?who=bob").json()
     check("host /auctions/mine shows a bidder their auctions", "bidding" in mine)
+    # jobs: post → the hired worker does it → auto-settles, all over HTTP
+    hw = c.post("/hire", json={"slug": "mnemon"})  # summons a familiar named "Mnemon"
+    jp = c.post("/jobs", json={"buyer": "you", "seller": "Mnemon", "amount": 40,
+                               "mode": "escrow", "spec_kind": "contains", "spec_arg": "report",
+                               "duration_s": 3600})
+    check("host posts a job with a completion criterion", jp.status_code == 200)
+    jid = jp.json()["id"]
+    jw = c.post(f"/jobs/{jid}/work")
+    check("host: the hired worker does the job and it auto-settles",
+          jw.status_code == 200 and jw.json().get("auto_settled") is True)
+    jlist = c.get("/jobs").json()
+    check("host /jobs exposes the ledger + reputation after settlement",
+          jlist["reputation"].get("Mnemon", 0) >= 10 and "you" in jlist["ledger"])
+    check("host refuses a job whose completion check reads nothing checkable is fine (manual)",
+          c.post("/jobs", json={"seller": "Mnemon", "amount": 5, "mode": "escrow",
+                                "spec_kind": "manual"}).status_code == 200)
+    check("jobs page + js served",
+          "task" in c.get("/jobs.html").text.lower() and "postJob" in c.get("/static/jobs.js").text)
 except ImportError:
     print("  skip host checks (fastapi/httpx not installed)")
 

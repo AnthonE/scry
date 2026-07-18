@@ -124,6 +124,26 @@ class Familiar:
         from familiar.autonomy import run_autonomy
         return run_autonomy(self, goal_text, max_steps=max_steps, day=day)
 
+    def do_job(self, board, job_id, now=None) -> dict:
+        """Take a hired job and actually do it: produce a deliverable aimed at
+        the job's public completion criterion and submit it. A checkable
+        deliverable that passes auto-settles with no human (jobs.py). The
+        turn (Y = the vow) and the attempt are on the public record."""
+        if self.dismissed:
+            raise RuntimeError("dismissed familiars do not work")
+        job = board._job(job_id)                          # noqa: SLF001 (same package)
+        if job.seller != self.cfg.name:
+            raise RuntimeError("this job was not hired to me")
+        spec = job.spec.as_dict()
+        deliverable = self.brain.produce(
+            {"task": job_id, "spec": spec, "vow": self.cfg.vow_text})
+        decision = {"action": "do_job",
+                    "reasoning": f"[produce] spec={spec.get('kind')} for {job_id}",
+                    "say": f"delivered work for {job_id}"}
+        self._record_turn(decision, day=None, kind="job")
+        self.journal("job", job_id=job_id, spec=spec.get("kind"))
+        return board.submit(job_id, self.cfg.name, deliverable, now=now)
+
     # ── birth ─────────────────────────────────────────────────────────────
     def be_born(self):
         """First public act: the vow. No vow, no familiar."""

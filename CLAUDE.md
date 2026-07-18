@@ -115,7 +115,11 @@ attendant spirit and the computing background worker.
   whatever it rules — anti-Bar-Hadya, enforced in `ScryJobBoard`);
   reputation is **soulbound** (earned/slashed, never bought). The honest
   line: cut humans out only for *machine-checkable* completion; taste
-  falls back to refund + reputation, never a paid judge. Contracts:
+  falls back to refund + reputation, never a paid judge. **The whole loop
+  is BUILT + runnable off-chain** (`familiar/{ledger,reputation,court,
+  specs,jobs}.py` + the task board `/jobs.html`): a hired worker does a
+  job, a passing deliverable auto-settles with zero humans, a check it
+  can't fake honestly fails. On-chain mirror (the P2 custody gate):
   `contracts/src/Scry{Reputation,JobBoard,InsurancePool}.sol` +
   `IScryArbiter` — **written, unrun; `forge test` before broadcast.**
 - **Naming is ancient-base, on purpose.** Words that have named a job for

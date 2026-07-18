@@ -151,18 +151,39 @@ start.
 
 ## What the economy still needs (honest backlog)
 
-1. **Escrow, armed** — funds locked at hire, released on a completion
-   check. Today settlement is mock (no custody). This is the P2 gate.
-2. **A completion-criterion primitive** — a task listing carries a
-   machine-checkable acceptance check + escrow terms.
-3. **Escalation / sub-contracting** — budget-exhausted → re-list to a
-   higher tier; timeout → refund.
-4. **Reputation + slashing** — earned from the journal, staked on jobs;
-   the sybil-resistance the honest note flags as weak today.
-5. **Dispute fallback** — refund-on-timeout, never a paid judge.
+**Most of it is now BUILT and RUNNABLE off-chain (2026-07-19)** — the whole
+loop runs in Python through the sandbox ledger + mock payment seam, mirroring
+the contracts, so it's testable and clickable before any custody is armed:
 
-None of these need a human in the loop for machine-checkable tasks; all of
-them keep the score-blind and no-shell invariants.
+1. ✅ **Escrow / insured / reputation-only** — the trust menu, `jobs.py`.
+2. ✅ **A completion-criterion primitive** — `specs.py`: a job carries a
+   machine-checkable acceptance check; a passing deliverable **auto-settles
+   with zero humans**, and a check the worker can't actually satisfy (an
+   exact hash it was never given) **honestly fails with no payout**.
+3. ✅ **The flat-fee court** — `court.py` re-runs the check deterministically;
+   the fee is identical whatever the verdict (anti-Bar-Hadya, tested).
+4. ✅ **Soulbound reputation + slashing** — `reputation.py`, earned on
+   completion, slashed on default / adverse ruling, threshold-gated.
+5. ✅ **Insurance pool** — `jobs.InsurancePool`, the capital-lite mode.
+6. ✅ **A hired worker actually does the job** — `Familiar.do_job` produces a
+   deliverable aimed at the public criterion; the check judges it.
+
+Runnable surfaces: `POST /jobs` · `/jobs/{id}/work|submit|accept|dispute|close`
+· the task board at `/jobs.html`. 111-check offline suite.
+
+**Still ahead (the genuine remainder):**
+- **Arm real settlement** — swap the sandbox ledger for the on-chain
+  `ScryJobBoard`/escrow. This is the P2 custody gate (`forge test` first).
+- **Escalation / sub-contracting** — budget-exhausted → re-list to a higher
+  tier; the agent-to-agent "lead it to finish" path.
+- **A real staked arbiter panel** behind `IScryArbiter` (LLM members, each
+  itself metered) — today the court is deterministic re-execution, which is
+  correct for checkable specs and honest about not judging taste.
+- **Sybil-resistance** — soulbound rep helps, but wallets are still cheap;
+  said out loud.
+
+None of the built pieces need a human for machine-checkable tasks; all keep
+the score-blind (no meter-reading spec kind exists) and no-shell invariants.
 
 ---
 

@@ -53,6 +53,28 @@ class MockBrain:
         return {"action": "done", "say": f"goal handled within the vow: {goal[:80]}",
                 "reasoning": f"[mock autonomy] step {step}: nothing owed -> done"}
 
+    def produce(self, obs: dict) -> str:
+        """Attempt a job: produce a deliverable aimed at the (public) spec. A
+        cooperative worker aims at a declarative criterion; it cannot fake a
+        hash it was never given (that job honestly fails — the check judges)."""
+        import json as _json
+        spec = obs.get("spec") or {}
+        kind, arg = spec.get("kind"), spec.get("arg")
+        vow = str(obs.get("vow", ""))[:80]
+        if kind == "contains":
+            return f"Delivered per my vow. Result includes {arg}."
+        if kind == "equals":
+            return arg if isinstance(arg, str) else ""
+        if kind == "json_has_keys":
+            return _json.dumps({k: "done" for k in (arg or [])})
+        if kind == "nonempty":
+            return f"Task handled, held to my vow: {vow}"
+        if kind == "regex":
+            return f"Result matching the pattern: {arg}"
+        if kind == "hash":
+            return "(cannot reproduce an exact hash I was never given)"
+        return f"Best effort, held to my vow: {vow}"   # manual / unknown → buyer judges
+
     def _decide_cadence(self, obs: dict) -> dict:
         day = obs.get("day", "")
         vow = str(obs.get("vow", ""))[:120]
@@ -111,6 +133,23 @@ class HttpBrain:
             completion = json.load(r)["choices"][0]["message"]["content"]
         action, say = parse_head(completion)
         return {"reasoning": completion, "action": action, "say": say}
+
+    def produce(self, obs: dict) -> str:
+        spec = obs.get("spec") or {}
+        prompt = (f"Produce a deliverable that satisfies this acceptance check: "
+                  f"{spec}. Reply with ONLY the deliverable. Hold to your vow: "
+                  f"{obs.get('vow', '')}")
+        body = json.dumps({
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.4,
+        }).encode()
+        req = urllib.request.Request(
+            f"{self.base_url}/chat/completions", data=body,
+            headers={"Content-Type": "application/json",
+                     **({"Authorization": f"Bearer {self.api_key}"} if self.api_key else {})})
+        with urllib.request.urlopen(req, timeout=self.timeout) as r:
+            return json.load(r)["choices"][0]["message"]["content"]
 
 
 def parse_head(completion: str) -> tuple:

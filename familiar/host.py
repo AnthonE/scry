@@ -27,8 +27,13 @@ from pydantic import BaseModel
 from .auctions import AuctionError, AuctionHouse
 from .brain import HttpBrain, MockBrain
 from .core import Keeper
+from .court import Court
+from .jobs import JobBoard, InsurancePool, JobError, POOL
+from .ledger import Ledger
 from .market import Market
 from .payment import default_payment
+from .reputation import Reputation
+from .specs import Spec
 from .surface import HttpSurface, MockSurface
 from . import tools
 
@@ -45,6 +50,16 @@ keeper = Keeper(surface=surface, brain_factory=MockBrain,
                 state_dir=STATE_DIR, cap=CAP)
 market = Market(keeper=keeper)
 house = AuctionHouse(payment_factory=default_payment, keeper=keeper)
+
+# The job economy (sandbox play-money ledger; real settlement is the disarmed
+# on-chain rail). Seed a demo buyer balance + a thin insurance pool.
+ledger = Ledger()
+reputation = Reputation(threshold=int(os.environ.get("FAMILIAR_REP_THRESHOLD", "50")))
+court = Court(ledger, flat_fee=int(os.environ.get("FAMILIAR_COURT_FEE", "2")))
+insurance = InsurancePool(ledger)
+jobboard = JobBoard(ledger, reputation, court, insurance)
+ledger.mint("you", 1000)
+ledger.mint(POOL, 500)
 
 app = FastAPI(title="familiar keep", version="0.1.0")
 
@@ -89,6 +104,26 @@ class BidRequest(BaseModel):
 
 class BuyoutRequest(BaseModel):
     bidder: str
+
+
+class JobPostRequest(BaseModel):
+    buyer: str = "you"
+    seller: str
+    amount: int
+    mode: str = "escrow"
+    spec_kind: str = "contains"
+    spec_arg: str | None = None
+    duration_s: int = 3600
+    premium: int = 0
+
+
+class SubmitRequest(BaseModel):
+    seller: str
+    deliverable: str
+
+
+class PartyRequest(BaseModel):
+    who: str
 
 
 class AutonomyRequest(OwnerRequest):
@@ -230,6 +265,85 @@ async def auctions_mine(who: str):
     return {"selling": house.for_seller(who), "bidding": house.bids_of(who)}
 
 
+@app.get("/jobs")
+async def jobs_open():
+    import time
+    now = time.time()
+    return {"jobs": jobboard.open_jobs(now=now),
+            "ledger": ledger.snapshot(),
+            "reputation": reputation.rep,
+            "pool_reserves": insurance.reserves(),
+            "note": "sandbox play-money ledger; real settlement is the disarmed on-chain rail"}
+
+
+@app.post("/jobs")
+async def jobs_post(req: JobPostRequest):
+    try:
+        spec = Spec(req.spec_kind, req.spec_arg)
+        return jobboard.post(req.buyer, req.seller, req.amount, req.mode, spec,
+                             req.duration_s, premium=req.premium)
+    except (JobError, Exception) as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/jobs/{job_id}/submit")
+async def jobs_submit(job_id: str, req: SubmitRequest):
+    try:
+        return jobboard.submit(job_id, req.seller, req.deliverable)
+    except KeyError:
+        raise HTTPException(404, "no such job")
+    except JobError as e:
+        raise HTTPException(409, str(e))
+
+
+@app.post("/jobs/{job_id}/accept")
+async def jobs_accept(job_id: str, req: PartyRequest):
+    try:
+        return jobboard.accept(job_id, req.who)
+    except KeyError:
+        raise HTTPException(404, "no such job")
+    except JobError as e:
+        raise HTTPException(409, str(e))
+
+
+@app.post("/jobs/{job_id}/work")
+async def jobs_work(job_id: str):
+    """Have the hired familiar do the job autonomously (finds it by name)."""
+    try:
+        job = jobboard._job(job_id)
+    except KeyError:
+        raise HTTPException(404, "no such job")
+    fam = next((f for f in keeper.familiars.values()
+                if not f.dismissed and f.cfg.name == job.seller), None)
+    if fam is None:
+        raise HTTPException(409, f"summon a familiar named {job.seller!r} first")
+    try:
+        return fam.do_job(jobboard, job_id)
+    except Exception as e:
+        raise HTTPException(409, str(e))
+
+
+@app.post("/jobs/{job_id}/dispute")
+async def jobs_dispute(job_id: str, req: PartyRequest):
+    try:
+        return jobboard.dispute(job_id, req.who)
+    except KeyError:
+        raise HTTPException(404, "no such job")
+    except JobError as e:
+        raise HTTPException(409, str(e))
+
+
+@app.post("/jobs/{job_id}/close")
+async def jobs_close(job_id: str):
+    import time
+    try:
+        return jobboard.close(job_id, now=time.time())
+    except KeyError:
+        raise HTTPException(404, "no such job")
+    except JobError as e:
+        raise HTTPException(409, str(e))
+
+
 @app.get("/market.html")
 async def market_page():
     return FileResponse(_HERE / "static" / "market.html")
@@ -238,6 +352,16 @@ async def market_page():
 @app.get("/static/market.js")
 async def market_js():
     return FileResponse(_HERE / "static" / "market.js", media_type="text/javascript")
+
+
+@app.get("/jobs.html")
+async def jobs_page():
+    return FileResponse(_HERE / "static" / "jobs.html")
+
+
+@app.get("/static/jobs.js")
+async def jobs_js():
+    return FileResponse(_HERE / "static" / "jobs.js", media_type="text/javascript")
 
 
 @app.post("/familiar/{familiar_id}/autonomy")
