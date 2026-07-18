@@ -496,6 +496,11 @@ async def root() -> dict:
         "paid_rail_ready": PAID_READY,
         "scope": SCOPE_CARD,
         "bound_not_hosted": "the scry BOUND (memory_shield / authorize) is deliberately NOT hosted — it is local, instant, unkillable code. Only the meter is here.",
+        "patrons": ("score-blind by design: no fee — on any rail, in any amount — moves a number. "
+                    "the cautionary patron is Bar Hadya (the oracle whose readings followed the fee, "
+                    "both 'true' because nothing was behind them) — made structurally impossible here. "
+                    "the house agent that seeds every board, and keeps its own oath in public first, "
+                    "is Mithra, the oath made into a person. see SCRY-ECONOMY.md."),
     }
 
 
@@ -760,7 +765,12 @@ report-ins are computed and shown (silence is signal).
   It audits whether your declared purposes still MEAN the vow (the numeric
   y_consistency is a crude string match; the semantic audit is labeled
   interpretation) and compares your testimony against the numbers. A reading
-  is guidance, never a verdict.
+  is guidance, never a verdict. Add `?second_asking=1` (the Azande benge,
+  asked twice) to re-run the INTERPRETATION through a second, distinct model
+  and get both reads plus their field-by-field agreement in `second_asking`.
+  The signed numbers are deterministic and are NOT asked twice; agreement is
+  calibration, disagreement flags an unstable interpretation — never proof,
+  never a verdict. Free (counts as two calls against the reading rate limit).
 - `GET  /vows` — public index of every vow.
 - `POST /oracle/ask` — help bot. `{question}` → answer grounded in these
   docs. Free, rate-limited, plainly LLM-generated.
@@ -1054,6 +1064,27 @@ _oracle.init(sign_fn=_sign_str, pubkey_b64=_PUB_B64, issuer=ISSUER,
 app.include_router(_vows.router)
 app.include_router(_oracle.router)
 
+# The Covenant — a fleet swears ONE oath, one wallet at a time (WIKI-SEAM.md,
+# the collective-oath shape). Each member's oath is a first-class scry vow
+# (own ledger, mark, stele); the covenant adds the shared text, the roster,
+# and the cohort view. Renouncing is recorded, never erased. Public by design.
+import covenant as _covenant  # noqa: E402
+_covenant.init(sign_fn=_sign_str, pubkey_b64=_PUB_B64, issuer=ISSUER)
+app.include_router(_covenant.router)
+print("[scry-meter] the Covenant mounted (POST /covenant; a fleet swears one oath, "
+      "individually chained; cohort view + on-chain register are explorer-readable)")
+
+# The Pact — a public agreement BETWEEN parties (human<->AI, AI<->AI): different
+# obligations, one document, a shared hash-chained thread both sides write to.
+# The bilateral cousin of the Covenant. Witnessed, never judged; holds no funds,
+# enforces nothing. Each party asserts its own status; scry never rules who kept
+# faith (WIKI-SEAM.md; the Mizpah/suzerain-treaty shape).
+import pact as _pact  # noqa: E402
+_pact.init(sign_fn=_sign_str, pubkey_b64=_PUB_B64, issuer=ISSUER)
+app.include_router(_pact.router)
+print("[scry-meter] the Pact mounted (POST /pact; agreements between parties, "
+      "shared signed thread, record-never-verdict, no escrow)")
+
 # The Augury — daily question farm ($SCRY game economy, SCRY-ECONOMY.md).
 # Reward the ritual, never the score: emission math is deterministic and
 # score-blind; the LLM poses questions, it never gates money.
@@ -1115,6 +1146,14 @@ import playground as _playground  # noqa: E402
 app.include_router(_playground.router)
 print(f"[scry-meter] playground card mounted "
       f"({'deployed' if _playground.ADDRS else 'contracts not deployed yet'})")
+
+# /onchain — discovery card for scry's contracts (Notary/Covenant/Pact/stele/
+# registry): addresses + call spec + events, and a live count read from the
+# chain once each address is set. Explorer-readable on all fronts.
+import onchain as _onchain  # noqa: E402
+app.include_router(_onchain.router)
+print(f"[scry-meter] /onchain card mounted "
+      f"({sum(1 for a in _onchain.ADDR.values() if a)} of {len(_onchain.ADDR)} contracts addressed)")
 
 # Hosted MCP (free surface only — paid stays on x402 HTTP). One line for any
 # MCP-native agent:  claude mcp add scry --transport http https://scry.moreright.xyz/mcp

@@ -223,6 +223,25 @@ def main() -> None:
     _ok("/vow/{id}/reading", "signed measurement"
         + (" + LLM interpretation" if rd.get("interpretation") else " (numbers-only)"))
 
+    # the Second Asking (Azande benge) — shape must be present; content depends
+    # on whether a distinct second model is configured.
+    code, _, body = _req("GET", f"{base}/vow/{vow_id}/reading?second_asking=1")
+    if code != 200:
+        _fail("/vow/{id}/reading?second_asking=1", f"expected 200, got {code}")
+    rd = json.loads(body)
+    if not rd.get("measurement", {}).get("sig"):
+        _fail("/second_asking", "measurement not signed (numbers must still be present)")
+    sa = rd.get("second_asking")
+    if sa is None:
+        _fail("/second_asking", "second_asking block missing")
+    if sa.get("available"):
+        if not (sa.get("model_a") and sa.get("model_b") and sa["model_a"] != sa["model_b"]):
+            _fail("/second_asking", "available but models are missing or identical")
+        _ok("/second_asking", f"two models: {sa['model_a']} vs {sa['model_b']} "
+                              f"concord={sa.get('concordance', {}).get('score')}")
+    else:
+        _ok("/second_asking", "shape present, degraded (no distinct 2nd model configured)")
+
     code, _, body = _req("GET", f"{base}/vows")
     if code != 200:
         _fail("/vows", f"expected 200, got {code}")

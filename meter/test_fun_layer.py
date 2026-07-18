@@ -12,6 +12,8 @@ import time
 
 _tmp = tempfile.mkdtemp(prefix="scry-funlayer-")
 os.environ["SCRY_VOWS_DIR"] = _tmp
+os.environ["SCRY_COVENANT_DIR"] = tempfile.mkdtemp(prefix="scry-covenant-")
+os.environ["SCRY_PACT_DIR"] = tempfile.mkdtemp(prefix="scry-pact-")
 os.environ["SCRY_ARENA_SEASON"] = "s0-test"
 os.environ["SCRY_ARENA_START"] = "2020-01-01"
 os.environ["SCRY_ARENA_END"] = "2099-01-01"
@@ -68,6 +70,14 @@ datasets.init(vows_dir=str(vows.VOWS_DIR), load_vow=vows._load_vow,
               chain_entries=vows._chain_entries, trajectory_stats=vows.trajectory_stats)
 app.include_router(herald.router)
 app.include_router(datasets.router)
+import covenant  # noqa: E402
+covenant.init(sign_fn=lambda s: "fake-sig", pubkey_b64="fake-pub", issuer="test")
+app.include_router(covenant.router)
+import pact  # noqa: E402
+pact.init(sign_fn=lambda s: "fake-sig", pubkey_b64="fake-pub", issuer="test")
+app.include_router(pact.router)
+import onchain  # noqa: E402
+app.include_router(onchain.router)
 c = TestClient(app)
 
 PASS = 0
@@ -395,5 +405,160 @@ ok(len(rows) == 1 and rows[0]["listing"]["services"].startswith("market calls"),
    "directory lists only listed agents")
 ok(rows[0]["mark"].endswith("mark.svg") and rows[0]["stele"].endswith("stele.svg")
    and rows[0]["badge"].endswith("badge.svg"), "register links mark + stele + badge")
+
+# ── covenant (a fleet swears one oath) ───────────────────────────────────────
+print("[covenant]")
+from eth_account import Account as _Acct
+from eth_account.messages import encode_defunct as _edf
+
+
+def _sign(msg, keyhex):
+    return _Acct.from_key(keyhex).sign_message(_edf(text=msg)).signature.hex()
+
+
+C_OATH = "hold the line: no position over 5% of book; report every 24h; never front-run a member"
+K_OPEN, K_M1, K_M2 = "0x" + "a1" * 32, "0x" + "a2" * 32, "0x" + "a3" * 32
+A_OPEN, A_M1, A_M2 = _Acct.from_key(K_OPEN), _Acct.from_key(K_M1), _Acct.from_key(K_M2)
+
+r = c.post("/covenant", json={"oath": C_OATH, "agent": "momo-fleet",
+    "label": "momo fleet — the 5% oath", "cadence_hours": 24, "wallet": A_OPEN.address,
+    "signature": _sign(covenant.covenant_open_message(C_OATH, "momo-fleet", 24), K_OPEN)})
+ok(r.status_code == 200 and r.json()["sandbox"] is False, "covenant opens (signed)")
+CID = r.json()["covenant_id"]
+ok(r.json()["oath_sha256"] == _hh.sha256(C_OATH.encode()).hexdigest(), "oath sha published")
+
+# member 1 swears (signed) — the SAME message they'd sign to take the oath solo
+r = c.post(f"/covenant/{CID}/swear", json={"wallet": A_M1.address, "agent": "momo-1",
+    "signature": _sign(vows.vow_signing_message(C_OATH, "momo-1", 24), K_M1)})
+ok(r.status_code == 200 and r.json()["seq"] == 1, "member 1 swears (seq 1)")
+V1 = r.json()["vow_id"]
+r2 = c.get(f"/vow/{V1}")
+ok(r2.status_code == 200 and r2.json()["vow"]["vow"]["covenant_id"] == CID,
+   "member oath is a first-class vow linked to the covenant")
+ok(r2.json()["vow"]["vow"]["text"] == C_OATH, "member vow carries the shared oath text")
+
+# member 2 swears (signed)
+r = c.post(f"/covenant/{CID}/swear", json={"wallet": A_M2.address, "agent": "momo-2",
+    "signature": _sign(vows.vow_signing_message(C_OATH, "momo-2", 24), K_M2)})
+ok(r.status_code == 200 and r.json()["seq"] == 2, "member 2 swears (seq 2)")
+
+# same wallet cannot swear twice
+r = c.post(f"/covenant/{CID}/swear", json={"wallet": A_M1.address, "agent": "momo-1",
+    "signature": _sign(vows.vow_signing_message(C_OATH, "momo-1", 24), K_M1)})
+ok(r.status_code == 409, "a wallet cannot swear the same covenant twice")
+
+# a sandbox (unsigned) member may swear too — marked sandbox
+r = c.post(f"/covenant/{CID}/swear", json={"agent": "kid-bot"})
+ok(r.status_code == 200 and r.json()["sandbox"] is True and r.json()["seq"] == 3,
+   "unsigned member swears (sandbox-marked)")
+
+# cohort view before any renouncement
+r = c.get(f"/covenant/{CID}").json()
+ok(r["cohort"]["n_members"] == 3 and r["cohort"]["n_active"] == 3, "cohort shows 3 sworn, 3 active")
+ok([m["seq"] for m in r["members"]] == [1, 2, 3], "roster is ordered (who swore beside whom)")
+
+# member 1 publicly renounces — recorded, not erased
+r = c.post(f"/covenant/{CID}/renounce", json={"wallet": A_M1.address, "reason": "found a better book",
+    "signature": _sign(covenant.covenant_renounce_message(CID, A_M1.address, "found a better book"), K_M1)})
+ok(r.status_code == 200 and r.json()["reason"] == "found a better book", "member renounces (signed)")
+r = c.get(f"/covenant/{CID}").json()
+ok(r["cohort"]["n_active"] == 2 and r["cohort"]["n_renounced"] == 1, "renouncement drops active, not members")
+m1 = [m for m in r["members"] if m["seq"] == 1][0]
+ok(m1["renounced_at"] and m1["renounce_reason"] == "found a better book",
+   "renounced member stays on the roster with reason (record never erases)")
+
+# renouncing twice is refused; the breach is a fact, not a phase
+r = c.post(f"/covenant/{CID}/renounce", json={"wallet": A_M1.address, "reason": "again",
+    "signature": _sign(covenant.covenant_renounce_message(CID, A_M1.address, "again"), K_M1)})
+ok(r.status_code == 409, "cannot renounce twice")
+
+# the cohort card renders, dimming the renounced member
+r = c.get(f"/covenant/{CID}/cohort.svg")
+ok(r.status_code == 200 and "<svg" in r.text and "keeping faith" in r.text, "cohort card renders")
+ok('opacity="0.28"' in r.text, "renounced member is dimmed on the card, still present")
+
+# the register lists the covenant
+r = c.get("/covenants").json()
+ok(any(cv["covenant_id"] == CID and cv["n_active"] == 2 for cv in r["covenants"]),
+   "register lists the covenant with live counts")
+
+# ── pact (an agreement BETWEEN parties, witnessed not judged) ────────────────
+print("[pact]")
+K_A, K_B, K_C = "0x" + "b1" * 32, "0x" + "b2" * 32, "0x" + "b3" * 32
+P_A, P_B, P_C = _Acct.from_key(K_A), _Acct.from_key(K_B), _Acct.from_key(K_C)
+TERMS = "A pays B 10 USDG on delivery of the signed audit; B delivers within 72h."
+
+# too few parties is refused — a pact is BETWEEN parties
+r = c.post("/pact", json={"title": "solo", "terms": TERMS,
+    "parties": [{"role": "only", "obligation": "do it"}]})
+ok(r.status_code == 422, "a pact needs >= 2 parties")
+
+# A proposes a two-party pact (signed); A is a party, so proposing also signs A's side
+r = c.post("/pact", json={"title": "audit-for-pay", "terms": TERMS,
+    "proposer_wallet": P_A.address, "signature": _sign(pact.pact_propose_message("audit-for-pay", TERMS), K_A),
+    "parties": [
+        {"role": "payer", "obligation": "pay 10 USDG on delivery", "wallet": P_A.address, "agent": "buyer-bot"},
+        {"role": "auditor", "obligation": "deliver a signed audit within 72h", "wallet": P_B.address, "agent": "audit-bot"}]})
+ok(r.status_code == 200 and r.json()["status"] == "proposed", "pact proposed (awaiting the other party)")
+PID = r.json()["pact_id"]
+ok(any(p["role"] == "payer" and p["signed"] for p in r.json()["parties"]), "proposer's side is signed on propose")
+
+# B fetches its accept message and signs its side → pact becomes active
+am = c.get(f"/pact/{PID}/accept_message", params={"wallet": P_B.address}).json()
+ok("deliver a signed audit" in am["sign_this"], "accept message names B's own obligation")
+r = c.post(f"/pact/{PID}/sign", json={"wallet": P_B.address, "signature": _sign(am["sign_this"], K_B)})
+ok(r.status_code == 200 and r.json()["status"] == "active", "both parties signed → pact active")
+
+# a non-party cannot comment; the parties can
+r = c.post(f"/pact/{PID}/comment", json={"text": "meddling", "wallet": P_C.address,
+    "signature": _sign(pact.pact_comment_message(PID, "meddling"), K_C)})
+ok(r.status_code == 403, "a non-party cannot comment on the pact")
+r = c.post(f"/pact/{PID}/comment", json={"text": "audit is underway, on track for 48h", "wallet": P_B.address,
+    "signature": _sign(pact.pact_comment_message(PID, "audit is underway, on track for 48h"), K_B)})
+ok(r.status_code == 200 and r.json()["seq"] == 1, "a party comments (thread seq 1)")
+r = c.post(f"/pact/{PID}/comment", json={"text": "acknowledged, funds ready", "wallet": P_A.address,
+    "signature": _sign(pact.pact_comment_message(PID, "acknowledged, funds ready"), K_A)})
+ok(r.status_code == 200 and r.json()["seq"] == 2, "the other party comments (thread seq 2)")
+
+# each party asserts its OWN status; scry shows both, never a single verdict
+c.post(f"/pact/{PID}/status", json={"wallet": P_B.address, "status": "fulfilled",
+    "signature": _sign(pact.pact_status_message(PID, "fulfilled"), K_B)})
+c.post(f"/pact/{PID}/status", json={"wallet": P_A.address, "status": "disputed",
+    "signature": _sign(pact.pact_status_message(PID, "disputed"), K_A)})
+r = c.get(f"/pact/{PID}").json()
+by_role = {p["role"]: p["asserted_status"] for p in r["parties"]}
+ok(by_role["auditor"] == "fulfilled" and by_role["payer"] == "disputed",
+   "each party's own asserted status is shown side by side (no single verdict)")
+ok("terms" in r and r["terms"] == TERMS and r["thread_verified_locally"] is True,
+   "pact shows the terms and a verifiable thread")
+ok([e["kind"] for e in r["thread"]] == ["comment", "comment", "status", "status"],
+   "the thread is the ordered record of comments and status assertions")
+
+# sandbox (unsigned) pact allows unsigned comments, marked sandbox
+r = c.post("/pact", json={"title": "handshake", "terms": "we cooperate in good faith",
+    "parties": [{"role": "a", "obligation": "help"}, {"role": "b", "obligation": "help back"}]})
+ok(r.status_code == 200 and r.json()["status"] == "sandbox", "unsigned pact is sandbox")
+SID = r.json()["pact_id"]
+r = c.post(f"/pact/{SID}/comment", json={"text": "going well", "agent": "kid-a"})
+ok(r.status_code == 200, "sandbox pact accepts an unsigned comment")
+
+# the register lists pacts
+r = c.get("/pacts").json()
+ok(any(pc["pact_id"] == PID and pc["agreement_status"] == "active" for pc in r["pacts"]),
+   "register lists the pact with live status")
+
+# ── onchain discovery card ───────────────────────────────────────────────────
+print("[onchain]")
+r = c.get("/onchain").json()
+ok(set(r["contracts"]) == {"notary", "covenant", "pact", "stele_edition", "vow_registry"},
+   "card lists all scry contracts")
+ok(all(cv["deployed"] is False and cv["live"] is None for cv in r["contracts"].values()),
+   "undeployed → deployed False, no live read (no crash without web3/addresses)")
+ok(any("notarize(" in sig for sig in r["contracts"]["notary"]["calls"]),
+   "interaction spec (call signatures) present even before deploy")
+ok(r["contracts"]["covenant"]["events"][0].startswith("CovenantOpened"),
+   "explorer events are listed so agents know what the log shows")
+ok(r["status"] and "no addresses set yet" in r["status"],
+   "status says not deployed, but the spec is live regardless")
 
 print(f"\nALL {PASS} CHECKS PASS")

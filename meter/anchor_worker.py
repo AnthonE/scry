@@ -21,6 +21,7 @@ Gated + dry-run by default:
   SCRY_ANCHOR_INTERVAL_S   default 86400 (daily)
 Key: SCRY_ANCHOR_KEY, else PRIVATE_KEY from keys.env (same as facilitator).
 """
+import hashlib
 import json
 import os
 import re
@@ -32,9 +33,12 @@ from web3 import Web3
 VOWS_DIR = Path(os.getenv("SCRY_VOWS_DIR", str(Path(__file__).resolve().parent / "vows_data")))
 ANCHORS_PATH = VOWS_DIR / "anchors.jsonl"
 LEAVES_DIR = VOWS_DIR / "anchor_leaves"
+BEACON_PATH = VOWS_DIR / "seed_beacon.jsonl"
 
 RPC = os.getenv("SCRY_RH_RPC", "https://rpc.mainnet.chain.robinhood.com")
 CONTRACT = os.getenv("SCRY_ANCHOR_CONTRACT", "")
+NOTARY = os.getenv("SCRY_NOTARY", "")          # deployed ScryNotary — arms the seed beacon
+CHAIN_ID = int(os.getenv("SCRY_RH_CHAIN_ID", "4663"))
 INTERVAL_S = int(os.getenv("SCRY_ANCHOR_INTERVAL_S", "86400"))
 DRYRUN = os.getenv("SCRY_ANCHOR_DRYRUN", "1") != "0"
 _KEYS_ENV = os.getenv("SCRY_RH_KEYS_ENV", "/data/apps/morr/private/secrets/keys.env")
@@ -44,6 +48,12 @@ ABI = [{"name": "anchorRoot", "type": "function", "stateMutability": "nonpayable
                    {"name": "vowCount", "type": "uint64"},
                    {"name": "leavesCid", "type": "string"}],
         "outputs": []}]
+
+NOTARY_ABI = [{"name": "notarize", "type": "function", "stateMutability": "nonpayable",
+               "inputs": [{"name": "hash", "type": "bytes32"},
+                          {"name": "label", "type": "string"},
+                          {"name": "memo", "type": "string"}],
+               "outputs": [{"name": "seq", "type": "uint256"}]}]
 
 
 def _key() -> str:
@@ -159,16 +169,82 @@ def run_once() -> dict | None:
     return rec
 
 
+def _beacon_days() -> set:
+    """Days whose seed commit is already on the beacon — the post is idempotent."""
+    if not BEACON_PATH.exists():
+        return set()
+    out = set()
+    for line in BEACON_PATH.read_text().splitlines():
+        if line.strip():
+            try:
+                out.add(json.loads(line)["day"])
+            except Exception:  # noqa: BLE001
+                pass
+    return out
+
+
+def post_seed_beacon() -> dict | None:
+    """Post today's augury seed COMMIT (sha256 of the still-secret seed) to the
+    Notary. The seed reveals next day at GET /augury/seed; anyone can then check
+    sha256(seed) against this on-chain, timestamped commit — a public
+    commit-reveal randomness beacon verifiable from the explorer alone. Dormant
+    until SCRY_NOTARY is set (needs the Notary deployed first). One post per day.
+
+    Why the commit is safe to publish: it is a hash of a secret; posting it
+    BEFORE the reveal is exactly what makes the beacon trustworthy (the server
+    could not have chosen the seed to fit outcomes)."""
+    if not NOTARY:
+        return None
+    day = time.strftime("%Y-%m-%d", time.gmtime())
+    seed_file = VOWS_DIR / "auguries" / f"{day}.seed"
+    if not seed_file.exists():
+        print(f"[beacon] no augury seed committed for {day} yet — skipping (GET /augury seeds it)")
+        return None
+    if day in _beacon_days():
+        return None
+    commit = hashlib.sha256(seed_file.read_text().strip().encode()).hexdigest()
+    label = f"augury seed commit {day}"
+    memo = ("scry daily randomness beacon — seed reveals next day at "
+            "GET /augury/seed; verify sha256(seed) == this hash")
+    rec = {"day": day, "commit": "0x" + commit, "label": label, "tx": None,
+           "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "dryrun": DRYRUN}
+    if DRYRUN:
+        print(f"[beacon] DRYRUN {label} commit=0x{commit}")
+    else:
+        w3 = Web3(Web3.HTTPProvider(RPC))
+        from eth_account import Account
+        acct = Account.from_key(_key())
+        c = w3.eth.contract(address=Web3.to_checksum_address(NOTARY), abi=NOTARY_ABI)
+        base = w3.eth.get_block("latest")["baseFeePerGas"]
+        tx = c.functions.notarize(bytes.fromhex(commit), label, memo).build_transaction({
+            "from": acct.address, "nonce": w3.eth.get_transaction_count(acct.address),
+            "chainId": CHAIN_ID, "gas": 200_000,
+            "maxFeePerGas": base * 3 + w3.to_wei(0.02, "gwei"),
+            "maxPriorityFeePerGas": w3.to_wei(0.02, "gwei")})
+        h = w3.eth.send_raw_transaction(acct.sign_transaction(tx).raw_transaction)
+        w3.eth.wait_for_transaction_receipt(h, timeout=120)
+        rec["tx"] = h.hex()
+        print(f"[beacon] posted {label} tx={h.hex()}")
+    with BEACON_PATH.open("a") as f:
+        f.write(json.dumps(rec, separators=(",", ":")) + "\n")
+    return rec
+
+
 def main() -> None:
     if os.getenv("SCRY_ANCHOR", "0") != "1":
         print("[anchor] SCRY_ANCHOR!=1 — exiting (arm deliberately)")
         return
-    print(f"[anchor] loop: every {INTERVAL_S}s, dryrun={DRYRUN}, contract={CONTRACT or 'UNSET'}")
+    print(f"[anchor] loop: every {INTERVAL_S}s, dryrun={DRYRUN}, contract={CONTRACT or 'UNSET'}, "
+          f"seed-beacon={'armed via ' + NOTARY if NOTARY else 'OFF (set SCRY_NOTARY)'}")
     while True:
         try:
             run_once()
         except Exception as e:  # noqa: BLE001
-            print(f"[anchor] cycle failed (will retry next interval): {e!r}")
+            print(f"[anchor] anchor cycle failed (will retry next interval): {e!r}")
+        try:
+            post_seed_beacon()
+        except Exception as e:  # noqa: BLE001
+            print(f"[beacon] seed-beacon cycle failed (will retry next interval): {e!r}")
         time.sleep(INTERVAL_S)
 
 
