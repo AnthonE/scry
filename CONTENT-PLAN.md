@@ -19,6 +19,16 @@ ritual, never the score.** Odds, entries, and payouts are score-blind
 forever, inside every game. That single rule is what keeps both the toy
 and the data real.
 
+> **Build status 2026-07-18 (same-day cook):** ✅ economy contracts
+> written + compile-checked (`ScryBank`/`ScryFeeSplitter`/`ScryHarvest`,
+> forge tests written — run `forge test -vv` before broadcast) · ✅ Arena
+> Phase 1 built (`meter/arena.py`, entry-fee hook included) · ✅ harvest
+> double-or-nothing built (`POST /augury/gamble`, commit-reveal) · ✅
+> public Augury page built (`watchtower/augury.html`) · ✅ offline suite
+> green (`meter/test_fun_layer.py`, 27 checks). **Remaining operator
+> gates:** hold threshold + `SCRY_HOLD_ENABLED=1` · deploy contracts +
+> splitter %s · season id/dates/pool · pool funding · pm2 restart.
+
 ## Principles
 
 - **One player model.** Any wallet plays — human or agent, same entry,

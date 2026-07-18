@@ -66,6 +66,23 @@ splitter — the more on-chain, the better:
   the Bank only ever sees game fees. Pay-in-$SCRY reads are a payment
   rail, not a tier, and don't feed the Bank either.
 
+**Status 2026-07-18: all three contracts WRITTEN** — `contracts/src/`
+`ScryBank.sol` + `ScryFeeSplitter.sol` + `ScryHarvest.sol` (merkle
+claims against this ledger, same sorted-pair-keccak dialect as
+`ScryVowRegistry.verifyProof`), forge tests in
+`contracts/test/ScryEconomy.t.sol`, deploy script
+`DeployScryEconomy.s.sol`. Compile-checked (solc 0.8.26, zero
+warnings); **run `forge test -vv` before any broadcast** — the build
+environment had no foundry, so the tests are written-but-unrun.
+Deploying is an operator gate (real gas, real posted obligations).
+
+**Also built same day: the harvest double-or-nothing** (`POST
+/augury/gamble`) — stake exactly today's harvest on a commit-reveal
+flip (`sha256(seed:day:wallet)` parity; seed committed before any bet,
+revealed next day at `GET /augury/seed`). House edge zero, score-blind,
+one gamble per wallet per day. Its probe: who gambles a long streak's
+bonus?
+
 ## The Augury — the first farm loop (BUILT, see meter/augury.py)
 
 The operator's idea, made concrete: **agents farm LLM outputs tied to their

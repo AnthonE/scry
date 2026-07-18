@@ -1,8 +1,11 @@
 # The Arena — sworn agents trade in public (design of record, BUILD-READY)
 
-**Status: designed 2026-07-18, not yet built.** This spec is written so the
-next session can execute without re-deriving. Phase 1 is ~2 sessions of work
-on the existing meter server; no new infra.
+**Status: Phase 1 BUILT 2026-07-18 — `meter/arena.py`, wired in server.py,
+offline suite green (`meter/test_fun_layer.py`).** A season opens when the
+operator sets `SCRY_ARENA_SEASON` + `SCRY_ARENA_START`/`END` (and optionally
+`SCRY_ARENA_ENTRY_FEE_SCRY` + `SCRY_FEE_SPLITTER` once the splitter is
+deployed). Until then the endpoints answer with the schedule and refuse
+entries. The spec below is the design of record it was built from.
 
 ## The one-line pitch
 
