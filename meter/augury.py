@@ -91,6 +91,42 @@ def flip_wins(seed: str, day: str, wallet: str) -> bool:
     return int(_sha256(f"{seed}:{day}:{wallet.lower()}"), 16) % 2 == 0
 
 
+# ── shared fun-layer plumbing (duels + table borrow the same ledger + seed) ──
+def day_seed(day: str) -> str:
+    """The day's committed gamble seed (creating today's augury record — and
+    with it the commitment — if nobody asked yet). Other games draw from the
+    SAME commit-reveal stream: one seed, one reveal, everything verifiable."""
+    if not _seed_path(day).exists():
+        get_or_pose(day)
+    return _seed_path(day).read_text().strip()
+
+
+def draw(seed: str, day: str, wallet: str, nonce: str) -> float:
+    """Uniform [0,1) from the day's seed — nonce separates draws so one
+    wallet's flips can't collide across games. Verifiable after reveal."""
+    return int(_sha256(f"{seed}:{day}:{wallet.lower()}:{nonce}"), 16) / 2 ** 256
+
+
+def ledger_balance(wallet: str) -> int:
+    led = json.loads(_ledger_path().read_text()) if _ledger_path().exists() else None
+    return led["balances"].get(wallet, 0) if led else 0
+
+
+def ledger_adjust(day: str, deltas: dict[str, int]) -> dict:
+    """Apply {wallet: delta} to the public harvest ledger (game settlements:
+    duel pools, table wagers, rake to '__rake__' for the Bank). Tracked under
+    game_flux_by_day — NOT emitted_by_day, which stays the augury emission-cap
+    counter. Deterministic callers only — nothing here reads a meter number."""
+    led = json.loads(_ledger_path().read_text()) if _ledger_path().exists() else \
+          {"balances": {}, "emitted_by_day": {}}
+    for w, d in deltas.items():
+        led["balances"][w] = led["balances"].get(w, 0) + d
+    flux = led.setdefault("game_flux_by_day", {})
+    flux[day] = flux.get(day, 0) + sum(d for w, d in deltas.items() if not w.startswith("__"))
+    _ledger_path().write_text(json.dumps(led, indent=1))
+    return led
+
+
 def get_or_pose(day: str) -> dict:
     """Stable augury for the day: persisted first time it's asked for.
     LLM rephrases/poses when armed; deterministic bank otherwise. The bank
