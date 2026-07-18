@@ -30,6 +30,10 @@ ALLOWLIST = {
              "scry:augury_answer", "scry:demo_profile"],
     "workspace": ["file:read", "file:write", "file:list"],   # jailed, safe
     "market": ["market:browse", "market:quote"],             # read-only browse
+    # venue verbs (mmo.py): high-level orders against an OWNER-NAMED game
+    # world's agent gate, enforced by the per-familiar egress allowlist.
+    # The venue's own server plays the character; no game code runs here.
+    "venue": ["mmo:enter", "mmo:directive", "mmo:state", "mmo:withdraw"],
 }
 
 

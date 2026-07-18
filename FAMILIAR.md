@@ -216,8 +216,11 @@ familiar earns" language · no live brokerage — `robinhood_agentic.py`
 stays mock-only until an explicit authorizing sentence, and familiars
 never hold broker credentials · not the trading edge — a familiar's reads
 say nothing about whether its trades are good · no open egress · no
-custody beyond the posted faucet cap · **nothing to do with MORR / the
-MMO / ATH / Solana** — scry stands alone.
+custody beyond the posted faucet cap · **no MORR / MMO / ATH / Solana
+economy** — scry stands alone. (Working the MMO as a rented laborer
+through its agent gate is the one authorized venue — operator sentence
+2026-07-18, `VENUE-MMO.md`: labor + a completion read cross the seam,
+tokens never.)
 
 ## Build phases
 

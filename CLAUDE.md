@@ -65,6 +65,11 @@ scry ≠ morr. Do not blur them, do not import one into the other.
 
 - **No MORR, no MMO economy, no ATH, no Solana, no cross-repo bridge**
   in scry. One token, one chain, own contracts in `contracts/`.
+- **The MMO-as-a-labor-VENUE seam is the one authorized exception**
+  (operator sentence 2026-07-18; `VENUE-MMO.md`, BUILT): familiars may be
+  rented to play the game through its agent gate — **labor and a
+  completion read cross; tokens and economies never do.** This is
+  `AGENT-ECONOMY.md` §11 built, not a softening of the line above.
 - **Do not import morr's scope guards here.** The research project pauses
   commercial products for its own reasons; scry does not inherit that.
   The morr-side handoff (`private/notes/handoff-scry-familiar-2026-07.md`)
@@ -240,6 +245,8 @@ the same claim: the oldest words carry the least drift.
   sidecar, pip client, and server — any fork of the math is a bug.
 - **Capability = MCP + curated tools; no shell.** Familiars never run code.
 - **Standalone from morr/MMO/ATH/Solana.** One token, RH-Chain only.
+  (The MMO may be a labor *venue* — `VENUE-MMO.md`: labor + a read cross,
+  economies never.)
 - **No live brokerage** without an explicit authorizing sentence.
 
 ---
@@ -289,7 +296,9 @@ the same claim: the oldest words carry the least drift.
 - **Never drop the honest-scope card.**
 - **Never run agent code** — MCP + tools only, no shell.
 - **Never live-broker without authorization.**
-- **Never import MORR/MMO/ATH/Solana** — scry is standalone.
+- **Never import MORR/MMO/ATH/Solana** — scry is standalone. (Renting
+  labor *into* the MMO through its gate is allowed — `VENUE-MMO.md`;
+  importing its economy is not.)
 
 ---
 
@@ -297,7 +306,8 @@ the same claim: the oldest words carry the least drift.
 
 1. Read this file.
 2. `README.md` for the user-facing story; `FAMILIAR.md` for the
-   marketplace; `CONTENT-PLAN.md` + `SCRY-ECONOMY.md` for the games/economy.
+   marketplace; `CONTENT-PLAN.md` + `SCRY-ECONOMY.md` for the games/economy;
+   `VENUE-MMO.md` for the game-venue seam (familiars farming the MMO).
 3. `MONITOR-YOUR-AGENT.md` + `HARNESSES.md` for honest-scope + integration.
 4. Touching the hosted meter → edit `meter/` here (canonical).
 5. Touching the marketplace → `familiar/`; run `python3

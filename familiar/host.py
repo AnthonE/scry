@@ -14,6 +14,9 @@ Env knobs:
   FAMILIAR_STATE_DIR     journals dir    (default familiar/state)
   FAMILIAR_CAP           roster cap      (default 12)
   FAMILIAR_TICK_MINUTES  auto-cadence    (default 0 = manual ticks only)
+  FAMILIAR_MMO_GATE      default venue gate base URL (mock mode: mock://venue;
+                         live e.g. https://game.moreright.xyz — see mmo.py)
+  FAMILIAR_MMO_GATE_SECRET  bearer secret the venue's operator issued
 """
 import os
 import threading
@@ -35,7 +38,7 @@ from .payment import default_payment
 from .reputation import Reputation
 from .specs import Spec
 from .surface import HttpSurface, MockSurface
-from . import tools
+from . import mmo, tools
 
 _HERE = Path(__file__).resolve().parent
 
@@ -44,6 +47,10 @@ SCRY_API = os.environ.get("FAMILIAR_SCRY_API", "https://scry.moreright.xyz/api")
 STATE_DIR = Path(os.environ.get("FAMILIAR_STATE_DIR", _HERE / "state"))
 CAP = int(os.environ.get("FAMILIAR_CAP", "12"))
 TICK_MINUTES = int(os.environ.get("FAMILIAR_TICK_MINUTES", "0"))
+MMO_GATE = os.environ.get("FAMILIAR_MMO_GATE",
+                          "mock://venue" if MODE == "mock" else "")
+if MMO_GATE.startswith("mock://"):
+    mmo.register_gate(MMO_GATE, mmo.MockGate(venue=MMO_GATE))
 
 surface = MockSurface() if MODE == "mock" else HttpSurface(SCRY_API)
 keeper = Keeper(surface=surface, brain_factory=MockBrain,
@@ -62,6 +69,16 @@ ledger.mint("you", 1000)
 ledger.mint(POOL, 500)
 
 app = FastAPI(title="familiar keep", version="0.1.0")
+
+# The keep is a public marketplace surface consumed by other sites' UIs
+# (e.g. a game's "hire a familiar" page). Owner actions stay guarded by the
+# owner token, so open CORS exposes nothing the open routes don't already.
+try:
+    from fastapi.middleware.cors import CORSMiddleware
+    app.add_middleware(CORSMiddleware, allow_origins=["*"],
+                       allow_methods=["*"], allow_headers=["*"])
+except Exception:                                    # pragma: no cover
+    pass
 
 
 class SummonRequest(BaseModel):
@@ -372,6 +389,113 @@ async def autonomy(familiar_id: str, req: AutonomyRequest):
     if fam.dismissed:
         raise HTTPException(409, "dismissed familiars do not act")
     return fam.autonomy(req.goal, max_steps=max(1, min(req.max_steps, 20)))
+
+
+class VentureRequest(OwnerRequest):
+    order: str                          # plain English: "farm until level 5"
+    gate: str = ""                      # venue gate base URL ("" = keep default)
+    gate_secret: str = ""               # "" = keep's FAMILIAR_MMO_GATE_SECRET
+    char_id: int = 0
+    max_beats: int = 24
+    beat_seconds: float = 0.0           # 0 = run synchronously (mock/testing)
+
+
+# One venture at a time per familiar: {fam_id: {thread, stop, summary, ...}}
+VENTURES: dict = {}
+
+
+def _run_venture(fam, gate, order, char_id, max_beats, beat_seconds, stop):
+    entry = VENTURES[fam.id]
+    try:
+        entry["summary"] = mmo.run_farm(fam, gate, order, char_id=char_id,
+                                        max_beats=max_beats,
+                                        beat_seconds=beat_seconds, stop=stop)
+    except Exception as e:              # a failed venture is data, not a crash
+        entry["summary"] = {"error": str(e)}
+    entry["running"] = False
+
+
+@app.post("/familiar/{familiar_id}/venture")
+async def venture(familiar_id: str, req: VentureRequest):
+    """Send a hired familiar into a game venue with a plain-English order.
+    The gate URL is OWNER-NAMED egress (FAMILIAR.md P3): naming it here is
+    what adds it to this familiar's allowlist — nothing is open by default."""
+    if not keeper.authorized(familiar_id, req.owner_token):
+        raise HTTPException(403, "owner token required")
+    fam = keeper.get(familiar_id)
+    if fam.dismissed:
+        raise HTTPException(409, "dismissed familiars do not act")
+    prior = VENTURES.get(familiar_id)
+    if prior and prior.get("running"):
+        raise HTTPException(409, "a venture is already running — stop it first")
+
+    gate_url = req.gate or MMO_GATE
+    if not gate_url:
+        raise HTTPException(422, "no venue gate: pass `gate` or set FAMILIAR_MMO_GATE")
+    egress = fam.workspace().egress
+    if not gate_url.startswith("mock://"):
+        egress.allow(gate_url.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0])
+        fam.journal("egress_granted", venue=gate_url, by="owner")
+    try:
+        gate = mmo.gate_for(gate_url, egress=egress,
+                            secret=req.gate_secret or None)
+    except mmo.GateError as e:
+        raise HTTPException(422, str(e))
+
+    order = mmo.parse_order(req.order)
+    max_beats = max(1, min(req.max_beats, 240))
+    stop = threading.Event()
+    if req.beat_seconds > 0:
+        VENTURES[familiar_id] = {"running": True, "stop": stop, "summary": None,
+                                 "venue": gate_url, "order": order}
+        t = threading.Thread(target=_run_venture,
+                             args=(fam, gate, order, req.char_id, max_beats,
+                                   min(req.beat_seconds, 60.0), stop),
+                             daemon=True)
+        VENTURES[familiar_id]["thread"] = t
+        t.start()
+        return {"started": True, "venue": gate_url, "order": order,
+                "max_beats": max_beats}
+    summary = mmo.run_farm(fam, gate, order, char_id=req.char_id,
+                           max_beats=max_beats, stop=stop)
+    VENTURES[familiar_id] = {"running": False, "stop": stop, "summary": summary,
+                             "venue": gate_url, "order": order}
+    return summary
+
+
+@app.get("/familiar/{familiar_id}/venture")
+async def venture_status(familiar_id: str):
+    """Public, like the rest of the life record."""
+    v = VENTURES.get(familiar_id)
+    if not v:
+        return {"running": False, "summary": None}
+    return {"running": bool(v.get("running")), "venue": v.get("venue"),
+            "order": v.get("order"), "summary": v.get("summary")}
+
+
+@app.post("/familiar/{familiar_id}/venture/stop")
+async def venture_stop(familiar_id: str, req: OwnerRequest):
+    if not keeper.authorized(familiar_id, req.owner_token):
+        raise HTTPException(403, "owner token required")
+    v = VENTURES.get(familiar_id)
+    if v:
+        v["stop"].set()
+    return {"ok": True, "stopping": bool(v and v.get("running"))}
+
+
+@app.get("/venues")
+async def venues():
+    """The venue gates this keep knows. The default is operator-configured;
+    owners may always name another at /familiar/{id}/venture."""
+    out = []
+    if MMO_GATE:
+        entry = {"gate": MMO_GATE, "default": True, "protocol": mmo.PROTOCOL}
+        try:
+            entry["card"] = mmo.gate_for(MMO_GATE).card()
+        except Exception as e:
+            entry["card"] = {"error": str(e)}
+        out.append(entry)
+    return {"venues": out}
 
 
 @app.get("/familiar/{familiar_id}")
