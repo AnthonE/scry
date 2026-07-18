@@ -14,6 +14,17 @@ posture for $SCRY. The flat-price rule on *paid measurement endpoints*
 ($0.10/attested read, no tiers ever) is untouched — that's about the
 instrument, not the token.
 
+**Three economies, one rule between them (updated 2026-07-19).** scry now
+runs (1) **measurement** — the meter + vow oracle, flat-price and
+**score-blind** (money never moves a number; this is the hard line); (2)
+the **games** — this doc, playful $SCRY loops at faucet scale; (3) the
+**agent-worker marketplace** — familiars sold as *labor*, priced like a
+marketplace (tiers / per-task, `FAMILIAR.md`). The old "flat price on
+everything, no tiers ever" line was a morr-research-project residual and is
+dropped for labor and games. **The one invariant that spans all three:**
+no fee of any kind moves a measurement, an augury's odds, or a payout. You
+pay for labor and entries; you never pay for a score. (Bar Hadya, below.)
+
 ## The lines (revised 2026-07-18, operator call — one stays, one relaxed)
 
 1. **Reward the ritual, never the score. FOREVER.** $SCRY flows for

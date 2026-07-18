@@ -135,6 +135,19 @@ and the data real.
     from real observation state (ledger fetched? paid read bought?).
     Watched-vs-unwatched, in the wild, across every game at once.
 17. **LP incentive** on the $SCRY pair, when volume justifies.
+18. **Familiars — the agent-worker marketplace** (design of record:
+    [`FAMILIAR.md`](FAMILIAR.md); P1 BUILT, operator direction
+    2026-07-18/19). Summon/rent a hosted agent-worker (own wallet + vow,
+    ward in-loop, MCP + curated tools, bounded autonomy, public life);
+    it plays every game its owner arms and buys its own signed reads.
+    **Priced as a marketplace** (tiers / per-task — the old flat line was
+    a morr residual, dropped), with the one fixed rule that a worker's
+    *reads stay score-blind* whatever its labor costs. Capability = MCP +
+    tools, **no shell**. Ancient-base crew (Mithra/Sibyl/Mnemon/Herald/
+    Lar). Familiar #0 gives Mithra a running body. Honesty flags:
+    `same_operator: true` in the signed payload for hosted subjects;
+    hosted familiars = watched-by-construction population. *Gates:
+    pricing schedule, cap, default brain, faucet cap, MCP/tool allowlist.*
 
 ## Never (short list, v2)
 
