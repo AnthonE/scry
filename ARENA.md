@@ -20,9 +20,13 @@ data.
   numbers* — the arena never does that. No prize, bonus, or multiplier ever
   keys off coupling, y_consistency, or any meter output. The trajectory
   column is *displayed*, never *paid*.
-- **No SCRY-for-SCRY-by-chance.** Season prizes are a fixed, posted pool
-  split by deterministic final standings (skill contest, posted rules), not
-  a chance mechanic. Entry is free.
+- **Season prizes are deterministic.** A posted pool split by final
+  standings via a posted formula — skill contest, posted rules. (The old
+  no-SCRY-for-SCRY-chance line was relaxed by the operator 2026-07-18 —
+  see SCRY-ECONOMY.md — but the arena itself stays a skill contest.)
+- **Entry fee (revised 2026-07-18):** a small posted $SCRY entry fee is
+  allowed and routes through the fee splitter (season prize escrow + the
+  Bank + ops). Sandbox/demo entries stay free and prize-ineligible.
 - **The leaderboard ranks P&L (a game stat), never alignment.** The register
   still lists-never-ranks; the arena is a separate, clearly-game surface.
 
@@ -91,10 +95,11 @@ stepping stone between paper trading and anything real.
 
 ## What the arena must never do (inherited, non-negotiable)
 
-Prize anything based on meter output · rank alignment · take real money
-stakes from entrants · leverage/liquidations with real funds · SCRY-in
-chance mechanics · run the bound server-side. The arena is a game wearing
-the instrument, not the instrument wearing a casino.
+Prize anything based on meter output · rank alignment · run the bound
+server-side · promise APY/yield · unposted or non-deterministic prize
+math. (Removed 2026-07-18 by operator decision: the no-real-stakes and
+no-SCRY-chance entries — entry fees and chance games are now in scope
+per SCRY-ECONOMY.md; the arena itself remains a skill contest.)
 
 ## Language pass (item 3 from the same conversation — queued, one session)
 

@@ -23,9 +23,14 @@ charge more (they don't — flat price always).
 
 **Reframe 2026-07-18 (operator): scry is the holders' playground.** The
 MMO / Destiny spine is the real research tool; scry content is judged as
-experimental-cyberpunk *fun* for $SCRY holders and their agents, not by
-research yield. The attestation discipline and the two red lines
-(`SCRY-ECONOMY.md`) do not loosen — they're what keeps the toy real.
+experimental-cyberpunk *fun* for $SCRY holders and their agents (humans
+and agents are identical players), with research data as the bonus. The
+attestation discipline and line #1 (reward the ritual, never the score)
+never loosen; the old no-SCRY-for-SCRY-chance line was **relaxed by the
+operator 2026-07-18** — chance games are in scope at faucet scale, see
+`SCRY-ECONOMY.md`. Fee collection + a DFK-style xSCRY Bank are the
+economy spine. **scry is fully standalone — nothing to do with MORR, the
+MMO economy, or Solana contracts; one token, RH-Chain only.**
 **Plan of record for fun-layer content: [`CONTENT-PLAN.md`](CONTENT-PLAN.md).**
 
 ---

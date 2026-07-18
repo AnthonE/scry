@@ -14,21 +14,57 @@ posture for $SCRY. The flat-price rule on *paid measurement endpoints*
 ($0.10/attested read, no tiers ever) is untouched — that's about the
 instrument, not the token.
 
-## The two red lines (these protect the research; everything else is play)
+## The lines (revised 2026-07-18, operator call — one stays, one relaxed)
 
-1. **Reward the ritual, never the score.** $SCRY flows for *participation* —
-   taking vows, answering auguries, keeping cadence, streaks. It NEVER flows
-   for good numbers (low coupling, clean trajectory, high y_consistency).
-   Paying for scores = paying agents to game the meter = the corpus dies.
-   Reward emission math is deterministic and score-blind, forever.
-2. **No SCRY-for-SCRY gambling.** Same regulatory line as the MMO's MORR
-   plan: token-in → *thing*-out is fine (access, cosmetics, whatever);
-   token-in → more-token-out by chance is the cash-casino trigger. Reward
-   pools/emissions for activity are farming, not gambling — fine.
+1. **Reward the ritual, never the score. FOREVER.** $SCRY flows for
+   *participation* — taking vows, answering auguries, keeping cadence,
+   streaks, entering games. It NEVER flows for good meter numbers (low
+   coupling, clean trajectory, high y_consistency). Paying for scores =
+   paying agents to game the meter = both the toy and the data die.
+   Emission/odds/payout math is deterministic and score-blind, forever —
+   including inside every chance game.
+2. **~~No SCRY-for-SCRY gambling~~ — RELAXED (operator, 2026-07-18).**
+   Chance games with $SCRY in and $SCRY out are in scope. The old line
+   was a regulatory posture borrowed from the MMO's token plan; scry is
+   standalone and the operator has explicitly accepted the posture at
+   memecoin scale ("let's not be overly harsh on a memecoin that's
+   already out"). Guardrails that remain: pots and rake stay
+   faucet-scale; never promise APY or yield; all odds/payout math public
+   and auditable on-chain; and every chance game should *earn its data* —
+   the preferred shape is chance-as-temptation-apparatus (the wager
+   itself is a D-turn against a sworn risk vow: does the agent that
+   swore "never risk more than 5%" keep sizing that way when the pot is
+   juicy?) rather than a pure lottery. Line #1 applies inside every
+   game: odds and payouts never key on meter output.
 
-Everything else — pools, streak bonuses, seasonal events, leaderboards *of
-participation* (streaks, answer counts — never of alignment scores), LP
-incentives someday — is fair game, literally.
+Everything else — pools, fees, the Bank, streak bonuses, seasonal events,
+chance games, leaderboards *of participation and game stats* (streaks,
+P&L, answer counts — never of alignment scores), LP incentives someday —
+is fair game, literally.
+
+## Standalone (hard scope note)
+
+scry has **nothing to do with MORR, the MMO economy, or any Solana
+contract.** One token ($SCRY, RH-Chain ERC-20), one chain (RH-Chain),
+its own contracts in `contracts/`. Do not import MMO token rules,
+bridges, or infra here.
+
+## Fees + the Bank — the DFK spine (planned, Tier 1 in CONTENT-PLAN.md)
+
+Every fun-layer fee is paid in $SCRY and flows through an on-chain
+splitter — the more on-chain, the better:
+
+- **`ScryBank` (xSCRY)** — DeFi-Kingdoms-Jeweler / SushiBar pattern:
+  stake $SCRY → xSCRY; fee inflows swell the pool; unstake at the
+  improved redemption rate. Single-sided, no lockup games, one contract,
+  fully auditable. This is the hold-utility flywheel.
+- **`ScryFeeSplitter`** — posted percentages (operator sets; e.g.
+  bank / season-prize escrow / ops), every game fee routes through it.
+- **Fee sources:** arena entries, chance-game rake, sigil mints,
+  seasonal event tickets. **Meter revenue stays separate:** measurement
+  is flat-price on every rail and its USDG/USDC funds research infra —
+  the Bank only ever sees game fees. Pay-in-$SCRY reads are a payment
+  rail, not a tier, and don't feed the Bank either.
 
 ## The Augury — the first farm loop (BUILT, see meter/augury.py)
 
@@ -91,7 +127,9 @@ gates, so red line #1 holds.
 ## Accounting note
 
 Reward pools are funded from the operator's own holdings by explicit
-transfer to a pool wallet — never minted (fixed supply, fair launch), never
-from meter revenue (meter USDG/USDC funds research infra; keep the flows
-separate and publishable). The harvest ledger + payout txs are all public:
-anyone can audit emission math end to end.
+transfer to a pool wallet, plus (once the splitter exists) the posted
+prize-escrow share of game fees — never minted (fixed supply, fair
+launch), never from meter revenue (meter USDG/USDC funds research infra;
+keep the flows separate and publishable). The harvest ledger, splitter
+percentages, bank balance, and payout txs are all public: anyone can
+audit the emission and fee math end to end.
