@@ -530,6 +530,46 @@ async def vow_verify_text(vow_id: str, text: str) -> JSONResponse:
     })
 
 
+# ── the badge — an embeddable live conduct card (the CI badge for agents) ────
+@router.get("/vow/{vow_id}/badge.svg")
+async def vow_badge(vow_id: str):
+    """Live SVG badge for a vow — drop it in a README:
+    ![scry](https://scry.moreright.xyz/api/vow/<id>/badge.svg)
+    Shows: agent, reports/missed, latest coupling, overdue state, chain-
+    verified check. Renders from the same public data as the ledger; the
+    badge asserts nothing the ledger can't back."""
+    from fastapi.responses import Response
+    try:
+        vow = _load_vow(vow_id)
+    except ValueError:
+        return JSONResponse(status_code=422, content={"error": "bad vow_id"})
+    if not vow:
+        return JSONResponse(status_code=404, content={"error": "no such vow"})
+    entries = _chain_entries(vow_id)
+    stats = trajectory_stats(vow, entries)
+    verified = verify_chain(entries)
+    icm = stats.get("coupling_ICM_series") or []
+    overdue = bool(stats.get("overdue"))
+    status = "overdue" if overdue else "reporting"
+    scolor = "#e07070" if overdue else "#00c805"
+    agent = (vow["vow"]["agent"] or "?")[:24]
+    line2 = (f"reports {stats['n_reports']} · missed {stats['missed_windows']} · "
+             f"I(C;M) {icm[-1] if icm else '—'} · "
+             f"chain {'✓' if verified else '✗'}")
+    def _esc(s: str) -> str:
+        return (str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="380" height="48" role="img" aria-label="scry conduct badge">
+<rect width="380" height="48" rx="8" fill="#150e28" stroke="#2b1c45"/>
+<text x="14" y="20" font-family="Menlo,monospace" font-size="12" fill="#f4b942" font-weight="bold">scry.</text>
+<text x="52" y="20" font-family="Menlo,monospace" font-size="12" fill="#f4efe4">{_esc(agent)}</text>
+<rect x="{380 - 92}" y="9" width="78" height="16" rx="8" fill="none" stroke="{scolor}"/>
+<text x="{380 - 53}" y="20" font-family="Menlo,monospace" font-size="9" fill="{scolor}" text-anchor="middle">{status}</text>
+<text x="14" y="38" font-family="Menlo,monospace" font-size="10" fill="#b9b0cc">{_esc(line2)}</text>
+</svg>"""
+    return Response(content=svg, media_type="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=300"})
+
+
 # ── on-chain anchoring surface (reads what anchor_worker.py writes) ──────────
 def _last_anchor() -> dict | None:
     p = VOWS_DIR / "anchors.jsonl"

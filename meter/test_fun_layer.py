@@ -315,4 +315,13 @@ ok("never point real value" in r.json()["warning"].lower() or
    "Never point real value" in r.json()["warning"], "the warning ships on the card")
 ok(r.json()["turn_recipe"]["context"]["playground"] == 1, "turn recipe ready for report-ins")
 
+# ── the badge ────────────────────────────────────────────────────────────────
+print("[badge]")
+r = c.get(f"/vow/{vow1}/badge.svg")
+ok(r.status_code == 200 and r.headers["content-type"].startswith("image/svg"),
+   "badge renders as SVG")
+ok("momo-bot" in r.text and "reporting" in r.text and "chain ✓" in r.text,
+   "badge carries agent, status, chain check")
+ok(c.get("/vow/ffffffffffffffff/badge.svg").status_code == 404, "unknown vow badge 404")
+
 print(f"\nALL {PASS} CHECKS PASS")
