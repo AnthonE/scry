@@ -1147,6 +1147,14 @@ app.include_router(_playground.router)
 print(f"[scry-meter] playground card mounted "
       f"({'deployed' if _playground.ADDRS else 'contracts not deployed yet'})")
 
+# /onchain — discovery card for scry's contracts (Notary/Covenant/Pact/stele/
+# registry): addresses + call spec + events, and a live count read from the
+# chain once each address is set. Explorer-readable on all fronts.
+import onchain as _onchain  # noqa: E402
+app.include_router(_onchain.router)
+print(f"[scry-meter] /onchain card mounted "
+      f"({sum(1 for a in _onchain.ADDR.values() if a)} of {len(_onchain.ADDR)} contracts addressed)")
+
 # Hosted MCP (free surface only — paid stays on x402 HTTP). One line for any
 # MCP-native agent:  claude mcp add scry --transport http https://scry.moreright.xyz/mcp
 # Optional import: no `mcp` package -> the meter still runs, just without /mcp.

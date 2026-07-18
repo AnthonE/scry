@@ -76,6 +76,8 @@ app.include_router(covenant.router)
 import pact  # noqa: E402
 pact.init(sign_fn=lambda s: "fake-sig", pubkey_b64="fake-pub", issuer="test")
 app.include_router(pact.router)
+import onchain  # noqa: E402
+app.include_router(onchain.router)
 c = TestClient(app)
 
 PASS = 0
@@ -544,5 +546,19 @@ ok(r.status_code == 200, "sandbox pact accepts an unsigned comment")
 r = c.get("/pacts").json()
 ok(any(pc["pact_id"] == PID and pc["agreement_status"] == "active" for pc in r["pacts"]),
    "register lists the pact with live status")
+
+# ── onchain discovery card ───────────────────────────────────────────────────
+print("[onchain]")
+r = c.get("/onchain").json()
+ok(set(r["contracts"]) == {"notary", "covenant", "pact", "stele_edition", "vow_registry"},
+   "card lists all scry contracts")
+ok(all(cv["deployed"] is False and cv["live"] is None for cv in r["contracts"].values()),
+   "undeployed → deployed False, no live read (no crash without web3/addresses)")
+ok(any("notarize(" in sig for sig in r["contracts"]["notary"]["calls"]),
+   "interaction spec (call signatures) present even before deploy")
+ok(r["contracts"]["covenant"]["events"][0].startswith("CovenantOpened"),
+   "explorer events are listed so agents know what the log shows")
+ok(r["status"] and "no addresses set yet" in r["status"],
+   "status says not deployed, but the spec is live regardless")
 
 print(f"\nALL {PASS} CHECKS PASS")

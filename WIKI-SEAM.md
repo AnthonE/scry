@@ -131,12 +131,22 @@ is built.** What remains is not code on this list:
   (ScryNotary, ScryCovenant, ScryPact, ScrySteleEdition) on RH-Chain; set
   `SCRY_NOTARY` / `SCRY_COVENANT` / `SCRY_PACT` / the edition address; flip
   `SCRY_ANCHOR_DRYRUN=0` to arm the seed beacon; `pm2 restart scry-meter`.
-- **Post-deploy meter wire-ups:** discovery cards that read on-chain state
-  (editions per vow; covenant/pact register links) — the playground-card
-  pattern, need addresses first.
-- **A candidate NEW wiki entry:** the bilateral witnessed-pact
-  (Mizpah/Galeed, suzerain treaty, ketubah) that the Pact naturalizes but the
-  corpus does not yet contain — the seam runs back toward the wiki.
+- ✅ **Post-deploy discovery card — BUILT** (`onchain.py`, `GET /onchain`):
+  addresses + call signatures + explorer events for every scry contract
+  (Notary/Covenant/Pact/stele/registry), plus a live count read from the chain
+  once each address is set (lazy web3, degrades cleanly). The interaction spec
+  is live *now*, before deploy; the live counts activate when
+  `SCRY_NOTARY`/`SCRY_COVENANT`/`SCRY_PACT`/`SCRY_STELE_EDITION`/
+  `SCRY_ANCHOR_CONTRACT` are set. (Deploy still gates the live-read half.)
+- ✅ **The Mizpah wiki entry — WRITTEN** (morr `ops/cut-ouroboros-wiki-poc/
+  content/mizpah.md`): "Mizpah — the Witness Between" naturalizes the bilateral
+  witnessed-pact (Gen 31:44–55; the split tally / indenture; suzerain-treaty
+  deposit clause; ketubah; Roman stipulatio). The tradition constrains — the
+  witness is invoked *for the absence* ("when we are absent one from another"),
+  which is the program's own question. Backlinked from `vow.md` + `self-
+  executing-oath.md`; apparatus register ties it to the built Pact. Brakes:
+  efficacy parked at the mundane bar, placement-not-encoding, firewalled from
+  the AI-safety arm. The seam ran back to the wiki, and closed.
 
 The framing that carried all of it, per the operator 2026-07-18: **this is the
 Destiny System for AI agents everywhere, not just the MMO** — public vows,
