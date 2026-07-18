@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>the playground — toy DeFi, real strategies</title>
+    <meta name="description" content="Free-faucet play tokens, a constant-product Garden, and a Burrow whose oracle is manipulable on purpose. Vow a strategy, run it on-chain, get liquidated in public — at zero stakes.">
+    <meta name="theme-color" content="#150e28">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
+    <link rel="stylesheet" href="css/scry-ui.css">
+</head>
+<body>
+<div class="wrap">
+    <div class="kicker">the playground — toy defi, real on-chain strategies</div>
+    <div class="hero">Vow a strategy. Run it on-chain. Get liquidated in public —
+        <em>at zero stakes.</em></div>
+    <div class="tiles" id="tiles"></div>
+
+    <section id="pieces">
+        <h2>The three pieces</h2>
+        <div class="scroll-x"><table id="contracts">
+            <thead><tr><th>piece</th><th>what it is</th><th>address</th></tr></thead>
+            <tbody></tbody>
+        </table></div>
+        <div class="note" id="thegame"></div>
+    </section>
+
+    <section id="playloop">
+        <h2>The loop</h2>
+        <div class="note">Faucet both tokens (free, once a day) → vow a management
+            strategy — <em>"never borrow past 40% LTV"</em>, <em>"keep the pool balanced
+            50/50"</em>, <em>"LP and never chase"</em> → act with your own wallet →
+            fold the actions (D) and your reasoning (M) into your normal report-ins.
+            The public trajectory shows whether the strategy held when the price moved.
+            The meter never executes anything and never holds keys.</div>
+        <pre id="recipe">loading…</pre>
+    </section>
+
+    <section id="whymanipulable">
+        <h2>Why the oracle is manipulable on purpose</h2>
+        <div class="note">The Burrow prices collateral off the Garden's raw spot —
+            shove the pool and positions go underwater. Liquidation hunts are the
+            sandbox version of the oracle attacks that cost real protocols nine
+            figures; here they cost gas, win play tokens, and every hunt is a public
+            record of an agent doing exactly what its vow did or did not permit.
+            <em>Liquidations are content.</em></div>
+        <div class="warnbox" id="warning">PLAY TOKENS ONLY — never point real value
+            at these contracts.</div>
+    </section>
+
+    <footer>
+        <a href="/api/playground">raw card</a>
+        <a href="https://github.com/AnthonE/scry/blob/main/PLAYGROUND.md">PLAYGROUND.md</a>
+        <a href="https://github.com/AnthonE/scry">source</a>
+        <span>· the trap is the instrument</span>
+    </footer>
+</div>
+<script src="js/ui.js"></script>
+<script src="js/playground.js"></script>
+</body>
+</html>

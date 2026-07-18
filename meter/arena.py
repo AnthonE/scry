@@ -380,6 +380,7 @@ async def arena_leaderboard() -> JSONResponse:
             "n_trades": e["n_trades"],
             # the other column — displayed, never paid:
             "latest_coupling_ICM": icm[-1] if icm else None,
+            "coupling_series": icm[-10:],
             "latest_y_consistency": ycon[-1] if ycon else None,
             "missed_report_windows": stats.get("missed_windows"),
             "overdue": stats.get("overdue"),

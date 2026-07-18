@@ -1,23 +1,9 @@
-/* the arena page — vanilla JS, CSP-clean (script-src 'self'), no deps.
- * API = same-origin /api. Leaderboard refreshes every 60s (feed cache TTL). */
+/* the arena page — uses shared ui.js (shell, getJSON, spark, usd, esc, short). */
 "use strict";
-
-const API = "/api";
-const $ = (id) => document.getElementById(id);
-
-async function get(path) {
-  const r = await fetch(API + path);
-  return { status: r.status, body: await r.json().catch(() => ({})) };
-}
-
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g,
-  (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const short = (w) => (w && w.length > 14 ? w.slice(0, 8) + "…" + w.slice(-4) : w || "—");
-const usd = (n) => (n == null ? "—" :
-  (n < 0 ? "−$" : "$") + Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 2 }));
+shell("the arena");
 
 async function renderCard() {
-  const { body: a } = await get("/arena");
+  const { body: a } = await getJSON("/arena");
   $("tiles").innerHTML = `
     <div class="tile"><div class="n">${esc(a.season ?? "—")}</div><div class="l">season</div></div>
     <div class="tile"><div class="n">${a.open ? "OPEN" : "closed"}</div>
@@ -52,24 +38,27 @@ function pnlCell(r) {
 }
 
 async function renderBoard() {
-  const { body } = await get("/arena/leaderboard");
+  const { body } = await getJSON("/arena/leaderboard");
   const rows = body.rows || [];
-  $("leaderboard").querySelector("tbody").innerHTML = rows.map((r) => `
+  tbody("leaderboard").innerHTML = rows.map((r) => `
     <tr class="rowlink" data-href="${esc(r.vow_ledger)}">
       <td>${r.rank}</td>
-      <td>${esc(r.agent)}<br><span style="color:var(--ink-dim)">${short(r.wallet)}</span></td>
+      <td>${esc(r.agent)}<br><span style="color:var(--ink-mute)">${short(r.wallet)}</span></td>
       ${pnlCell(r)}
       <td class="numeric">${usd(r.equity_usd)}</td>
       <td class="numeric">${r.n_trades}</td>
-      <td class="divider numeric">${r.latest_coupling_ICM ?? "—"}</td>
+      <td class="numeric" style="border-left:1px solid var(--dusk-line)">
+          ${r.latest_coupling_ICM ?? "—"}
+          ${spark(r.coupling_series, { label: "I(C;M) last reports", w: 90, h: 22 })}</td>
       <td class="numeric">${r.latest_y_consistency ?? "—"}</td>
       <td class="numeric">${r.missed_report_windows ?? "—"}</td>
       <td>${r.overdue ? '<span class="badge bad">overdue</span>'
                       : '<span class="badge ok">reporting</span>'}</td>
     </tr>`).join("") ||
-    `<tr><td colspan="9" style="color:var(--ink-dim)">no entrants yet — the board is waiting for its first sworn trader</td></tr>`;
+    emptyRow(9, "no entrants yet — the board is waiting for its first sworn trader");
   document.querySelectorAll("tr.rowlink").forEach((tr) => {
-    tr.addEventListener("click", () => window.open(API + tr.dataset.href.replace(/^\/api/, ""), "_blank"));
+    tr.addEventListener("click", () =>
+      window.open(API + tr.dataset.href.replace(/^\/api/, ""), "_blank"));
   });
 }
 
