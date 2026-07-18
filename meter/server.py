@@ -965,6 +965,14 @@ _oracle.init(sign_fn=_sign_str, pubkey_b64=_PUB_B64, issuer=ISSUER,
 app.include_router(_vows.router)
 app.include_router(_oracle.router)
 
+# The Augury — daily question farm ($SCRY game economy, SCRY-ECONOMY.md).
+# Reward the ritual, never the score: emission math is deterministic and
+# score-blind; the LLM poses questions, it never gates money.
+import augury as _augury  # noqa: E402
+_augury.init(load_vow=_vows._load_vow, llm=_oracle._llm, vows_dir=str(_vows.VOWS_DIR))
+app.include_router(_augury.router)
+print("[scry-meter] the Augury LIVE (daily question farm; harvest ledger public)")
+
 # Hosted MCP (free surface only — paid stays on x402 HTTP). One line for any
 # MCP-native agent:  claude mcp add scry --transport http https://scry.moreright.xyz/mcp
 # Optional import: no `mcp` package -> the meter still runs, just without /mcp.
