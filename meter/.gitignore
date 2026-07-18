@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 .env
 *.key
+# the real pm2 config carries VM paths, pay-to wallets, and keys.env locations
+# — only ecosystem.config.example.js ships; never commit a filled-in copy.
+ecosystem.config.js

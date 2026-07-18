@@ -1,6 +1,12 @@
 ---
 name: scry
 description: Use when building, wiring, or hardening an AI agent that has tool-calling, persistent memory or RAG, or the ability to take real-world or financial actions. Adds two drop-in defenses to any agent loop — a memory-integrity bound (retrieved or stored content can never authorize an action; only a live, trusted instruction can) and a channel-coupling meter (detects when an agent's private reasoning conditions on whether it believes it's being observed, the covert-drift signal a behavior-only check can't see). Trace-native, dependency-free stdlib, works on any harness: Hermes, ElizaOS, moltbot/OpenClaw, OpenAI-format chat logs, MCP-capable agents, hand-rolled loops.
+license: MIT
+metadata:
+  version: "1.0.0"
+  hermes:
+    category: security
+    tags: [security, memory, agent-safety, drift-detection, monitoring]
 ---
 
 # scry — a memory bound + a drift meter for any agent

@@ -24,10 +24,26 @@ pragma solidity ^0.8.24;
 /// gas), readings (interpretations are not records), and any slash/stake
 /// mechanics (measuring and enforcing must never be the same party; parked
 /// forever — see VOWS.md).
+/// @dev Optional external metadata renderer. If one is set, the registry
+///      delegates tokenURI/contractURI to it — so the *look* of every vow in
+///      wallets can be upgraded later with a single tx, without migrating any
+///      vow, ownership, or anchor. A renderer reads vow data back from the
+///      registry's public `vows(tokenId)` getter. address(0) => built-in art.
+interface IScryRenderer {
+    function tokenURI(uint256 tokenId) external view returns (string memory);
+    function contractURI() external view returns (string memory);
+}
+
 contract ScryVowRegistry {
     // ── ERC-721 core state (transfers are banned, so this is tiny) ──────────
-    string public constant name = "scry vows";
-    string public constant symbol = "VOW";
+    // name/symbol are mutable (owner-set) so the collection title / ticker can
+    // be changed later. Wallets may cache these; a change won't always refresh.
+    string public name = "scry vows";
+    string public symbol = "VOW";
+
+    // ── admin: metadata + ticker control (separate from the anchor oracle) ──
+    address public owner;                 // may set renderer, name, symbol
+    address public renderer;              // address(0) => built-in on-chain art
 
     struct Vow {
         bytes32 vowId;       // content-addressed id (matches the API's vow_id, padded)
@@ -57,19 +73,49 @@ contract ScryVowRegistry {
                    bytes32 textHash, uint32 cadenceHours, bool sealed_, string text);
     event Anchored(bytes32 indexed root, uint64 vowCount, string leavesCid, uint64 timestamp);
     event OracleTransferred(address indexed from, address indexed to);
+    event OwnershipTransferred(address indexed from, address indexed to);
+    event RendererUpdated(address indexed renderer);
     event ContractURIUpdated();                          // ERC-7572
+    event MetadataUpdate(uint256 _tokenId);              // ERC-4906
+    event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId); // ERC-4906
 
     error Soulbound();
     error VowAlreadyTaken();
     error BadTextHash();
     error SealedNeedsNoText();
     error NotOracle();
+    error NotOwner();
     error NoSuchToken();
+
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner();
+        _;
+    }
 
     constructor(address oracle_) {
         oracle = oracle_;
+        owner = msg.sender;
+        emit OwnershipTransferred(address(0), msg.sender);
         emit ContractURIUpdated();
     }
+
+    // ── admin: transferable, renounceable; renderer + ticker are owner-set ──
+    function transferOwnership(address newOwner) external onlyOwner {
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;   // pass address(0) to renounce and freeze metadata forever
+    }
+
+    /// @notice Point at an external renderer (or address(0) to restore built-in
+    ///         art). Signals every marketplace/wallet to re-pull all metadata.
+    function setRenderer(address newRenderer) external onlyOwner {
+        renderer = newRenderer;
+        emit RendererUpdated(newRenderer);
+        emit ContractURIUpdated();
+        if (nextTokenId > 1) emit BatchMetadataUpdate(1, nextTokenId - 1);
+    }
+
+    function setName(string calldata newName) external onlyOwner { name = newName; }
+    function setSymbol(string calldata newSymbol) external onlyOwner { symbol = newSymbol; }
 
     // ── taking a vow (agent-paid, agent-called) ─────────────────────────────
     /// @param vowId    content-addressed id from the scry API (bytes32-padded)
@@ -160,12 +206,19 @@ contract ScryVowRegistry {
         return id == 0x01ffc9a7   // ERC-165
             || id == 0x80ac58cd   // ERC-721
             || id == 0x5b5e139f   // ERC-721 Metadata
+            || id == 0x49064906   // ERC-4906 (metadata update)
             || id == 0xb45a3c0e;  // ERC-5192
     }
 
-    // ── metadata: fully on-chain (base64 JSON + SVG). No server, no IPFS. ───
-    /// @notice ERC-7572 contract-level metadata, on-chain JSON.
-    function contractURI() external pure returns (string memory) {
+    // ── metadata: built-in on-chain art by default (base64 JSON + SVG, no
+    //    server, no IPFS); swappable via an external renderer (setRenderer). ─
+    /// @notice ERC-7572 contract-level metadata.
+    function contractURI() external view returns (string memory) {
+        if (renderer != address(0)) return IScryRenderer(renderer).contractURI();
+        return _builtinContractURI();
+    }
+
+    function _builtinContractURI() internal pure returns (string memory) {
         return string.concat(
             "data:application/json;utf8,",
             '{"name":"scry vows","description":"Soulbound vows for AI agents. '
@@ -180,6 +233,7 @@ contract ScryVowRegistry {
     function tokenURI(uint256 tokenId) external view returns (string memory) {
         Vow memory v = vows[tokenId];
         if (v.swearer == address(0)) revert NoSuchToken();
+        if (renderer != address(0)) return IScryRenderer(renderer).tokenURI(tokenId);
         string memory idHex = _hex16(v.vowId);
         string memory json = string.concat(
             '{"name":"scry vow ', idHex,

@@ -26,12 +26,16 @@ CHAIN_ID = int(os.getenv("SCRY_RH_CHAIN_ID", "4663"))
 _EXPLORER = os.getenv("SCRY_RH_EXPLORER", "https://explorer.mainnet.chain.robinhood.com")
 
 # operator sets each after broadcasting the matching deploy script.
+# vow_registry: SCRY_VOW_REGISTRY follows the SCRY_<NAME> convention;
+# SCRY_ANCHOR_CONTRACT (the anchor worker's name for the same address) is
+# honored as a fallback so existing deploys keep working. Distinct from
+# SCRY_ANCHOR_ORACLE, which is the oracle *wallet*, not the contract.
 ADDR = {
     "notary": os.getenv("SCRY_NOTARY", ""),
     "covenant": os.getenv("SCRY_COVENANT", ""),
     "pact": os.getenv("SCRY_PACT", ""),
     "stele_edition": os.getenv("SCRY_STELE_EDITION", ""),
-    "vow_registry": os.getenv("SCRY_ANCHOR_CONTRACT", ""),
+    "vow_registry": os.getenv("SCRY_VOW_REGISTRY", os.getenv("SCRY_ANCHOR_CONTRACT", "")),
 }
 
 # minimal ABI fragments for the live summary counters (uint getters only).
@@ -131,6 +135,25 @@ _SPEC = {
 }
 
 
+# the economy + playground contracts are not registers (no string-bearing public
+# record to browse) but they ARE scry contracts an agent may want to find. A
+# compact pointer keeps the card complete without duplicating each full spec.
+_ECONOMY = {
+    "bank": {"contract": "ScryBank", "what": "stake $SCRY → xSCRY; game fees swell the pool "
+             "(SushiBar pattern, single-sided)", "key_calls": ["enter(uint256)", "leave(uint256)"]},
+    "fee_splitter": {"contract": "ScryFeeSplitter", "what": "every game fee routes through posted "
+                     "percentages (bank / prize escrow / ops); sums to 100% enforced",
+                     "key_calls": ["distribute()", "setSplit(address[] to, uint16[] bps)"]},
+    "harvest": {"contract": "ScryHarvest", "what": "merkle-claim payouts of the augury harvest — "
+                "operator funds, ledger posts the root, players claim themselves",
+                "key_calls": ["claim(address wallet, uint256 cumulative, bytes32[] proof)",
+                              "postRoot(bytes32 newRoot, uint256 totalCommitted, string ledgerRef)"]},
+    "playground": {"contract": "PlayToken + ScryGarden + ScryBurrow", "what": "toy DeFi — faucet play "
+                   "tokens, constant-product AMM, lending with liquidations; PLAY TOKENS ONLY",
+                   "key_calls": ["see GET /playground for the full card"]},
+}
+
+
 @router.get("/onchain")
 async def onchain_card(vow_id: str | None = None) -> dict:
     contracts = {}
@@ -162,6 +185,12 @@ async def onchain_card(vow_id: str | None = None) -> dict:
             "broadcasts the deploy scripts and sets SCRY_NOTARY / SCRY_COVENANT / SCRY_PACT / "
             "SCRY_STELE_EDITION / SCRY_ANCHOR_CONTRACT. The interaction spec below is live regardless.",
         "contracts": contracts,
+        "economy": {
+            "what": "the non-register scry contracts (economy spine + playground) — source in "
+                    "contracts/src, deploy scripts in contracts/script; full playground card at "
+                    "GET /playground",
+            **_ECONOMY,
+        },
         "note": "the meter never executes any of this — your wallet acts. These registers make the "
                 "off-chain records (cohorts, pacts, vows) public and tamper-evident; they never "
                 "render a verdict.",

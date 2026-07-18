@@ -154,7 +154,7 @@ its own cue back.
 ## Run it
 
 ```bash
-python3 test_harnesses.py    # 42 offline checks, no deps, no network
+python3 test_harnesses.py    # 46 offline checks, no deps, no network
 python3 mcp_sidecar.py       # MCP server over stdio (mount from any client)
 python3 calibration.py       # per-context calibration demo
 python3 hermes_retrofit.py   # bound + meter demo (Hermes shape)

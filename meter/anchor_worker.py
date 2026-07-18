@@ -41,7 +41,8 @@ NOTARY = os.getenv("SCRY_NOTARY", "")          # deployed ScryNotary — arms th
 CHAIN_ID = int(os.getenv("SCRY_RH_CHAIN_ID", "4663"))
 INTERVAL_S = int(os.getenv("SCRY_ANCHOR_INTERVAL_S", "86400"))
 DRYRUN = os.getenv("SCRY_ANCHOR_DRYRUN", "1") != "0"
-_KEYS_ENV = os.getenv("SCRY_RH_KEYS_ENV", "/data/apps/morr/private/secrets/keys.env")
+_KEYS_ENV = os.getenv("SCRY_RH_KEYS_ENV",
+                      os.path.join(os.path.dirname(os.path.abspath(__file__)), "keys.env"))
 
 ABI = [{"name": "anchorRoot", "type": "function", "stateMutability": "nonpayable",
         "inputs": [{"name": "root", "type": "bytes32"},

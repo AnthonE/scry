@@ -51,6 +51,8 @@ contract ScryBank {
     // ── the two moves ───────────────────────────────────────────────────────
 
     /// Stake `amount` $SCRY, mint pro-rata xSCRY.
+    /// Shares are minted before the pull — safe ONLY because $SCRY is a plain
+    /// no-callback ERC-20 (this bank is $SCRY-specific, never generic vaults).
     function enter(uint256 amount) external returns (uint256 shares) {
         require(amount > 0, "zero");
         uint256 pool = scry.balanceOf(address(this));

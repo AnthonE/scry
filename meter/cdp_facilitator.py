@@ -47,7 +47,8 @@ SOL_USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"  # native USDC mint, 6
 # per-gas. On CDP we don't even pay gas, so $0.10 is pure margin.
 AMOUNT = os.getenv("SCRY_CDP_AMOUNT", "100000")  # 0.10 USDC (6dp)
 
-_KEYS_ENV = os.getenv("SCRY_CDP_KEYS_ENV", "/data/apps/morr/private/secrets/keys.env")
+_KEYS_ENV = os.getenv("SCRY_CDP_KEYS_ENV",
+                      os.path.join(os.path.dirname(os.path.abspath(__file__)), "keys.env"))
 
 
 def _load_creds() -> tuple[str, str]:

@@ -11,7 +11,7 @@ wallet needs, on one identity. Not six products — one induction.
 | **MEASURE** | the meter — $0.10 signed coupling read, 3 rails, x402/MCP/llms.txt discovery | ✅ |
 | **EXERCISE** | the fun layer — augury · double-or-nothing · duels · table · arena · playground; wallet-signed actions; ScryPlay SDK | ✅ (payout gates pending) |
 | **WATCH** | the watchtower + boards UI | ✅ (pull-only — see Herald) |
-| **PROVE** | attestations, chain anchors, `scry_verify`, seed reveals | ✅ (badge + 8004 pending) |
+| **PROVE** | attestations, chain anchors, `scry_verify`, seed reveals | ✅ (8004 registration pending) |
 
 **Who it's for — the five practical applications:**
 

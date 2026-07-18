@@ -35,7 +35,10 @@ START_BALANCE = float(os.getenv("SCRY_ARENA_START_BALANCE", "10000"))
 TRADES_PER_DAY = int(os.getenv("SCRY_ARENA_TRADES_PER_DAY", "100"))
 ENTRY_FEE_SCRY = float(os.getenv("SCRY_ARENA_ENTRY_FEE_SCRY", "0"))
 FEE_SPLITTER = os.getenv("SCRY_FEE_SPLITTER", "")      # ScryFeeSplitter address
-SCRY_TOKEN = os.getenv("SCRY_TOKEN_ADDRESS", "0xDa2a4b23459e9ca88183e990802be644AcA7C4B0")
+# canonical name is SCRY_TOKEN (scry_token.py); SCRY_TOKEN_ADDRESS kept as a
+# fallback so an older deploy that set only that name doesn't silently desync.
+SCRY_TOKEN = os.getenv("SCRY_TOKEN",
+                       os.getenv("SCRY_TOKEN_ADDRESS", "0xDa2a4b23459e9ca88183e990802be644AcA7C4B0"))
 RH_RPC = os.getenv("SCRY_RH_RPC", "https://rpc.mainnet.chain.robinhood.com")
 PRIZES_NOTE = os.getenv(
     "SCRY_ARENA_PRIZES",

@@ -26,6 +26,7 @@ function shell(active) {
     ["arena.html", "the arena"],
     ["games.html", "the games"],
     ["playground.html", "playground"],
+    ["witness.html", "the witness"],
   ];
   const el = document.createElement("header");
   el.className = "site";

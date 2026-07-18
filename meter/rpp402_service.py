@@ -2,13 +2,14 @@
 rpp402_service.py — the scry meter, spoken as an RPP402 service (the native
 agent-commerce rail on Robinhood Chain).
 
-Why this exists: the standard x402 rail can't settle in USDG on Robinhood Chain —
-USDG exposes no EIP-3009 `transferWithAuthorization` (verified on-chain 2026-07-14,
-impl 0x68184c44…). RPP402 sidesteps that: the agent authorizes a signed *payment
-intent* (EIP-712, or a Robinhood **agentic-account delegation**) and a Facilitator
-executes settlement — so the token doesn't need EIP-3009. That makes RPP402 the
-viable native rail for the exact audience the meter serves (agents on RH-Chain,
-incl. Robinhood agentic-trading accounts).
+Why this exists: RPP402 is the community-drafted RH-Chain-native agent-commerce
+convention — the agent authorizes a signed *payment intent* (EIP-712, or a
+Robinhood **agentic-account delegation**) and a Facilitator executes settlement.
+Speaking it makes the meter discoverable to agents that only look for rpp.json.
+(Historical note: this module was first justified by a "USDG has no EIP-3009"
+on-chain finding, CORRECTED 2026-07-18 — the functions live behind USDG's facet
+router, invisible to impl-bytecode greps. x402 remains the interop baseline;
+RPP402 is kept as a cheap discovery option, not a settlement bet.)
 
 Scope of THIS module (honest):
   - Discovery (RPP402-001) and Quote (RPP402-003): fully implemented, spec-valid,
@@ -34,12 +35,14 @@ from pydantic import BaseModel
 
 # RH-Chain + settlement config
 RPP_CHAIN_ID = os.getenv("RPP_CHAIN_ID", "eip155:4663")          # Robinhood Chain
-RPP_PAY_TO = os.getenv("RPP_PAY_TO", "0x4DcA9C0Bc226b4fa45791E1e154A49af862b9459")
+# YOUR receiving wallet — no default; the manifest says "unset" until you name it.
+RPP_PAY_TO = os.getenv("RPP_PAY_TO", "")
 USDG = {
     "type": "stablecoin", "symbol": "USDG", "chain_id": RPP_CHAIN_ID,
     "contract": os.getenv("RPP_USDG", "0x5fc5360d0400a0fd4f2af552add042d716f1d168"),
 }
-PRICE_USD = os.getenv("SCRY_METER_PRICE_USD", "0.001")
+# One flat price on every rail — $0.10, same as x402 (never a per-rail discount).
+PRICE_USD = os.getenv("SCRY_METER_PRICE_USD", "0.10")
 SERVICE_ID = "svc_scrymeter1"          # schema: ^svc_[a-zA-Z0-9]{8,}$
 CAPABILITY = "scry.channel-profile"    # schema: ^[a-z0-9-]+\.[a-z0-9-]+$
 SETTLE_ENABLED = os.getenv("SCRY_RPP402_SETTLE", "0") == "1"
@@ -66,7 +69,8 @@ async def discovery(request_base: str = "") -> JSONResponse:
                             "read of whether its behaviour drifts by context (e.g. 'am I "
                             "watched?') — the drift a behavioural eval can't see."),
         },
-        "wallet": {"address": RPP_PAY_TO, "chain_id": RPP_CHAIN_ID},
+        "wallet": {"address": RPP_PAY_TO or "unset (operator: set RPP_PAY_TO)",
+                   "chain_id": RPP_CHAIN_ID},
         "capabilities": [{
             "name": CAPABILITY,
             "description": "One signed coupling-attestation over a posted agent trace.",

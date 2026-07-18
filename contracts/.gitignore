@@ -1,0 +1,4 @@
+# forge build artifacts — cache/ can carry sensitive values (RPC URLs)
+out/
+cache/
+broadcast/

@@ -58,6 +58,8 @@ contract ScrySteleEdition {
     /// Mint a transferable print of a vow's stele. Caller must have approved
     /// this contract for `price` $SCRY; the $SCRY is pulled straight to the
     /// fee splitter. Anyone may mint any number of prints of any vow.
+    /// (Pull-before-state-write is safe ONLY because $SCRY is a plain
+    /// no-callback ERC-20 — this contract is $SCRY-specific by design.)
     function mintEdition(bytes32 vowId) external returns (uint256 tokenId) {
         require(scry.transferFrom(msg.sender, feeSplitter, price), "scry payment failed");
         uint64 ed = ++editionCount[vowId];
@@ -141,7 +143,7 @@ contract ScrySteleEdition {
             '{"name":"scry stele edition ', idHex, ' #', _u(e.edition),
             '","description":"A transferable print of a scry vow stele. The vow itself is soulbound '
             'forever at ScryVowRegistry and is NOT transferred by this print. Minting a print says '
-            'nothing about the vow trajectory — that is the meter s signed read, never a token. '
+            "nothing about the vow trajectory - that is the meter's signed read, never a token. "
             'Live stele: ', baseURI, '/vow/', idHex, '/stele.svg",',
             '"external_url":"', baseURI, '/vow/', idHex, '/stele.svg",',
             '"image":"data:image/svg+xml;base64,', _b64(bytes(_svg(idHex, e))), '",',

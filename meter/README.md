@@ -218,9 +218,9 @@ production consensus (Coinbase Bazaar, `awesome-x402`, A2A) is:
 
 | what | where we serve it |
 |---|---|
-| **Coinbase Bazaar** discovery extension | The `POST /profile` `RouteConfig` carries a `bazaar` extension (`declare_discovery_extension` with input example, strict input JSON Schema, output example + output JSON Schema, semantic description, tags). Two of the three rails settle through CDP, so once the next Base/Sol payment settles after this deploys, scry is indexed to any agent calling `bazaar-mcp`. |
+| **Coinbase Bazaar** discovery extension | The `POST /profile` `RouteConfig` carries a `bazaar` extension (`declare_discovery_extension` with input example, strict input JSON Schema, output example + output JSON Schema, semantic description, tags). Two of the three rails settle through CDP, so once the next Base/Sol payment settles after this deploys, scry is indexed to any agent calling `bazaar-mcp` — and the 2026 explorer layer (x402scan, x402-list, …) derives from that same feed for free. **Honest caveat:** the RH-Chain USDG rail settles through our own facilitator, so it is *invisible* to every CDP-derived index — only the Base/Solana rails buy discovery. |
 | **`.well-known/x402.json`** — paid-resources manifest | `GET /.well-known/x402.json` on the meter (served under `/api/` by default). |
-| **`.well-known/agent.json`** — A2A agent card | `GET /.well-known/agent.json`. |
+| **`.well-known/agent-card.json`** — A2A agent card (v1.0 path) | `GET /.well-known/agent-card.json`; the pre-v0.3 `agent.json` is kept as a legacy alias. |
 | **`.well-known/rpp.json`** — RPP402 (Robinhood-Chain-native) | `GET /.well-known/rpp.json` (existing). |
 | **JSON Schemas** (stable, pinnable) | `GET /schemas/trace.json`, `GET /schemas/attestation.json`. |
 | **`llms.txt`** (token-efficient agent-readable spec) | `GET /llms.txt`. |
@@ -228,14 +228,16 @@ production consensus (Coinbase Bazaar, `awesome-x402`, A2A) is:
 | **Idempotency** | `Idempotency-Key` header (defaults to `sha256(trace)+context_key`); 24h TTL; same key → identical signed blob. Response carries `X-Idempotency-Key`, `X-Cached`, `X-Trace-SHA256`. |
 
 **nginx tip.** If you serve behind nginx under a prefix (`--root-path /api`),
-the well-known handlers land at `/api/.well-known/*`. Many crawlers only look
-at the host root — add these two lines in your server block so
-`/.well-known/x402.json` + `/.well-known/agent.json` at root resolve to the
-meter too:
+the well-known handlers land at `/api/.well-known/*`. Crawlers only look at
+the host root — add these lines in your server block so the discovery files
+resolve at root too (llms.txt likewise belongs at the site root per
+llmstxt.org; the `/api/` copy is for agents already on the API):
 
 ```
-location = /.well-known/x402.json  { proxy_pass http://127.0.0.1:3600/.well-known/x402.json; }
-location = /.well-known/agent.json { proxy_pass http://127.0.0.1:3600/.well-known/agent.json; }
+location = /.well-known/x402.json       { proxy_pass http://127.0.0.1:3600/.well-known/x402.json; }
+location = /.well-known/agent-card.json { proxy_pass http://127.0.0.1:3600/.well-known/agent-card.json; }
+location = /.well-known/agent.json      { proxy_pass http://127.0.0.1:3600/.well-known/agent.json; }
+location = /llms.txt                    { proxy_pass http://127.0.0.1:3600/llms.txt; }
 ```
 
 (The `/api/…` variants are reachable through your existing `/api/` location

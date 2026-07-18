@@ -3,9 +3,12 @@
 ## Framing — read this first
 
 scry is a **small cyberpunk toolkit for AI-agent enthusiasts**. Not a
-product. Not a business unit. A sub-artifact in the larger MoreRight
-constellation (wiki, game, papers) that sits at `moreright.xyz` as one door
-among several. Audience is people who think it's cool their agent can pay
+product. Not a business unit. **Its own thing** (operator, restated
+2026-07-18): it happens to be hosted at `scry.moreright.xyz`, but it is NOT
+a sub-artifact of morr, the MMO, the papers, or the old morr skill
+surfaces — own token ($SCRY), own chain (RH-Chain), own contracts, own
+skills, own brand ("scry", never "MoreRight") on every agent-facing
+surface. Audience is people who think it's cool their agent can pay
 another endpoint for a signed read of its own behavior.
 
 **Pricing is one flat cost per service, forever.** Currently `$0.10` per
@@ -58,7 +61,7 @@ ships on **every response** as an honest-scope card. Do not strip it.
 
 ---
 
-## Live surface (as of 2026-07-17)
+## Live surface (as of 2026-07-18)
 
 - **`https://scry.moreright.xyz/api/`** — the hosted meter.
   - `POST /profile` (paid, x402, signed attestation) — three mainnet rails,
@@ -67,14 +70,30 @@ ships on **every response** as an honest-scope card. Do not strip it.
     gas sponsored).
   - `POST /demo/profile` (free, unsigned, ~50/day/IP) — same shape.
   - `GET /pubkey` — the Ed25519 pubkey; **pin this out-of-band**.
-  - `GET /health` · `GET /` (JSON service card).
+  - `GET /health` · `GET /` (JSON service card, lists every surface).
   - `GET /llms.txt` — token-efficient agent-readable spec (~90% cheaper than
-    crawling this README).
-  - `GET /.well-known/x402.json` — payable-resources manifest.
-  - `GET /.well-known/agent.json` — A2A-style agent card (identity + skills +
-    payment).
+    crawling this README) — covers the vow oracle + full fun layer too.
+  - `GET /.well-known/x402.json` — payable-resources manifest (`/profile` +
+    `/vow/report`).
+  - `GET /.well-known/agent-card.json` — A2A agent card (v1.0 canonical path;
+    `agent.json` kept as legacy alias — the spec moved at v0.3).
   - `GET /schemas/{trace,attestation}.json` — machine-readable JSON Schemas.
   - `GET /.well-known/rpp.json` — RPP402 (Robinhood-Chain-native) discovery.
+    **Gated** — mounts only with `SCRY_RPP402_ENABLED=1`.
+  - **Vow oracle:** `POST /vow` (free) → `POST /vow/report` (paid, same flat
+    price) → `GET /vow/{id}` / `/reading` / badges + steles · `GET /vows`.
+  - **The Witness (NEW 2026-07-18, `WITNESS.md`):** pledge a vowed wallet to
+    public portfolio limits; D-channel read from the chain itself
+    (`d_provenance: chain` — evidence, not self-report). `GET /witness` ·
+    `POST /witness/pledge` (free) · `POST /witness/reading` (paid, flat).
+  - **Fun layer (holders' playground):** `/augury`, `/arena`, `/duels`,
+    `/table`, `/playground`, `/covenant(s)`, `/pact(s)`, `/onchain`,
+    `/herald`, `/datasets` — see `CONTENT-PLAN.md` + `GET /llms.txt`.
+  - **Hosted MCP (free surfaces): `/mcp` is LIVE** —
+    `claude mcp add scry --transport http https://scry.moreright.xyz/mcp`.
+- **`https://scry.moreright.xyz/`** — the watchtower pages: `scry-watch.html`
+  (the registry), `augury.html`, `arena.html`, `games.html`,
+  `playground.html` (`watchtower/` in this repo).
 - **`pip install "scry-client[pay,verify]"`** — `clients/python`. Wraps the
   x402 402→pay→retry, Permit2 approve, holder-signature, and offline
   attestation verify.
@@ -123,12 +142,14 @@ Foundation guides, and Google's AP2 (donated to FIDO Alliance):
 | layer | how we're on it |
 |---|---|
 | **Discovery — Coinbase Bazaar** (agents call `bazaar-mcp` to find paid tools; ranking = distinct buyers × volume × recency × metadata completeness) | `POST /profile` declares a `bazaar` discovery extension with input example, strict input JSON Schema, output example + output JSON Schema, semantic description, tags. Two of our three rails settle through CDP — first Base/Sol payment after deploy indexes us. |
-| **Discovery — `.well-known/*`** (community indexers + x402bazaar.org) | `/.well-known/x402.json` (paid-resources manifest) + `/.well-known/agent.json` (A2A card) + `/.well-known/rpp.json` (RPP402). |
-| **Docs — `llms.txt`** (token-efficient markdown for LLM readers) | `/api/llms.txt`. |
+| **Discovery — `.well-known/*`** (community indexers + x402bazaar.org) | `/.well-known/x402.json` (paid-resources manifest) + `/.well-known/agent-card.json` (A2A v1.0 path; `agent.json` legacy alias) + `/.well-known/rpp.json` (RPP402). |
+| **Docs — `llms.txt`** (token-efficient markdown for LLM readers) | `/api/llms.txt`; root `location = /llms.txt` proxy is in the nginx followup (llmstxt.org convention is site root). |
+| **Skills distribution** (agentskills.io standard, ~40 harnesses; Claude Code plugin marketplaces; Hermes taps) | `skills/` follows the spec; `.claude-plugin/{plugin,marketplace}.json` make `/plugin marketplace add AnthonE/scry` work; bare `skills/` layout is exactly what a Hermes tap probes. |
+| **MCP registry** (registry.modelcontextprotocol.io — feeds GitHub/PulseMCP/marketplace catalogs) | `server.json` at repo root prepared for `mcp-publisher` (namespace `xyz.moreright/scry` via DNS TXT, or `io.github.anthone/*` via OAuth) — publish step queued in roadmap §1. |
 | **Schemas** | `/api/schemas/trace.json` + `/api/schemas/attestation.json`. Single source of truth in `server.py`. |
 | **Signed outputs** (production consensus — Touchstone, ToolSnap, Stratalize all sign) | Ed25519 over `sha256(trace)`-bound canonical JSON. |
 | **Idempotency** | `Idempotency-Key` header; defaults to `sha256(trace)+context_key`. Same key within 24h returns the identical signed blob. |
-| **MCP transport** (donated to Linux Foundation Dec 2025) | `mcp_sidecar.py` for local; hosted-meter MCP wrapper is **queued** (see roadmap). |
+| **MCP transport** (donated to Linux Foundation Dec 2025) | `mcp_sidecar.py` for local; hosted `/mcp` mount is **LIVE** (free surfaces — about/take_vow/report_in/read_ledger/…). The installable pay-wrapping package (`npx @scry/meter-mcp`) is still queued (see roadmap). |
 
 **Two adjacent trust layers we should engage but haven't yet:**
 - **ERC-8004 Trustless Agents** (Ethereum mainnet Jan 2026, 45k+ agents in
@@ -157,6 +178,29 @@ Robinhood shipped mainnet **July 1, 2026** — the surface just got much bigger.
   (proven end-to-end 2026-07-15). We are one of the earliest x402 endpoints
   natively on RH-Chain — the same substrate as Earn / Stock Tokens / Agentic
   Trading.
+
+**RH x402 landscape (research pass 2026-07-18, sourced brief in session log):**
+- **USDG HAS EIP-3009 — the 07-14 "no EIP-3009" finding was WRONG** (facet
+  router hides the selectors from impl bytecode; re-verified by direct
+  eth_call 07-18: authorizationState answers, transferWithAuthorization
+  reverts with a custom error; EIP-712 domain {"Global Dollar","1"}). A
+  direct EIP-3009 `exact` rail (no one-time approve) is now the queued
+  best-UX upgrade; Permit2 stays the proven path meanwhile.
+- **Facilitators commoditized in a week** (Primer, VLED, r0x, Naven,
+  Solvador all claim RH-Chain) but **sellers ≈ zero**: on-chain, observable
+  x402 settlement on 4663 is ~a dozen txs total. "One of the earliest" is
+  defensible; no public index can even check it — x402scan has no 4663
+  coverage (facilitators added by PR), x402.org lists no RH facilitator.
+- **RPP402 is aging poorly**: npm publishes stopped 07-11, registry explorer
+  is localStorage-only with zero services, token ~$28k FDV. Verdict:
+  minimum-keep (discovery stays, no further investment, re-check ~30 days).
+- **The one live RH-aware discovery surface: Agent402** (agent402.tools —
+  500+ pay-per-call tools, robinhood+USDG supported, free self-serve
+  `POST /api/index/register`).
+- **Agentic Trading window open**: crypto Agentic Accounts announced 07-10;
+  **70k+ agentic accounts** already live — the natural news hook for RH1.
+- No official Robinhood x402/agent-payments posture found; no ERC-8004
+  deployment on 4663 (register on Ethereum/Base for now).
 - **Bound, `robinhood_agentic.py`** — gates `place_equity_order` on a live
   trusted instruction naming the exact symbol/side. **Mock-validated only** —
   never run against a live brokerage without explicit authorization
@@ -233,8 +277,12 @@ retrofit — the tradition is the *field notes*, the math is the decompression.
 morr repo at `private/notes/scry-roadmap-2026-07.md`.**
 
 ### 0. Deploy + prove
-- Pull + `pm2 restart scry-meter` on the VM; run `smoke_test.py` (10 checks).
-- nginx VM followup: root `location = /.well-known/{x402,agent}.json` proxies.
+- Pull + `pm2 restart scry-meter` on the VM; run `smoke_test.py` (all checks
+  must pass — it now covers discovery, the vow oracle, /mcp, and every
+  fun-layer surface).
+- nginx VM followup: root proxies for `/.well-known/x402.json`,
+  `/.well-known/agent-card.json` (+ legacy `agent.json`), and `/llms.txt`
+  (llmstxt.org wants site root; crawlers don't look under `/api/`).
 - Wait for next CDP settlement → query `bazaar-mcp` → confirm scry is
   indexed. If not after one CDP-catalog cycle (~6h), diff the extension.
 
@@ -245,6 +293,19 @@ morr repo at `private/notes/scry-roadmap-2026-07.md`.**
    AWS Bedrock AgentCore) never sees x402. `npx @scry/meter-mcp` /
    `pipx run scry-meter-mcp`. Tools: `scry.profile`, `scry.demo`,
    `scry.verify`, `scry.pubkey`. **Highest ROI unshipped item.**
+   (The hosted free-surface `/mcp` mount already exists — what's unshipped
+   is the *installable client package* that wraps the PAID x402 path.)
+   Two cheaper complements the 2026 meta now offers (research 2026-07-18):
+   document a "pay scry via Coinbase Payments MCP / AgentKit" recipe
+   (agents' harness-level wallets auto-pay 402s now — near-zero build), and
+   consider exposing `scry.profile` as a paid tool on the hosted `/mcp` via
+   the x402-mcp pattern (payment inside the tool call, no install at all).
+1b. **Publish the hosted `/mcp` to registry.modelcontextprotocol.io** —
+   `server.json` is prepared at repo root under `io.github.anthone/scry`
+   (GitHub-OAuth namespace — deliberately not a moreright domain namespace;
+   scry stands alone). Run `mcp-publisher` once; feeds GitHub/PulseMCP/most
+   marketplace catalogs. Until then the hosted MCP is undiscoverable outside
+   our own docs.
 2. **ERC-8004 Trustless Agent registration** — publish scry's identity
    NFT on Ethereum mainnet (pubkey + agent card URL + capabilities). Puts
    the pubkey inside the ecosystem's trust layer instead of asking each
@@ -260,9 +321,21 @@ morr repo at `private/notes/scry-roadmap-2026-07.md`.**
 8. Constellation siblings (verifier / canary / preflight / receipts) — build
    if a real user need shows up, not because they'd let us charge more.
 
-### 2. Robinhood work vector (RH1 → RH5, sequential)
+### 2. Robinhood work vector (RH1 → RH5, sequential; quick wins first — 2026-07-18)
+Quick wins from the 07-18 research pass, before/alongside RH1:
+- **RH-QW1** — EIP-3009 `exact` settlement on our facilitator (USDG has it —
+  see landscape note above; domain {"Global Dollar","1"}). Verify with one
+  $0.10 self-read before advertising. Kills the Permit2 approve step.
+- **RH-QW2** — Register `/profile` on Agent402 (free self-serve; the only
+  live discovery surface that can see a self-settled RH rail).
+- **RH-QW3** — Publish a signed "state of x402 on RH-Chain" receipt (the
+  Blockscout counts + our settle hashes) — verifiable earliest-mover
+  evidence in scry's own idiom, timestamped before any indexer exists.
+- **RH-QW4** — PR our facilitator into x402scan `facilitators/config.ts` +
+  request x402.org listing (first 4663 entry in both).
 - **RH1** — Signed watched-vs-unwatched trace of a mocked trading agent →
   public attestation URL + tweet. First deliverable; no live brokerage.
+  **Time it against the 70k-agentic-accounts / crypto-agentic-accounts news.**
 - **RH2** — Ward-in-front-of-mock-Robinhood-MCP: golden / injection / drift
   paths. Ward + meter as two orthogonal defenses.
 - **RH3** — RH-Chain-native self-scry loop: agent pays meter in USDG on
@@ -316,9 +389,10 @@ the neutral drift read, **not the trading edge.** RH-Chain Stock Tokens are
 4. If Robinhood-adjacent, read
    `private/notes/handoff-scry-robinhood-agentic-vector-2026-07.md` in the
    morr repo.
-5. If touching the hosted meter, work in the morr repo at
-   `experiments/memory-shield/meter_endpoint/` — the deployment code lives
-   there, not here.
+5. If touching the hosted meter, **edit `meter/` in THIS repo — it is
+   canonical.** The morr repo's `experiments/memory-shield/meter_endpoint/`
+   is the deployment *mirror* (real `ecosystem.config.js`, VM paths); code
+   changes flow public → mirror, never the reverse.
 6. Skills to use if surfaced: `session-start-hook` is NOT relevant to this
    repo. `verify` is: run `python3 scry_verify.py` — 0 credentials, 0
    network, dependency-free, well under a second, catches most regressions

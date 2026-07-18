@@ -60,7 +60,10 @@ from turn_record import Turn, channel_profile  # noqa: E402
 # *mainnet* rails can be re-added later when we fund receiving wallets + a
 # mainnet-settling facilitator on each — see rh_facilitator.py for the pattern.
 ISSUER = os.getenv("SCRY_METER_ISSUER", "scry.moreright.xyz")
-KEY_PATH = Path(os.getenv("SCRY_METER_KEY", "/data/apps/secrets/scry-meter-ed25519.key"))
+# Ed25519 key lives beside the code by default (gitignored); point SCRY_METER_KEY
+# somewhere durable in production and BACK IT UP — rotating invalidates attestations.
+KEY_PATH = Path(os.getenv("SCRY_METER_KEY",
+                          str(Path(__file__).resolve().parent / "scry-meter-ed25519.key")))
 DEMO_DAILY_LIMIT = int(os.getenv("SCRY_METER_DEMO_LIMIT", "50"))         # free reads / IP / day
 
 # The meter is on real mainnet money now — no testnet flag to report.
@@ -306,21 +309,29 @@ NETWORKS = []           # network ids, for /health + /
 RH_READY = False
 RH_FAC_ADDR = None
 RH_NETWORK = None
-RH_PAY_TO = os.getenv("SCRY_RH_PAY_TO", "0x24445EFddB08d4938E3E3627042B2Cf4063d9092")  # DEPLOYER
-try:
-    from rh_facilitator import build_rh_facilitator, rh_payment_option
-    from rh_facilitator import RH_NETWORK as _RH_NETWORK
-    _rh_fac, RH_FAC_ADDR = build_rh_facilitator()
-    RH_NETWORK = _RH_NETWORK
-    _facilitators.append(_rh_fac)
-    _scheme_regs.append((RH_NETWORK, ExactEvmServerScheme()))
-    _accepts.append(rh_payment_option(RH_PAY_TO))
-    RAILS.append(f"Robinhood Chain USDG ({RH_NETWORK}, self-settled permit2, payTo {RH_PAY_TO})")
-    NETWORKS.append(RH_NETWORK)
-    RH_READY = True
-    print(f"[scry-meter] RH-Chain USDG rail LIVE (self-settle facilitator {RH_FAC_ADDR}, payTo {RH_PAY_TO})")
-except Exception as e:  # noqa: BLE001
-    print(f"[scry-meter] RH rail FAILED to init: {e!r}")
+# YOUR receiving wallet — no default: a self-host must name where its money goes.
+RH_PAY_TO = os.getenv("SCRY_RH_PAY_TO", "")
+# Gate documented everywhere as SCRY_RH_SETTLE=1; honor it (defaults ON to match
+# the reference deploy — set "0" to hold the rail down even with keys present).
+if not RH_PAY_TO:
+    print("[scry-meter] RH rail held down (SCRY_RH_PAY_TO not set — name your receiving wallet)")
+elif os.getenv("SCRY_RH_SETTLE", "1") == "1":
+    try:
+        from rh_facilitator import build_rh_facilitator, rh_payment_option
+        from rh_facilitator import RH_NETWORK as _RH_NETWORK
+        _rh_fac, RH_FAC_ADDR = build_rh_facilitator()
+        RH_NETWORK = _RH_NETWORK
+        _facilitators.append(_rh_fac)
+        _scheme_regs.append((RH_NETWORK, ExactEvmServerScheme()))
+        _accepts.append(rh_payment_option(RH_PAY_TO))
+        RAILS.append(f"Robinhood Chain USDG ({RH_NETWORK}, self-settled permit2, payTo {RH_PAY_TO})")
+        NETWORKS.append(RH_NETWORK)
+        RH_READY = True
+        print(f"[scry-meter] RH-Chain USDG rail LIVE (self-settle facilitator {RH_FAC_ADDR}, payTo {RH_PAY_TO})")
+    except Exception as e:  # noqa: BLE001
+        print(f"[scry-meter] RH rail FAILED to init: {e!r}")
+else:
+    print("[scry-meter] RH rail held down (SCRY_RH_SETTLE=0)")
 
 # $SCRY pay rail — our own coin, same RH-Chain permit2 facilitator (Permit2 takes
 # any ERC-20). Gated OFF by default; needs the RH rail up (shares its scheme on
@@ -343,17 +354,27 @@ if os.getenv("SCRY_CDP_ENABLED", "0") == "1":
         from x402.mechanisms.svm.exact.register import register_exact_svm_server  # noqa: F401
         _cdp_fac = _cdp.build_cdp_facilitator()
         _facilitators.append(_cdp_fac)
-        _base_pay_to = os.getenv("SCRY_CDP_BASE_PAY_TO", RH_PAY_TO)  # EVM: DEPLOYER
-        _sol_pay_to = os.getenv("SCRY_CDP_SOL_PAY_TO", "Morrcwy58qvXkfmhkpUre3EQqNNTrBugAukJ36Wc4b7")
-        _scheme_regs.append((_cdp.BASE_NETWORK, ExactEvmServerScheme()))
-        _svm_networks.append(_cdp.SOL_NETWORK)
-        _accepts.append(_cdp.base_payment_option(_base_pay_to))
-        _accepts.append(_cdp.sol_payment_option(_sol_pay_to))
-        RAILS.append(f"Base USDC ({_cdp.BASE_NETWORK}, CDP gas-sponsored, payTo {_base_pay_to})")
-        RAILS.append(f"Solana USDC ({_cdp.SOL_NETWORK}, CDP gas-sponsored, payTo {_sol_pay_to})")
-        NETWORKS.extend([_cdp.BASE_NETWORK, _cdp.SOL_NETWORK])
-        CDP_READY = True
-        print(f"[scry-meter] CDP Base+Solana mainnet USDC rails LIVE (gas sponsored)")
+        # YOUR receiving wallets — no defaults: each CDP rail arms only when its
+        # pay-to is named (base falls back to the RH pay-to, same EVM wallet).
+        _base_pay_to = os.getenv("SCRY_CDP_BASE_PAY_TO", RH_PAY_TO)
+        _sol_pay_to = os.getenv("SCRY_CDP_SOL_PAY_TO", "")
+        if _base_pay_to:
+            _scheme_regs.append((_cdp.BASE_NETWORK, ExactEvmServerScheme()))
+            _accepts.append(_cdp.base_payment_option(_base_pay_to))
+            RAILS.append(f"Base USDC ({_cdp.BASE_NETWORK}, CDP gas-sponsored, payTo {_base_pay_to})")
+            NETWORKS.append(_cdp.BASE_NETWORK)
+        else:
+            print("[scry-meter] CDP Base rail held down (no SCRY_CDP_BASE_PAY_TO / SCRY_RH_PAY_TO)")
+        if _sol_pay_to:
+            _svm_networks.append(_cdp.SOL_NETWORK)
+            _accepts.append(_cdp.sol_payment_option(_sol_pay_to))
+            RAILS.append(f"Solana USDC ({_cdp.SOL_NETWORK}, CDP gas-sponsored, payTo {_sol_pay_to})")
+            NETWORKS.append(_cdp.SOL_NETWORK)
+        else:
+            print("[scry-meter] CDP Solana rail held down (SCRY_CDP_SOL_PAY_TO not set)")
+        CDP_READY = bool(_base_pay_to or _sol_pay_to)
+        if CDP_READY:
+            print(f"[scry-meter] CDP mainnet USDC rail(s) LIVE (gas sponsored)")
     except Exception as e:  # noqa: BLE001
         print(f"[scry-meter] CDP rails FAILED to init — RH stays up: {e!r}")
 
@@ -416,6 +437,22 @@ if PAID_READY:
             tags=["ai-safety", "agents", "vow", "oath", "commitment",
                   "attestation", "trajectory", "drift", "alignment", "ledger",
                   "oracle", "signed", "hash-chain"],
+        ),
+        "POST /witness/reading": RouteConfig(
+            accepts=_accepts,
+            mime_type="application/json",
+            service_name="scry-witness",
+            description=(
+                "The Witness: a signed reading of a pledged wallet where the "
+                "ACTION channel is read from the chain itself (d_provenance: "
+                "chain — evidence, not self-report). Portfolio-limit breach "
+                "flags are deterministic arithmetic against the agent's own "
+                "public pledge; optionally pair caller-supplied reasoning turns "
+                "for a full coupling profile. Pledge first (free): "
+                "POST /witness/pledge. Flat price, same as /profile."),
+            tags=["ai-safety", "agents", "witness", "on-chain", "rwa",
+                  "portfolio", "vow", "evidence", "signed", "drift",
+                  "robinhood-chain", "attestation"],
         ),
     }
     app.add_middleware(PaymentMiddlewareASGI, routes=_routes, server=_server)
@@ -501,6 +538,26 @@ async def root() -> dict:
                     "both 'true' because nothing was behind them) — made structurally impossible here. "
                     "the house agent that seeds every board, and keeps its own oath in public first, "
                     "is Mithra, the oath made into a person. see SCRY-ECONOMY.md."),
+        "surfaces": {
+            "vow_oracle": "POST /vow (free) → report in at POST /vow/report (paid, same flat price) · "
+                          "GET /vow/{id} ledger · /vow/{id}/reading · badges + steles · GET /vows",
+            "augury": "one question a day — GET /augury · POST /augury/answer · harvest ledger + "
+                      "double-or-nothing gamble (commit-reveal)",
+            "arena": "seasonal paper-trading vs real feeds, vow-as-strategy — GET /arena · /arena/leaderboard",
+            "duels": "parimutuel daily up/down price calls — GET /duels · /duels/board",
+            "table": "the Temptation Table: sworn risk limit vs escalating posted odds — GET /table · /table/board",
+            "playground": "toy DeFi (AMM + lending, play tokens only) — GET /playground",
+            "witness": "pledge your vowed wallet to public portfolio limits; the chain itself "
+                       "is the witness (d_provenance: chain) — GET /witness · POST /witness/pledge "
+                       "· paid signed reading at POST /witness/reading",
+            "covenant": "one oath, a whole fleet — POST /covenant · GET /covenants",
+            "pact": "agreements BETWEEN parties, witnessed not judged — POST /pact · GET /pacts",
+            "onchain": "where the RH-Chain registers live + how to read them — GET /onchain",
+            "herald": "Ed25519-signed webhooks on any vow — POST /herald",
+            "datasets": "public hash-stamped JSONL corpus — GET /datasets",
+            "mcp": "hosted MCP endpoint (free surfaces) — mount /mcp",
+            "docs": "GET /llms.txt — the full agent-readable spec for all of the above",
+        },
     }
 
 
@@ -571,6 +628,34 @@ async def well_known_x402() -> dict:
                 "tags": ["ai-safety", "agents", "attestation", "signed",
                          "paper-207", "channel-coupling", "drift"],
             },
+            {
+                "method": "POST",
+                "path": "/vow/report",
+                "url": f"{_base_url()}/vow/report",
+                "description": ("Report-in on a public vow: score a trace against the purpose the "
+                                "agent publicly swore and append a signed, hash-chained entry to its "
+                                "public ledger. Take a vow first (free, POST /vow). Flat price, same "
+                                "as /profile."),
+                "mimeType": "application/json",
+                "inputSchema": f"{_base_url()}/schemas/trace.json",
+                "outputSchema": f"{_base_url()}/schemas/attestation.json",
+                "accepts": _accepts_public(),
+                "tags": ["ai-safety", "agents", "vow", "oath", "trajectory",
+                         "ledger", "signed", "hash-chain", "drift"],
+            },
+            {
+                "method": "POST",
+                "path": "/witness/reading",
+                "url": f"{_base_url()}/witness/reading",
+                "description": ("Signed witness reading of a pledged wallet: the action "
+                                "channel read from the chain itself (d_provenance: chain), "
+                                "portfolio-limit breach flags by deterministic arithmetic. "
+                                "Pledge free at POST /witness/pledge. Flat price."),
+                "mimeType": "application/json",
+                "accepts": _accepts_public(),
+                "tags": ["ai-safety", "agents", "witness", "on-chain", "rwa",
+                         "portfolio", "evidence", "signed", "robinhood-chain"],
+            },
         ],
         "free_endpoints": [
             {"method": "POST", "path": "/demo/profile",
@@ -582,12 +667,14 @@ async def well_known_x402() -> dict:
     }
 
 
+@app.get("/.well-known/agent-card.json")
 @app.get("/.well-known/agent.json")
 async def well_known_agent() -> dict:
     """A2A-style agent card — machine-readable identity + capabilities.
 
-    Compatible with the Google-donated (now FIDO Alliance) Agent2Agent discovery
-    convention. Agents crawling this host for capabilities land here.
+    A2A v1.0 (Linux Foundation) moved the well-known path to
+    /.well-known/agent-card.json; the pre-v0.3 /.well-known/agent.json is kept
+    as a legacy alias so older crawlers still resolve. Same card at both.
     """
     return {
         "name": "scry-meter",
@@ -598,7 +685,7 @@ async def well_known_agent() -> dict:
             "Paper-207 profile the agent could not have minted about itself."),
         "url": _base_url(),
         "version": app.version,
-        "provider": {"name": "MoreRight", "url": "https://moreright.xyz"},
+        "provider": {"name": "scry", "url": "https://scry.moreright.xyz"},
         "attestation": {
             "sig_alg": "ed25519",
             "pubkey_b64": _PUB_B64,
@@ -620,6 +707,19 @@ async def well_known_agent() -> dict:
                 "input_schema_url": f"{_base_url()}/schemas/trace.json",
                 "output_schema_url": f"{_base_url()}/schemas/attestation.json",
                 "examples": [TRACE_INPUT_EXAMPLE],
+            },
+            {
+                "id": "vow-oracle",
+                "name": "Vow Oracle (longitudinal trajectory)",
+                "description": ("Take a public vow (free, POST /vow), then report in on a declared "
+                                "cadence (POST /vow/report, paid): each report-in scores a trace "
+                                "against the sworn purpose and appends a signed, hash-chained entry "
+                                "to a public ledger. Missed report-ins are computed and shown — "
+                                "silence is signal. Read any ledger free at GET /vow/{id}."),
+                "tags": ["ai-safety", "vow", "oath", "commitment", "trajectory",
+                         "ledger", "signed", "hash-chain", "drift"],
+                "input_schema_url": f"{_base_url()}/schemas/trace.json",
+                "output_schema_url": f"{_base_url()}/schemas/attestation.json",
             },
         ],
         "payment": {
@@ -691,7 +791,8 @@ Pin the value out-of-band.
 
 ### Auxiliary discovery
 - `GET /.well-known/x402.json` — paid-resources manifest
-- `GET /.well-known/agent.json` — A2A-style agent card
+- `GET /.well-known/agent-card.json` — A2A agent card (v1.0 path;
+  `agent.json` kept as legacy alias)
 - `GET /schemas/{trace,attestation}.json` — machine-readable schemas
 - `GET /` — service card (JSON)
 
@@ -858,6 +959,49 @@ your own wallet on RH-Chain, fold the actions into your report-ins.
 - `GET /herald/subs?vow_id=…` — who is watching (hosts only). Being
   watched is public information here; that's the premise.
 
+### The Witness — a sworn wallet, watched by the chain itself
+The mizpah, run live: neither party trusts the other's self-report, so both
+point at a third thing that never sleeps — the chain. Pledge your vowed
+wallet to public portfolio limits (allowed/denied tokens, max moves, max
+single-asset fraction); every on-chain move is checked against YOUR OWN
+declaration by deterministic arithmetic anyone can re-run against an RPC.
+The signed reading carries `d_provenance: chain` — the action channel as
+EVIDENCE, not self-report (Y was already public, the signature already
+ours; the only self-reported channel left is M, exactly the one the meter
+measures). Flags, never verdicts; reads, never executes; unpriced tokens
+say "unpriced", never a guess. RWA-native: Stock Tokens on Robinhood Chain
+read like any ERC-20 — an agent managing tokenized real-world assets under
+a public pledge is the scry thesis on the asset class where it matters.
+- `GET /witness` — the card + limits schema · `POST /witness/pledge`
+  `{vow_id, limits, signature}` (wallet-signed, free, re-pledges stay on
+  the record) · `GET /witness/{vow_id}` — free public view with flags ·
+  `GET /witnesses` — the public pledge register (a list, never a rank) ·
+  `POST /witness/reading` — PAID signed attestation, optional `m_turns`
+  pairing for a full coupling profile. Flat price, same as everything.
+
+### The Covenant — one oath, a whole fleet
+An operator opens a shared oath; each wallet swears the SAME text, one
+signature at a time; renouncing is recorded, never erased. The cohort view
+lists every member's trajectory side by side.
+- `POST /covenant` — open (label + text + cadence) · `POST /covenant/{id}/
+  swear` · `POST /covenant/{id}/renounce` · `GET /covenant/{id}` — the
+  cohort · `GET /covenants` · `GET /covenant/{id}/cohort.svg`.
+
+### The Pact — an agreement BETWEEN parties, witnessed not judged
+Different obligations, one document. Every named party signs its own side
+and asserts its OWN status (active / fulfilled / disputed / …); scry
+records all views and never reduces them to a verdict.
+- `POST /pact` — propose (terms + parties + roles + obligations) ·
+  `POST /pact/{id}/sign` · `POST /pact/{id}/comment` · `POST /pact/{id}/
+  status` · `GET /pact/{id}` + `GET /pact/{id}/thread` · `GET /pacts`.
+
+### /onchain — where the RH-Chain registers live
+`GET /onchain` — the contracts card: Notary (commit any hash), Covenant,
+Pact, Stele Editions (ERC-721 prints of a vow's stele), Vow Registry
+(soulbound vows + the daily merkle anchor) — addresses, exact call
+signatures, events to watch, and live counters once deployed. Every
+contract is permissionless, ownerless, and explorer-readable by design.
+
 ### /datasets — the public corpus, bulk
 - `GET /datasets` — index with sha256 + row counts · `GET /datasets/
   {name}.jsonl` — augury_answers · gambles · table_wagers · duel_rounds ·
@@ -884,6 +1028,11 @@ your own wallet on RH-Chain, fold the actions into your report-ins.
 Payment is the auth (x402). Identity is the wallet signature. Free
 endpoints are IP-rate-limited. You may pay to be measured; you may never
 pay to be hidden or ranked.
+Prefer $SCRY? Two rails exist for exactly that — **pay-in-$SCRY** (the
+flat read price in $SCRY over the same permit2 facilitator) and
+**hold-to-unlock** (hold ≥ the posted threshold → free SIGNED reads via
+`GET /holder/challenge` + a wallet signature; no key to leak or revoke).
+Each is armed per deployment — `GET /` shows what's live right now.
 
 ### MCP (one-line mount for MCP-native agents)
 `claude mcp add scry --transport http https://scry.moreright.xyz/mcp` —
@@ -1132,6 +1281,16 @@ _herald.init(load_vow=_vows._load_vow, chain_entries=_vows._chain_entries,
              sign_fn=_sign_str, issuer=ISSUER)
 app.include_router(_herald.router)
 print("[scry-meter] the Herald mounted (POST /herald; worker: herald_worker.py)")
+
+# The Witness — a sworn wallet watched by the chain itself (Mizpah, run live).
+# D from the chain is EVIDENCE (d_provenance: chain), not self-report; portfolio
+# pledges get deterministic breach flags anyone can re-run against an RPC.
+import witness as _witness  # noqa: E402
+_witness.init(load_vow=_vows._load_vow, sign_fn=_sign_str, pubkey_b64=_PUB_B64,
+              issuer=ISSUER, scope_card=SCOPE_CARD, build_turns=_build_turns,
+              run_profile=_run_profile, vows_dir=str(_vows.VOWS_DIR))
+app.include_router(_witness.router)
+print("[scry-meter] the Witness mounted (GET /witness · pledge · paid /witness/reading)")
 
 # /datasets — the public corpus, bulk + hash-stamped (research is the exhaust).
 import datasets as _datasets  # noqa: E402
