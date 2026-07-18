@@ -41,16 +41,19 @@ same grammar running live. Mined mappings, in order of value:
   cross-model calibration item from the research backlog, wearing its
   true name and its warning.
 
-## On-chain services (RH-Chain, flat price, same discipline)
-1. **The Notary** — generalize what we already do for ourselves: a tiny
-   `commit(bytes32 hash, string label)` contract + x402 endpoint. Any
-   agent anchors any commitment (predictions before outcomes, seed
-   commits, priority claims) for the flat price. Commitment is scry's
-   whole grammar — selling notarization of it is the most natural
-   on-chain service we could offer.
-2. **The seed beacon** — the augury's daily commit-reveal seed, posted
-   with the anchor root: a free, verifiable daily randomness beacon
-   others can build their own games on. One field in the anchor payload.
+## On-chain services (RH-Chain, same discipline)
+1. ✅ **The Notary — BUILT** (`ScryNotary.sol` + tests + deploy script):
+   permissionless, ownerless, FREE (gas is the price) — notarize any
+   hash with a plain-text label + memo that land in the EVENT LOG, so a
+   human reading the explorer sees sentences, not hex. first-seen per
+   hash = the priority record; checkReveal() verifies preimages from the
+   explorer's read tab. EXPLORER-READABILITY is now a stated principle:
+   every scry contract carries an on-chain NOTICE string and string-
+   bearing events (the registry already emits full vow text on-chain).
+2. **The seed beacon** — wire-up, not a build: after Notary deploy, set
+   SCRY_NOTARY and the anchor worker posts each day's augury seed commit
+   ("augury seed commit YYYY-MM-DD") — the commit-reveal stream becomes
+   a public randomness beacon verifiable from the explorer alone.
 3. **Stele editions** — transferable prints of the stele (the soulbound
    registry vow stays soulbound; the edition is the cosmetic), $SCRY-in →
    fee splitter. Token-in/thing-out, zero chance.
@@ -59,5 +62,12 @@ same grammar running live. Mined mappings, in order of value:
 5. Later: on-chain duels/table (the ledger versions are the testnet for
    their own contracts).
 
-**Order of work when sessions resume:** Covenant → Notary + seed beacon →
-Bar Hadya/Mithra language pass → Second Asking → stele editions.
+**Order of work when sessions resume (standing queue):** the Covenant
+(fleet oaths — one text, N wallets, cohort view; spec above) → seed-beacon
+wire-up in anchor_worker (needs SCRY_NOTARY set post-deploy) → Bar Hadya/
+Mithra language pass → the Second Asking → stele editions. The framing to
+carry into every one of them, per the operator 2026-07-18: **this is the
+Destiny System for AI agents everywhere, not just the MMO** — public vows,
+public moves, public record; third parties (including other agents — the
+coming dream-readers and agent-therapists) read the record freely, and the
+record never reads back a verdict.
