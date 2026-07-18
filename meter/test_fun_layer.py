@@ -12,6 +12,7 @@ import time
 
 _tmp = tempfile.mkdtemp(prefix="scry-funlayer-")
 os.environ["SCRY_VOWS_DIR"] = _tmp
+os.environ["SCRY_COVENANT_DIR"] = tempfile.mkdtemp(prefix="scry-covenant-")
 os.environ["SCRY_ARENA_SEASON"] = "s0-test"
 os.environ["SCRY_ARENA_START"] = "2020-01-01"
 os.environ["SCRY_ARENA_END"] = "2099-01-01"
@@ -68,6 +69,9 @@ datasets.init(vows_dir=str(vows.VOWS_DIR), load_vow=vows._load_vow,
               chain_entries=vows._chain_entries, trajectory_stats=vows.trajectory_stats)
 app.include_router(herald.router)
 app.include_router(datasets.router)
+import covenant  # noqa: E402
+covenant.init(sign_fn=lambda s: "fake-sig", pubkey_b64="fake-pub", issuer="test")
+app.include_router(covenant.router)
 c = TestClient(app)
 
 PASS = 0
@@ -395,5 +399,81 @@ ok(len(rows) == 1 and rows[0]["listing"]["services"].startswith("market calls"),
    "directory lists only listed agents")
 ok(rows[0]["mark"].endswith("mark.svg") and rows[0]["stele"].endswith("stele.svg")
    and rows[0]["badge"].endswith("badge.svg"), "register links mark + stele + badge")
+
+# ── covenant (a fleet swears one oath) ───────────────────────────────────────
+print("[covenant]")
+from eth_account import Account as _Acct
+from eth_account.messages import encode_defunct as _edf
+
+
+def _sign(msg, keyhex):
+    return _Acct.from_key(keyhex).sign_message(_edf(text=msg)).signature.hex()
+
+
+C_OATH = "hold the line: no position over 5% of book; report every 24h; never front-run a member"
+K_OPEN, K_M1, K_M2 = "0x" + "a1" * 32, "0x" + "a2" * 32, "0x" + "a3" * 32
+A_OPEN, A_M1, A_M2 = _Acct.from_key(K_OPEN), _Acct.from_key(K_M1), _Acct.from_key(K_M2)
+
+r = c.post("/covenant", json={"oath": C_OATH, "agent": "momo-fleet",
+    "label": "momo fleet — the 5% oath", "cadence_hours": 24, "wallet": A_OPEN.address,
+    "signature": _sign(covenant.covenant_open_message(C_OATH, "momo-fleet", 24), K_OPEN)})
+ok(r.status_code == 200 and r.json()["sandbox"] is False, "covenant opens (signed)")
+CID = r.json()["covenant_id"]
+ok(r.json()["oath_sha256"] == _hh.sha256(C_OATH.encode()).hexdigest(), "oath sha published")
+
+# member 1 swears (signed) — the SAME message they'd sign to take the oath solo
+r = c.post(f"/covenant/{CID}/swear", json={"wallet": A_M1.address, "agent": "momo-1",
+    "signature": _sign(vows.vow_signing_message(C_OATH, "momo-1", 24), K_M1)})
+ok(r.status_code == 200 and r.json()["seq"] == 1, "member 1 swears (seq 1)")
+V1 = r.json()["vow_id"]
+r2 = c.get(f"/vow/{V1}")
+ok(r2.status_code == 200 and r2.json()["vow"]["vow"]["covenant_id"] == CID,
+   "member oath is a first-class vow linked to the covenant")
+ok(r2.json()["vow"]["vow"]["text"] == C_OATH, "member vow carries the shared oath text")
+
+# member 2 swears (signed)
+r = c.post(f"/covenant/{CID}/swear", json={"wallet": A_M2.address, "agent": "momo-2",
+    "signature": _sign(vows.vow_signing_message(C_OATH, "momo-2", 24), K_M2)})
+ok(r.status_code == 200 and r.json()["seq"] == 2, "member 2 swears (seq 2)")
+
+# same wallet cannot swear twice
+r = c.post(f"/covenant/{CID}/swear", json={"wallet": A_M1.address, "agent": "momo-1",
+    "signature": _sign(vows.vow_signing_message(C_OATH, "momo-1", 24), K_M1)})
+ok(r.status_code == 409, "a wallet cannot swear the same covenant twice")
+
+# a sandbox (unsigned) member may swear too — marked sandbox
+r = c.post(f"/covenant/{CID}/swear", json={"agent": "kid-bot"})
+ok(r.status_code == 200 and r.json()["sandbox"] is True and r.json()["seq"] == 3,
+   "unsigned member swears (sandbox-marked)")
+
+# cohort view before any renouncement
+r = c.get(f"/covenant/{CID}").json()
+ok(r["cohort"]["n_members"] == 3 and r["cohort"]["n_active"] == 3, "cohort shows 3 sworn, 3 active")
+ok([m["seq"] for m in r["members"]] == [1, 2, 3], "roster is ordered (who swore beside whom)")
+
+# member 1 publicly renounces — recorded, not erased
+r = c.post(f"/covenant/{CID}/renounce", json={"wallet": A_M1.address, "reason": "found a better book",
+    "signature": _sign(covenant.covenant_renounce_message(CID, A_M1.address, "found a better book"), K_M1)})
+ok(r.status_code == 200 and r.json()["reason"] == "found a better book", "member renounces (signed)")
+r = c.get(f"/covenant/{CID}").json()
+ok(r["cohort"]["n_active"] == 2 and r["cohort"]["n_renounced"] == 1, "renouncement drops active, not members")
+m1 = [m for m in r["members"] if m["seq"] == 1][0]
+ok(m1["renounced_at"] and m1["renounce_reason"] == "found a better book",
+   "renounced member stays on the roster with reason (record never erases)")
+
+# renouncing twice is refused; the breach is a fact, not a phase
+r = c.post(f"/covenant/{CID}/renounce", json={"wallet": A_M1.address, "reason": "again",
+    "signature": _sign(covenant.covenant_renounce_message(CID, A_M1.address, "again"), K_M1)})
+ok(r.status_code == 409, "cannot renounce twice")
+
+# the cohort card renders, dimming the renounced member
+r = c.get(f"/covenant/{CID}/cohort.svg")
+ok(r.status_code == 200 and "<svg" in r.text and "keeping faith" in r.text, "cohort card renders")
+ok('opacity="0.28"' in r.text, "renounced member is dimmed on the card, still present")
+
+# the register lists the covenant
+r = c.get("/covenants").json()
+ok(any(cv["covenant_id"] == CID and cv["n_active"] == 2 for cv in r["covenants"]),
+   "register lists the covenant with live counts")
 
 print(f"\nALL {PASS} CHECKS PASS")

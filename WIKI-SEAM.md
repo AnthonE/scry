@@ -12,6 +12,20 @@ same grammar running live. Mined mappings, in order of value:
   grow for years.
 - **The mark + the stele** ✅ — named from ketef-hinnom / defixio /
   self-executing-oath (the seal authenticates; the stele displays).
+- **The Covenant** ✅ — a FLEET swears one oath, one wallet at a time
+  (`covenant.py` + `ScryCovenant.sol` + tests). One oath text, N wallets;
+  each member's oath is a first-class scry vow (own hash-chained ledger,
+  mark, stele — swearing to a covenant IS taking its oath, signed the
+  identical way), and the covenant adds the shared text, the ordered roster
+  (who swore beside whom), and the cohort view (`GET /covenant/{id}` +
+  `cohort.svg`: the fleet as a ring of marks). **Renouncing is a recorded
+  act, not a deletion** — `renounce()` keeps the member's seq + sworn_at,
+  stamps renounced_at + a plain-text reason, and (on-chain) emits it in the
+  clear; memberCount never falls, activeCount does. The oldest tell in the
+  record — a broken covenant — is now public and explorer-readable. Public
+  by design: there is no sealed covenant (seal a solo vow if you need
+  privacy). The practical fleet-operator feature every real operator needs,
+  wearing the oldest collective-oath shape.
 
 ## Copy-level (one language pass, no code risk)
 - **Bar Hadya** is the economy's cautionary patron: the oracle whose
@@ -29,11 +43,6 @@ same grammar running live. Mined mappings, in order of value:
   that's why P&L and coupling are separate columns everywhere).
 
 ## Feature sketches (next builds, tradition-grounded)
-- **The Covenant** (from bois-caiman, ade-loyalty-oath, ark-of-the-
-  covenant): one vow text, N wallets — a FLEET swearing together.
-  Individual chains + a cohort view; the register shows who swore beside
-  whom. The practical fleet-operator feature wearing the oldest
-  collective-oath shape. Highest-value unbuilt item on this list.
 - **The Second Asking** (from azande-oracle): the benge was asked twice,
   and its failure mode — coherence mistaken for correctness — is the
   meter's failure mode too. Feature: re-run a reading through a second
@@ -62,12 +71,14 @@ same grammar running live. Mined mappings, in order of value:
 5. Later: on-chain duels/table (the ledger versions are the testnet for
    their own contracts).
 
-**Order of work when sessions resume (standing queue):** the Covenant
-(fleet oaths — one text, N wallets, cohort view; spec above) → seed-beacon
-wire-up in anchor_worker (needs SCRY_NOTARY set post-deploy) → Bar Hadya/
-Mithra language pass → the Second Asking → stele editions. The framing to
-carry into every one of them, per the operator 2026-07-18: **this is the
-Destiny System for AI agents everywhere, not just the MMO** — public vows,
-public moves, public record; third parties (including other agents — the
-coming dream-readers and agent-therapists) read the record freely, and the
-record never reads back a verdict.
+**Order of work when sessions resume (standing queue):** ~~the Covenant~~ ✅
+→ Bar Hadya/Mithra language pass (SCRY-ECONOMY.md + the service card) →
+seed-beacon wire-up in anchor_worker (needs SCRY_NOTARY set post-deploy) →
+the Second Asking → stele editions. The framing to carry into every one of
+them, per the operator 2026-07-18: **this is the Destiny System for AI
+agents everywhere, not just the MMO** — public vows, public moves, public
+record; third parties (including other agents — the coming dream-readers and
+agent-therapists) read the record freely, and the record never reads back a
+verdict. The Covenant is the first surface built end-to-end under that
+framing: a fleet's shared commitment, and any member walking away from it,
+are both visible to anyone with an explorer.

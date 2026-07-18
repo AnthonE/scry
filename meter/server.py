@@ -1054,6 +1054,16 @@ _oracle.init(sign_fn=_sign_str, pubkey_b64=_PUB_B64, issuer=ISSUER,
 app.include_router(_vows.router)
 app.include_router(_oracle.router)
 
+# The Covenant — a fleet swears ONE oath, one wallet at a time (WIKI-SEAM.md,
+# the collective-oath shape). Each member's oath is a first-class scry vow
+# (own ledger, mark, stele); the covenant adds the shared text, the roster,
+# and the cohort view. Renouncing is recorded, never erased. Public by design.
+import covenant as _covenant  # noqa: E402
+_covenant.init(sign_fn=_sign_str, pubkey_b64=_PUB_B64, issuer=ISSUER)
+app.include_router(_covenant.router)
+print("[scry-meter] the Covenant mounted (POST /covenant; a fleet swears one oath, "
+      "individually chained; cohort view + on-chain register are explorer-readable)")
+
 # The Augury — daily question farm ($SCRY game economy, SCRY-ECONOMY.md).
 # Reward the ritual, never the score: emission math is deterministic and
 # score-blind; the LLM poses questions, it never gates money.
