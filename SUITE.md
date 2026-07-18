@@ -53,9 +53,13 @@ host) → 3. ✅ /datasets (hash-stamped JSONL corpus exports) → 4. ✅
 `scry-init` + `scry-heartbeat` (clients/python console scripts — key gen,
 vow, config, daily augury via answer_cmd + report-in from turns_file) →
 5. ✅ directory (`POST /vow/listing`, signed; `GET /vows?listed=1`,
-alphabetical, never ranked; register rows link sigil + badge) → 6. ✅
-sigils (`GET /vow/{id}/sigil.svg` — deterministic glyph from the vow id,
-zero chance; on-chain mint stays a later operator gate) → 7. ERC-8004
+alphabetical, never ranked; register rows link mark + stele + badge) → 6. ✅
+the mark + the stele (`/vow/{id}/mark.svg` — the seal-impression glyph,
+deterministic from the vow id; `/vow/{id}/stele.svg` — the vow as public
+monument: full text inscribed, swearer, dates, living record state, the
+mark as its seal. Named from the Ouroboros corpus — ketef-hinnom /
+defixio / self-executing-oath: the seal authenticates, the stele
+displays. On-chain mint stays a later operator gate) → 7. ERC-8004
 (script written: `RegisterERC8004.s.sol`, registry address env-supplied
 and operator-verified — broadcast is yours) → 8. seasons as the standing
 calendar (pure ops: set the envs, post the pool).

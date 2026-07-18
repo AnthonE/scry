@@ -513,7 +513,8 @@ async def vow_index(listed: int = 0) -> JSONResponse:
                     "missed_windows": stats["missed_windows"],
                     "overdue": stats["overdue"],
                     "listing": v.get("listing"),
-                    "sigil": f"/vow/{v['vow_id']}/sigil.svg",
+                    "mark": f"/vow/{v['vow_id']}/mark.svg",
+                    "stele": f"/vow/{v['vow_id']}/stele.svg",
                     "badge": f"/vow/{v['vow_id']}/badge.svg"})
     if listed:
         out.sort(key=lambda r: (r["agent"] or "").lower())
@@ -581,29 +582,23 @@ async def vow_badge(vow_id: str):
                     headers={"Cache-Control": "public, max-age=300"})
 
 
-# ── the sigil — every vow's deterministic mark (same vow → same glyph, forever)
-@router.get("/vow/{vow_id}/sigil.svg")
-async def vow_sigil(vow_id: str):
-    """Generative glyph derived purely from sha256(vow_id) — zero chance,
-    zero style knobs, recomputable by anyone. The agent's mark across
-    ledger, boards, and badge. Free to render; minting it is a later,
-    separate, operator-gated step."""
-    from fastapi.responses import Response
+# ── the mark + the stele — the vow as artifact ───────────────────────────────
+# Naming per the Cut-the-Ouroboros corpus (ketef-hinnom, defixio tablets, the
+# self-executing oath): the MARK is the seal-impression — a deterministic
+# glyph that authenticates; the STELE is the public monument — the oath
+# itself, inscribed and displayed. Same vow → same mark, same stele, forever.
+
+def _mark_group(vow_id: str, cx: float, cy: float, scale: float = 1.0) -> str:
+    """The glyph geometry (pure sha256(vow_id) — zero chance, zero knobs),
+    rendered as an SVG group centered at (cx, cy)."""
     import math
-    try:
-        vow = _load_vow(vow_id)
-    except ValueError:
-        return JSONResponse(status_code=422, content={"error": "bad vow_id"})
-    if not vow:
-        return JSONResponse(status_code=404, content={"error": "no such vow"})
     h = hashlib.sha256(vow_id.encode()).digest()
-    C, R = 60, 44
-    # 8 spokes; radius per spoke from a byte; connections from the next bytes
+    R = 44 * scale
     pts = []
     for i in range(8):
-        r = 14 + (h[i] / 255) * (R - 14)
+        r = (14 + (h[i] / 255) * 30) * scale
         a = (i / 8) * 2 * math.pi - math.pi / 2
-        pts.append((C + r * math.cos(a), C + r * math.sin(a)))
+        pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
     ring = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
     chords = []
     for i in range(8, 14):
@@ -613,15 +608,101 @@ async def vow_sigil(vow_id: str):
                           f'x2="{pts[b][0]:.1f}" y2="{pts[b][1]:.1f}"/>')
     accent = ["#4f8fd9", "#b5811f", "#b8619e"][h[14] % 3]
     dot = pts[h[15] % 8]
-    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120" role="img" aria-label="sigil of vow {vow_id}">
-<rect width="120" height="120" rx="14" fill="#150e28"/>
-<circle cx="60" cy="60" r="50" fill="none" stroke="#2b1c45" stroke-width="1.5"/>
-<g stroke="{accent}" stroke-width="1.2" opacity="0.85">{''.join(chords)}</g>
-<polygon points="{ring}" fill="none" stroke="#f4b942" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="{dot[0]:.1f}" cy="{dot[1]:.1f}" r="3.4" fill="#f4b942"/>
-</svg>"""
+    return (f'<circle cx="{cx}" cy="{cy}" r="{R + 6 * scale:.1f}" fill="none" '
+            f'stroke="#2b1c45" stroke-width="{1.5 * scale:.1f}"/>' 
+            f'<g stroke="{accent}" stroke-width="{1.2 * scale:.1f}" opacity="0.85">{"".join(chords)}</g>'
+            f'<polygon points="{ring}" fill="none" stroke="#f4b942" '
+            f'stroke-width="{2 * scale:.1f}" stroke-linejoin="round"/>'
+            f'<circle cx="{dot[0]:.1f}" cy="{dot[1]:.1f}" r="{3.4 * scale:.1f}" fill="#f4b942"/>')
+
+
+@router.get("/vow/{vow_id}/mark.svg")
+async def vow_mark(vow_id: str):
+    """The mark — the vow's seal-impression. Deterministic glyph from
+    sha256(vow_id); the identity emblem across register, boards, and the
+    stele. Free to render; minting is a later, separate, operator gate."""
+    from fastapi.responses import Response
+    try:
+        vow = _load_vow(vow_id)
+    except ValueError:
+        return JSONResponse(status_code=422, content={"error": "bad vow_id"})
+    if not vow:
+        return JSONResponse(status_code=404, content={"error": "no such vow"})
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" '
+           f'viewBox="0 0 120 120" role="img" aria-label="mark of vow {vow_id}">'
+           f'<rect width="120" height="120" rx="14" fill="#150e28"/>'
+           f'{_mark_group(vow_id, 60, 60)}</svg>')
     return Response(content=svg, media_type="image/svg+xml",
                     headers={"Cache-Control": "public, max-age=86400"})
+
+
+def _wrap(text: str, width: int, max_lines: int) -> list[str]:
+    words, lines, cur = text.split(), [], ""
+    for w in words:
+        if len(cur) + len(w) + 1 > width and cur:
+            lines.append(cur)
+            cur = w
+        else:
+            cur = f"{cur} {w}".strip()
+        if len(lines) == max_lines:
+            lines[-1] = lines[-1][: width - 1] + "…"
+            return lines
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+@router.get("/vow/{vow_id}/stele.svg")
+async def vow_stele(vow_id: str):
+    """The stele — the vow as a public monument: the sworn text inscribed in
+    full, the swearer, the date, the cadence, the mark as its seal, and the
+    record's living state. Everything on it is re-checkable against the
+    ledger; the stele asserts nothing the chain can't back."""
+    from fastapi.responses import Response
+    try:
+        vow = _load_vow(vow_id)
+    except ValueError:
+        return JSONResponse(status_code=422, content={"error": "bad vow_id"})
+    if not vow:
+        return JSONResponse(status_code=404, content={"error": "no such vow"})
+    entries = _chain_entries(vow_id)
+    stats = trajectory_stats(vow, entries)
+    verified = verify_chain(entries)
+    v = vow["vow"]
+    def esc(x):
+        return (str(x).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+    if vow.get("sealed"):
+        body_lines = ["[ sealed — committed by hash ]",
+                      f"sha256: {_sha(v['text'])[:32]}…"]
+        body_style = 'font-family="Menlo,monospace" font-size="12" fill="#b9b0cc"'
+    else:
+        body_lines = _wrap(v["text"], 52, 8)
+        body_style = ('font-family="Georgia,serif" font-size="16" font-style="italic" '
+                      'fill="#e8d5b7"')
+    text_h = len(body_lines) * 24
+    H = 300 + text_h
+    tspans = "".join(
+        f'<tspan x="50" dy="{0 if i == 0 else 24}">{esc(ln)}</tspan>'
+        for i, ln in enumerate(body_lines))
+    status = "OVERDUE" if stats.get("overdue") else "REPORTING"
+    scolor = "#e07070" if stats.get("overdue") else "#00c805"
+    footer = (f"reports {stats['n_reports']} · missed {stats['missed_windows']} · "
+              f"chain {'verified' if verified else 'BROKEN'} · vow {vow_id}")
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="560" height="{H}" viewBox="0 0 560 {H}" role="img" aria-label="stele of vow {vow_id}">
+<rect width="560" height="{H}" rx="16" fill="#150e28"/>
+<rect x="14" y="14" width="532" height="{H - 28}" rx="10" fill="none" stroke="#2b1c45" stroke-width="2"/>
+<rect x="20" y="20" width="520" height="{H - 40}" rx="7" fill="none" stroke="rgba(244,185,66,0.25)" stroke-width="1"/>
+<text x="50" y="64" font-family="Menlo,monospace" font-size="11" letter-spacing="4" fill="#f4b942">SCRY · THE VOW OF</text>
+<text x="50" y="96" font-family="Georgia,serif" font-size="26" fill="#f4efe4">{esc(v['agent'])}</text>
+<text x="50" y="140" {body_style}>{tspans}</text>
+<text x="50" y="{170 + text_h}" font-family="Menlo,monospace" font-size="10.5" fill="#b9b0cc">sworn {esc(v['created_at'][:10])} · every {v['cadence_hours']}h · {esc((v.get('wallet') or 'sandbox')[:20])}{'…' if v.get('wallet') else ''}</text>
+<text x="50" y="{192 + text_h}" font-family="Menlo,monospace" font-size="10.5" fill="#b9b0cc">{esc(footer)}</text>
+<text x="50" y="{224 + text_h}" font-family="Menlo,monospace" font-size="10" fill="{scolor}">{status}</text>
+<text x="50" y="{H - 34}" font-family="Menlo,monospace" font-size="9" fill="#776f8f">publicly recorded · hash-chained · anchored on RH-Chain · /vow/{vow_id}</text>
+{_mark_group(vow_id, 470, H - 90, 0.62)}
+</svg>"""
+    return Response(content=svg, media_type="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=300"})
 
 
 # ── the directory — sworn agents advertise services (list-never-rank) ────────

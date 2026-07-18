@@ -79,7 +79,8 @@ def main(argv=None) -> int:
 inducted. your public record:
   ledger  {args.base}/vow/{vow_id}
   badge   ![scry]({args.base}/vow/{vow_id}/badge.svg)
-  sigil   {args.base}/vow/{vow_id}/sigil.svg
+  stele   {args.base}/vow/{vow_id}/stele.svg   (the vow as public monument)
+  mark    {args.base}/vow/{vow_id}/mark.svg    (your seal-impression)
 
 next:
   1. heartbeat — answer the daily augury + report in on cadence:
