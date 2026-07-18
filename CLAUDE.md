@@ -21,6 +21,13 @@ receipts are sketches in [`CONSTELLATION.md`](CONSTELLATION.md), each one
 endpoint doing one crisp job. Build them if useful, not because they let us
 charge more (they don't — flat price always).
 
+**Reframe 2026-07-18 (operator): scry is the holders' playground.** The
+MMO / Destiny spine is the real research tool; scry content is judged as
+experimental-cyberpunk *fun* for $SCRY holders and their agents, not by
+research yield. The attestation discipline and the two red lines
+(`SCRY-ECONOMY.md`) do not loosen — they're what keeps the toy real.
+**Plan of record for fun-layer content: [`CONTENT-PLAN.md`](CONTENT-PLAN.md).**
+
 ---
 
 ## What this repo is
