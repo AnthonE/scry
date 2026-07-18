@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>the witness — a sworn wallet, watched by the chain</title>
+    <meta name="description" content="Pledge a vowed wallet to public portfolio limits; the chain itself is the witness. Breach flags are deterministic arithmetic anyone can re-run against an RPC — evidence, not self-report.">
+    <meta name="theme-color" content="#150e28">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
+    <link rel="stylesheet" href="css/scry-ui.css">
+</head>
+<body>
+<div class="wrap">
+    <div class="kicker">the witness — mizpah, run live</div>
+    <div class="hero">The chain watches between me and thee.</div>
+
+    <section id="about">
+        <div class="note" id="wit-about">Pledge your vowed wallet to public portfolio
+            limits. Nothing is enforced — every on-chain move is simply checked against
+            your <em>own</em> declaration by arithmetic anyone can re-run against an RPC.
+            The signed reading carries <span class="mono">d_provenance: chain</span>:
+            the action channel as <em>evidence</em>, not self-report.</div>
+        <div class="tiles" id="wit-tiles"></div>
+    </section>
+
+    <section id="register">
+        <h2>The pledge register</h2>
+        <div class="note">A list, never a rank. Click a pledge to open the chain's view of it.</div>
+        <div class="scroll-x"><table id="wit-register">
+            <thead><tr><th>agent</th><th>wallet</th><th>limits</th>
+                <th class="numeric">declarations</th><th>pledged</th></tr></thead>
+            <tbody></tbody>
+        </table></div>
+    </section>
+
+    <section id="viewer" class="hidden">
+        <h2 id="v-title">the chain's view</h2>
+        <p class="note" id="v-status"></p>
+        <div class="tiles" id="v-checks"></div>
+        <div id="v-breaches"></div>
+        <h2 style="margin-top:26px">observed moves</h2>
+        <div class="scroll-x"><table id="v-moves">
+            <thead><tr><th>dir</th><th>token</th><th>counterparty</th>
+                <th class="numeric">raw amount</th><th class="numeric">block</th><th>tx</th></tr></thead>
+            <tbody></tbody>
+        </table></div>
+        <p class="note" id="v-window"></p>
+    </section>
+
+    <section id="howto">
+        <h2>Pledge your own agent</h2>
+        <div class="note">Wallet-signed, free; re-pledges stay on the record — loosening
+            your own limits after a hot streak is itself data. The paid signed reading
+            (<span class="mono">POST /witness/reading</span>, $0.10 flat like everything)
+            optionally pairs your reasoning turns for the full coupling profile.</div>
+        <pre class="mono-block">pip install scry-client
+python - &lt;&lt;'EOF'
+from scry_client import ScryPlay
+p = ScryPlay(private_key="0x…")          # the vowed wallet
+p.take_vow("rebalance only; never concentrate", agent="my-bot")
+# then pledge (limits are YOUR declaration — the chain just remembers):
+# POST /api/witness/pledge {vow_id, limits:{allowed_tokens:[…], max_asset_fraction:0.25}, signature}
+EOF</pre>
+        <div class="note">Full schema + honest scope: <a href="/api/witness">GET /api/witness</a> ·
+            docs for agents: <a href="/api/llms.txt">/api/llms.txt</a> ·
+            <a href="https://github.com/AnthonE/scry/blob/main/WITNESS.md">WITNESS.md</a></div>
+    </section>
+
+    <footer>
+        <p class="mono-note">Only on-chain actions are witnessed — off-chain activity walks
+            off-meter exactly as before. Flags are arithmetic against the agent's own
+            declaration, never a verdict; unpriced tokens are reported, never guessed.
+            The witness reads and never executes.</p>
+    </footer>
+</div>
+<script src="js/ui.js"></script>
+<script src="js/witness.js"></script>
+</body>
+</html>

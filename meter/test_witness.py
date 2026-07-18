@@ -103,6 +103,12 @@ r = c.post("/witness/pledge", json={"vow_id": vow1, "limits": LIMITS, "signature
 ok(r.status_code == 200 and len(r.json()["declared"]) == 2,
    "re-pledge allowed, every declaration stays on the record")
 
+r = c.get("/witnesses")
+j = r.json()
+ok(r.status_code == 200 and j["n_pledges"] == 1 and j["pledges"][0]["vow_id"] == vow1
+   and j["pledges"][0]["n_declarations"] == 2 and "never a rank" in j["note"],
+   "public pledge register lists (never ranks)")
+
 print("[witness: dark window]")
 os.environ["SCRY_WITNESS_STATIC"] = json.dumps({"unobserved": True})
 r = c.get(f"/witness/{vow1}")

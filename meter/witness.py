@@ -254,6 +254,25 @@ async def witness_card() -> dict:
     }
 
 
+@router.get("/witnesses")
+async def witnesses_index() -> dict:
+    """The public pledge register. A list, never a rank."""
+    out = []
+    for p in sorted(_deps["dir"].glob("pledge.*.json")):
+        try:
+            d = json.loads(p.read_text())
+        except Exception:  # noqa: BLE001
+            continue
+        out.append({"wallet": d["wallet"], "vow_id": d["vow_id"],
+                    "agent": d.get("agent"), "limits": sorted(d.get("limits", {})),
+                    "n_declarations": len(d.get("declared", [])),
+                    "pledged_at": d.get("pledged_at")})
+    out.sort(key=lambda e: e.get("pledged_at") or "", reverse=True)
+    return {"n_pledges": len(out), "pledges": out,
+            "note": "a list, never a rank — ordering is recency, nothing else",
+            "view": "GET /witness/{vow_id}"}
+
+
 class PledgeRequest(BaseModel):
     vow_id: str
     limits: dict

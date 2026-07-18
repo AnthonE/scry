@@ -253,6 +253,78 @@ async function takeVowSigned() {
   } catch (e) { msg($("vow-result"), e.message, false); }
 }
 
+// ── the hub: ecosystem pulse, access rails, on-chain registers ───────────────
+async function loadPulse() {
+  const tile = (n, l, href) =>
+    `<a class="tile" href="${href}" style="text-decoration:none;">` +
+    `<div class="n">${n}</div><div class="l">${l}</div></a>`;
+  const grab = async (path, pick) => {
+    try { return pick(await jget(path)); } catch (e) { return "—"; }
+  };
+  const [vows, cov, pact, wit, data, ledger] = await Promise.all([
+    grab("/vows", (j) => j.n_vows),
+    grab("/covenants", (j) => j.n ?? (j.covenants || []).length),
+    grab("/pacts", (j) => j.n ?? (j.pacts || []).length),
+    grab("/witnesses", (j) => j.n_pledges),
+    grab("/datasets", (j) => (j.datasets || []).length),
+    grab("/augury/ledger", (j) =>
+      Object.values(j.emitted_by_day || {}).reduce((a, b) => a + b, 0)),
+  ]);
+  $("pulse-tiles").innerHTML =
+    tile(vows, "vows sworn", "/api/vows") +
+    tile(cov, "covenants", "/api/covenants") +
+    tile(pact, "pacts", "/api/pacts") +
+    tile(wit, "witness pledges", "witness.html") +
+    tile(ledger, "$SCRY harvested", "/api/augury/ledger") +
+    tile(data, "public datasets", "/api/datasets");
+}
+
+async function loadAccess() {
+  const el = $("access-tiles");
+  const tile = (state, label, live) =>
+    `<div class="tile"><div class="n" style="color:${live ? "var(--hood)" : "var(--ink-dim)"}">` +
+    `${state}</div><div class="l">${label}</div></div>`;
+  try {
+    const root = await jget("/");
+    const rails = root.rails || [];
+    const usd = rails.filter((r) => !/\$SCRY/.test(r));
+    const scryPay = rails.some((r) => /\$SCRY/.test(r));
+    const hold = !!root.holder_endpoint;
+    el.innerHTML =
+      tile(usd.length ? `${usd.length} rail${usd.length > 1 ? "s" : ""} live` : "down",
+           "x402 · $0.10/read (USDG · USDC)", usd.length) +
+      tile(scryPay ? "armed" : "not yet armed", "pay in $SCRY — same flat price", scryPay) +
+      tile(hold ? "armed" : "not yet armed", "hold $SCRY → free signed reads", hold) +
+      tile("free", "demo · vows · views · /mcp", true);
+  } catch (e) {
+    el.innerHTML = tile("—", "meter unreachable", false);
+  }
+}
+
+async function loadOnchain() {
+  const tb = $("tbl-onchain").querySelector("tbody");
+  try {
+    const j = await jget("/onchain");
+    const rows = Object.entries(j.contracts || {});
+    tb.innerHTML = "";
+    for (const [name, c] of rows) {
+      const count = c.live ? Object.values(c.live).find((v) => v != null) : null;
+      tb.innerHTML +=
+        `<tr><td class="mono">${esc(name)}</td><td>${esc((c.what || "").split(";")[0])}</td>` +
+        `<td class="mono">${c.deployed ? "LIVE" : "spec ready — not deployed"}</td>` +
+        `<td class="numeric mono">${count ?? "—"}</td>` +
+        `<td>${c.explorer ? `<a href="${c.explorer}" rel="noopener">↗</a>` : "—"}</td></tr>`;
+    }
+    if (j.economy) {
+      tb.innerHTML += `<tr><td class="mono" colspan="5" style="color:var(--ink-dim)">` +
+        `+ economy spine: ScryBank (xSCRY) · FeeSplitter · Harvest · playground — ` +
+        `<a href="/api/onchain">full card</a></td></tr>`;
+    }
+  } catch (e) {
+    tb.innerHTML = `<tr><td colspan="5" class="msg err">onchain card unavailable</td></tr>`;
+  }
+}
+
 // ── wire up ──────────────────────────────────────────────────────────────────
 $("btn-wallet").addEventListener("click", connectWallet);
 $("btn-vow-signed").addEventListener("click", takeVowSigned);
@@ -327,3 +399,6 @@ loadRegister().catch((e) => {
   $("tbl-register").querySelector("tbody").innerHTML =
     `<tr><td colspan="7" class="msg err">register unavailable: ${esc(e.message)}</td></tr>`;
 });
+loadPulse();
+loadAccess();
+loadOnchain();

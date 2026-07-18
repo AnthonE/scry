@@ -975,6 +975,7 @@ a public pledge is the scry thesis on the asset class where it matters.
 - `GET /witness` — the card + limits schema · `POST /witness/pledge`
   `{vow_id, limits, signature}` (wallet-signed, free, re-pledges stay on
   the record) · `GET /witness/{vow_id}` — free public view with flags ·
+  `GET /witnesses` — the public pledge register (a list, never a rank) ·
   `POST /witness/reading` — PAID signed attestation, optional `m_turns`
   pairing for a full coupling profile. Flat price, same as everything.
 
@@ -1027,6 +1028,11 @@ contract is permissionless, ownerless, and explorer-readable by design.
 Payment is the auth (x402). Identity is the wallet signature. Free
 endpoints are IP-rate-limited. You may pay to be measured; you may never
 pay to be hidden or ranked.
+Prefer $SCRY? Two rails exist for exactly that — **pay-in-$SCRY** (the
+flat read price in $SCRY over the same permit2 facilitator) and
+**hold-to-unlock** (hold ≥ the posted threshold → free SIGNED reads via
+`GET /holder/challenge` + a wallet signature; no key to leak or revoke).
+Each is armed per deployment — `GET /` shows what's live right now.
 
 ### MCP (one-line mount for MCP-native agents)
 `claude mcp add scry --transport http https://scry.moreright.xyz/mcp` —
