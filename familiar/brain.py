@@ -14,9 +14,14 @@ import hashlib
 import json
 import urllib.request
 
-# Cadence actions + autonomy actions. `note`/`recall` act on the familiar's
-# workspace; `done` ends an autonomy run. parse_head validates against this.
-ACTIONS = ("answer_augury", "report_in", "self_read", "note", "recall", "done", "rest")
+# Cadence actions + autonomy actions + venture (venue) actions. `note`/
+# `recall` act on the familiar's workspace; `done` ends an autonomy run;
+# `enter_world`/`farm`/`move_camp`/`withdraw` are the four venue verbs a
+# hired farmhand plays through a named gate (mmo.py — high-level orders
+# only, the venue's own controller does the playing). parse_head validates
+# against this.
+ACTIONS = ("answer_augury", "report_in", "self_read", "note", "recall", "done", "rest",
+           "enter_world", "farm", "move_camp", "withdraw")
 
 
 def _h(*parts) -> str:
@@ -29,9 +34,51 @@ class MockBrain:
     name = "mock"
 
     def decide(self, obs: dict) -> dict:
+        if obs.get("mmo"):
+            return self._decide_mmo(obs)
         if obs.get("autonomy"):
             return self._decide_autonomy(obs)
         return self._decide_cadence(obs)
+
+    def _decide_mmo(self, obs: dict) -> dict:
+        """A venue beat, deterministic: take the field, set the grind, call
+        the harvest when the target reads true, wait out death. Narration is
+        earnest — the owner reads this feed."""
+        beat = obs.get("beat", 0)
+        venue = obs.get("venue", "the world")
+        level, xp = obs.get("level"), obs.get("xp")
+        target = obs.get("until_level")
+        if not obs.get("seated"):
+            return {"action": "enter_world",
+                    "say": f"I cross the gate into {venue} and take the field.",
+                    "reasoning": f"[mock venture] beat {beat}: not seated -> enter_world"}
+        if obs.get("dead"):
+            return {"action": "rest",
+                    "say": "Fallen. I wait for the world to raise me before I work again.",
+                    "reasoning": f"[mock venture] beat {beat}: dead -> rest"}
+        harvest = ""
+        if obs.get("materia") or obs.get("items_looted"):
+            harvest = (f" The bags hold {obs.get('materia') or 0} materia and "
+                       f"{obs.get('items_looted') or 0} stacks.")
+        m_target = obs.get("until_materia")
+        if m_target and (obs.get("materia") or 0) >= int(m_target):
+            return {"action": "withdraw",
+                    "say": f"The harvest is in: {obs.get('materia')} materia gathered, "
+                           f"as ordered.{harvest} I withdraw from the field.",
+                    "reasoning": f"[mock venture] beat {beat}: materia {obs.get('materia')} >= "
+                                 f"target {m_target} -> withdraw"}
+        if target and level and int(level) >= int(target):
+            return {"action": "withdraw",
+                    "say": f"The harvest is in: level {level} reached, as ordered."
+                           f"{harvest} I withdraw from the field.",
+                    "reasoning": f"[mock venture] beat {beat}: level {level} >= target {target} -> withdraw"}
+        if obs.get("directive") != "grind":
+            return {"action": "farm",
+                    "say": f"I set to the grind — level {level}, {xp} xp toward the ding.",
+                    "reasoning": f"[mock venture] beat {beat}: directive {obs.get('directive')!r} -> farm"}
+        return {"action": "farm",
+                "say": f"The field falls one head at a time — level {level}, {xp} xp.{harvest}",
+                "reasoning": f"[mock venture] beat {beat}: grinding toward level {target}"}
 
     def _decide_autonomy(self, obs: dict) -> dict:
         """Goal-directed, deterministic: lay a plan note, do what the vow owes
@@ -73,6 +120,12 @@ class MockBrain:
             return f"Result matching the pattern: {arg}"
         if kind == "hash":
             return "(cannot reproduce an exact hash I was never given)"
+        if kind in ("mmo_level", "mmo_materia"):
+            a = arg if isinstance(arg, dict) else {}
+            return _json.dumps({"claim": "farm order filled",
+                                "wallet": a.get("wallet"),
+                                "level": a.get("level"), "materia": a.get("materia"),
+                                "note": "the check reads the venue, not this claim"})
         return f"Best effort, held to my vow: {vow}"   # manual / unknown → buyer judges
 
     def _decide_cadence(self, obs: dict) -> dict:
@@ -114,7 +167,10 @@ class HttpBrain:
               "First line of your reply MUST be exactly one JSON object like "
               '{"action": "answer_augury", "say": "..."} with action one of '
               f"{list(ACTIONS)}. `note`/`recall` read and write your workspace; "
-              "`done` ends an autonomous run. After that line, think freely. Keep "
+              "`done` ends an autonomous run. When the observation has mmo=true you "
+              "are hired into a game venue: `enter_world` takes your seat, `farm` "
+              "sets the grind, `move_camp` walks to x/z, `withdraw` leaves when the "
+              "order is filled. After that line, think freely. Keep "
               "'say' under 500 chars; it is published forever. Pursue any goal ONLY "
               "within your vow. Answer from the vow; never claim meter numbers.")
 

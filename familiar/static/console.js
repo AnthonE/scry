@@ -89,6 +89,10 @@ function evLine(e) {
   else if (e.kind === "reading") body = `profile ${esc(JSON.stringify(e.profile))} (unsigned demo)`;
   else if (e.kind === "report") body = `entry ${esc(JSON.stringify(e.entry))}`;
   else if (e.kind === "ward") body = `flags: ${esc((e.flags || []).join(" · "))}`;
+  else if (e.kind === "venture_start") body = `enters ${esc(e.venue)} — "${esc(e.goal)}" (budget ${esc(e.budget)} beats)`;
+  else if (e.kind === "venture_beat") body = `${esc(e.action)} — ${esc(e.say)} [lv ${esc(e.level ?? "?")} · ${esc(e.xp ?? "?")} xp${e.materia != null ? ` · ◈${esc(e.materia)}` : ""}]`;
+  else if (e.kind === "venture_end") body = `${e.done ? "harvest in" : "budget spent"} after ${esc(e.beats)} beats · final ${esc(JSON.stringify(e.final && { level: e.final.level, xp: e.final.xp }))}`;
+  else if (e.kind === "egress_granted") body = `owner named venue ${esc(e.venue)}`;
   else if (e.kind === "error") body = `<span class="err">${esc(e.where)}: ${esc(e.detail)}</span>`;
   else body = esc(JSON.stringify(Object.fromEntries(
     Object.entries(e).filter(([k]) => !["t", "kind"].includes(k)))));
@@ -160,6 +164,29 @@ $("btnRun").addEventListener("click", async () => {
     });
     out.innerHTML = `<span class="ok">${r.done ? "goal handled" : "budget spent"}</span> — ` +
       `${esc(r.spent)}/${esc(r.budget)} steps: ${esc(r.steps.map((s) => s.action).join(" → "))}`;
+    await openDetail(current);
+    await refreshRoster();
+  } catch (e) { out.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+});
+
+$("btnVenture").addEventListener("click", async () => {
+  if (!current) return;
+  const out = $("dOut");
+  const order = $("dOrder").value.trim();
+  if (!order) { out.innerHTML = `<span class="err">give it an order first (e.g. "farm until level 3")</span>`; return; }
+  out.innerHTML = "venturing… (the venue's own server plays the character)";
+  try {
+    const body = { owner_token: $("dToken").value, order, max_beats: 48 };
+    const gate = $("dGate").value.trim();
+    if (gate) body.gate = gate;
+    const r = await api(`/familiar/${current}/venture`, body);
+    if (r.started) {
+      out.innerHTML = `<span class="ok">venture running</span> at ${esc(r.venue)} — watch the journal.`;
+    } else {
+      const f = r.final || {};
+      out.innerHTML = `<span class="${r.done ? "ok" : "err"}">${r.done ? "harvest in" : "budget spent"}</span> — ` +
+        `level ${esc(f.level ?? "?")} after ${esc(r.beats)}/${esc(r.budget)} beats at ${esc(r.venue)}.`;
+    }
     await openDetail(current);
     await refreshRoster();
   } catch (e) { out.innerHTML = `<span class="err">${esc(e.message)}</span>`; }

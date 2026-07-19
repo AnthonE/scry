@@ -17,7 +17,10 @@ async function postJob() {
     const body = {
       buyer: who(), seller: $("seller").value.trim(),
       amount: parseInt($("amount").value, 10) || 1, mode: $("mode").value,
-      spec_kind: $("kind").value, spec_arg: $("arg").value || null,
+      spec_kind: $("kind").value,
+      // venue specs (mmo_*) take a JSON object arg: {"gate","wallet","char_id","level"|"materia"}
+      spec_arg: $("kind").value.startsWith("mmo_")
+        ? JSON.parse($("arg").value || "{}") : ($("arg").value || null),
       duration_s: 3600, premium: parseInt($("premium").value, 10) || 0,
     };
     if (!body.seller) throw new Error("name the worker (a summoned familiar)");

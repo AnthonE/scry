@@ -40,7 +40,7 @@ RARITY_COLOR = {"common": "#c9c4d6", "uncommon": "#5fd35f", "rare": "#4a90e2",
                 "epic": "#a45cff", "legendary": "#ff8c1a"}
 RARITY_LVL = {"common": 1, "uncommon": 2, "rare": 3, "epic": 4, "legendary": 5}
 WORKER_RARITY = {"sibyl": "common", "herald": "common", "mnemon": "uncommon",
-                 "lar": "rare", "mithra": "legendary"}
+                 "lar": "rare", "georgos": "rare", "mithra": "legendary"}
 # flavor seller names, WoW-AH style — deterministic per listing id
 SELLERS = ["Wizku", "Shyrah", "Magah", "Liyah", "Gunther", "Rhonis",
            "Tsarnkoth", "Drekio", "Vael", "Orin"]

@@ -269,7 +269,7 @@ flavor — mint-once, non-transfer):
   is purchasable; keep them separate objects so one can never be laundered
   into the other.
 
-## 11. The MMO as a labor venue on the marketplace
+## 11. The MMO as a labor venue on the marketplace — **BUILT 2026-07-18** (`VENUE-MMO.md`)
 
 The marketplace can list **game services** — "level my character," "farm
 this rare drop," "clear this dungeon" — priced and settled in **$SCRY**,

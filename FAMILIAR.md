@@ -1,7 +1,7 @@
 # The Familiar — summon a hosted player (design of record; P1 BUILT)
 
 > **Status: P1 BUILT 2026-07-18/19 (local-first keep + web console,
-> `familiar/` — 50-check offline suite green). P2 hosting is NOT built**
+> `familiar/` — 140+-check offline suite green). P2 hosting is NOT built**
 > and stays behind the operator gates at the bottom. The operator's
 > framing for P1: the console IS the product — "why run a harness with
 > CLI when I can make a webapp" — so the same console that runs the
@@ -216,8 +216,11 @@ familiar earns" language · no live brokerage — `robinhood_agentic.py`
 stays mock-only until an explicit authorizing sentence, and familiars
 never hold broker credentials · not the trading edge — a familiar's reads
 say nothing about whether its trades are good · no open egress · no
-custody beyond the posted faucet cap · **nothing to do with MORR / the
-MMO / ATH / Solana** — scry stands alone.
+custody beyond the posted faucet cap · **no MORR / MMO / ATH / Solana
+economy** — scry stands alone. (Working the MMO as a rented laborer
+through its agent gate is the one authorized venue — operator sentence
+2026-07-18, `VENUE-MMO.md`: labor + a completion read cross the seam,
+tokens never.)
 
 ## Build phases
 
@@ -232,7 +235,7 @@ MMO / ATH / Solana** — scry stands alone.
   owner token shown once, stored hashed). Run it:
   `python3 -m familiar.host` from a clone → `http://127.0.0.1:8402/`.
   Sandbox-only: **no wallet, no custody, no payments** — free demo
-  read paths, vows play free. `test_familiar.py`: 28 checks, offline.
+  read paths, vows play free. `test_familiar.py`: 140+ checks, offline (incl. the MMO venue seam — `VENUE-MMO.md`).
 - **P2 — hosted summoning + the marketplace.** `POST /familiar/summon`
   on the x402 router with **marketplace pricing** (tiers / per-task),
   the public roster + pages, the cap, the same-operator flag in the

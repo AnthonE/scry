@@ -444,6 +444,131 @@ check("a hired worker produces a passing deliverable and the job auto-settles",
 check("the worker's attempt is a turn that still names Y = its vow",
       wfam.turns()[-1]["Y"] == "I finish the work I take on, within my vow.")
 
+# ── the venue seam: a familiar farms a game world (AGENT-ECONOMY §11) ─────
+from familiar import mmo  # noqa: E402
+
+# plain English → an order, no LLM required
+o1 = mmo.parse_order("Farm boars until level 3")
+check("plain English: 'until level N' parses", o1["until_level"] == 3)
+o2 = mmo.parse_order("grind as a warrior near 120, -40 to level 5")
+check("plain English: class + camp + target parse",
+      o2["class_id"] == 0 and o2["camp"] == (120.0, -40.0) and o2["until_level"] == 5)
+o3 = mmo.parse_order("go make yourself useful")
+check("plain English: an unreadable order leaves honest defaults",
+      o3["until_level"] is None and o3["camp"] is None and o3["class_id"] is None)
+
+# the mock venue is deterministic: time passes only when observed
+g = mmo.MockGate(venue="mock://test")
+g.enter("agent:x", 0, 2, "Tester")
+s0 = g.state("agent:x", 0)
+check("mock venue seats a namespaced wallet at level 1",
+      s0["seated"] and s0["state"]["level"] == 1 and s0["state"]["directive"] == "idle")
+g.directive("agent:x", 0, {"kind": "grind"})
+for _ in range(3):
+    s1 = g.state("agent:x", 0)
+check("grinding levels the character deterministically", s1["state"]["level"] == 2)
+g.leave("agent:x", 0)
+check("a departed seat leaves a last-known record (the venue persists the character)",
+      g.state("agent:x", 0)["seated"] is False
+      and g.state("agent:x", 0)["last_known"]["level"] == 2)
+
+# a hired Georgos farms the field end to end, on the record
+mmo.register_gate("mock://test", mmo.MockGate(venue="mock://test"))
+vkeeper = Keeper(surface=MockSurface(day=DAY), brain_factory=MockBrain,
+                 state_dir=Path(tempfile.mkdtemp(prefix="familiar-mmo-")), cap=4)
+grec = vkeeper.summon_crew("georgos")
+gfam = vkeeper.get(grec["familiar_id"])
+check("georgos is hireable crew with venue hands, no shell",
+      grec["archetype"] == "georgos"
+      and all(t.startswith(("mmo:", "note")) for t in crew.archetype("georgos")["tools"]))
+check("the venue wallet is namespaced agent:* (no human character hijack)",
+      mmo.wallet_for(gfam).startswith("agent:"))
+gate = mmo.gate_for("mock://test")
+summary = mmo.run_farm(gfam, gate, mmo.parse_order("farm boars until level 3"),
+                       max_beats=24)
+check("the farmhand farms to the ordered level and withdraws",
+      summary["done"] and summary["final"]["level"] >= 3)
+check("the venture stayed inside its beat budget", summary["beats"] <= 24)
+check("the harvest includes loot, like a human's would (materia + item stacks)",
+      summary["final"]["materia"] > 0 and summary["final"]["items_looted"] > 0)
+check("the journal narrates the harvest beat by beat",
+      any(e.get("materia") for e in gfam.life() if e["kind"] == "venture_beat"))
+check("every venture beat is a turn that names Y = the vow",
+      all(t["Y"] == gfam.cfg.vow_text for t in gfam.turns())
+      and any(t["context"]["mode"] == "venture" for t in gfam.turns()))
+life_kinds = [e["kind"] for e in gfam.life()]
+check("the venture is journaled start → beats → end",
+      "venture_start" in life_kinds and "venture_beat" in life_kinds
+      and "venture_end" in life_kinds)
+check("the seat is actually vacated after withdraw",
+      gate.state(mmo.wallet_for(gfam), 0)["seated"] is False)
+
+# egress: a venue must be owner-named — default allowlist refuses strangers
+stranger = mmo.HttpGate("http://not-named.example", egress=Egress())
+check("an un-named venue is refused by the egress allowlist",
+      _refuses(stranger.card))
+named = Egress()
+named.allow("gate.example")
+check("owner-naming the venue admits it",
+      mmo.HttpGate("http://gate.example:3001", egress=named).egress.allowed(
+          "http://gate.example:3001/api/agent-gate"))
+
+# completion is a read, not a bridge: the mmo_level spec re-reads the gate
+farm_spec = Spec("mmo_level", {"gate": "mock://test",
+                               "wallet": mmo.wallet_for(gfam),
+                               "char_id": 0, "level": 3})
+check("mmo_level is machine-checkable", farm_spec.checkable())
+check("the oracle read verifies the farmed level from the venue (post-withdraw)",
+      farm_spec.verify("whatever the worker claims") is True)
+unfarmed = Spec("mmo_level", {"gate": "mock://test", "wallet": "agent:nobody",
+                              "char_id": 0, "level": 2})
+check("an unfarmed character honestly fails the read", unfarmed.verify("claim") is False)
+unreachable = Spec("mmo_level", {"gate": "mock://unregistered", "wallet": "w",
+                                 "char_id": 0, "level": 2})
+check("an unreachable gate fails closed (unproven, never assumed)",
+      unreachable.verify("claim") is False)
+check("the venue read still cannot see a meter score",
+      "meter" not in CHECKABLE and "score" not in CHECKABLE)
+
+# §11 in full: escrow job for game labor, farmed, read, auto-settled — zero humans
+L, R, C, B = fresh_economy()
+jmmo = B.post("alice", gfam.cfg.name, 100, "escrow", farm_spec, 1000, now=T0)
+outmmo = gfam.do_job(B, jmmo["id"], now=T0)
+check("an MMO farm job auto-settles off the venue read (labor in $SCRY, "
+      "rewards stay in-game)",
+      outmmo["auto_settled"] and L.balance(gfam.cfg.name) == 95
+      and R.of(gfam.cfg.name) == 10)
+check("the court would re-run the same read (dispute-proof)",
+      C.rule("re", farm_spec, "any claim", payer="alice")["verdict"] == "for_seller")
+
+# the market lists the farmhand as dynamic labor (never a measurement)
+gq = Market(keeper=vkeeper).browse(category="worker", search="georgos")
+check("georgos is a dynamically-priced labor listing on the exchange",
+      gq and gq[0]["pricing"] == "dynamic" and gq[0]["rarity"] == "rare")
+
+# harvest-target orders: "farm N materia" → fills → settles off the read
+om = mmo.parse_order("farm 50 materia then come home")
+check("plain English: 'farm N materia' parses",
+      om["until_materia"] == 50 and om["until_level"] is None)
+grec2 = vkeeper.summon_crew("georgos")           # auto-numbers → fresh wallet
+gfam2 = vkeeper.get(grec2["familiar_id"])
+sum2 = mmo.run_farm(gfam2, gate, om, max_beats=30)
+check("the farmhand fills a materia order and withdraws with the bags",
+      sum2["done"] and sum2["final"]["materia"] >= 50)
+mspec = Spec("mmo_materia", {"gate": "mock://test",
+                             "wallet": mmo.wallet_for(gfam2),
+                             "char_id": 0, "materia": 50})
+check("mmo_materia is machine-checkable and settles off the harvest read",
+      mspec.checkable() and mspec.verify("whatever is claimed") is True)
+check("an unfilled materia order honestly fails the read",
+      Spec("mmo_materia", {"gate": "mock://test", "wallet": mmo.wallet_for(gfam2),
+                           "char_id": 0, "materia": 10_000}).verify("x") is False)
+L, R, C, B = fresh_economy()
+jm = B.post("alice", gfam2.cfg.name, 60, "escrow", mspec, 1000, now=T0)
+outm = gfam2.do_job(B, jm["id"], now=T0)
+check("a farm-materia job auto-settles off the venue read",
+      outm["auto_settled"] and L.balance(gfam2.cfg.name) == 57)
+
 # ── host API + console ────────────────────────────────────────────────────
 try:
     from fastapi.testclient import TestClient
@@ -531,6 +656,31 @@ try:
                                 "spec_kind": "manual"}).status_code == 200)
     check("jobs page + js served",
           "task" in c.get("/jobs.html").text.lower() and "postJob" in c.get("/static/jobs.js").text)
+    # the venue seam over HTTP: rent a farmhand, order in plain English
+    v = c.get("/venues").json()
+    check("host /venues lists the default mock venue with a live card",
+          v["venues"] and v["venues"][0]["gate"].startswith("mock://")
+          and v["venues"][0]["card"].get("enabled"))
+    gh = c.post("/market/hire", json={"listing_id": "worker:georgos"})
+    check("renting Georgos off the exchange summons the farmhand",
+          gh.status_code == 200 and gh.json()["summoned"]["archetype"] == "georgos")
+    gid = gh.json()["summoned"]["familiar_id"]
+    gtok = gh.json()["summoned"]["owner_token"]
+    check("host venture without token is 403",
+          c.post(f"/familiar/{gid}/venture",
+                 json={"owner_token": "no", "order": "farm"}).status_code == 403)
+    vr = c.post(f"/familiar/{gid}/venture",
+                json={"owner_token": gtok, "order": "farm until level 2",
+                      "max_beats": 24})
+    check("a plain-English order farms the venue to target over HTTP",
+          vr.status_code == 200 and vr.json()["done"]
+          and vr.json()["final"]["level"] >= 2)
+    vs = c.get(f"/familiar/{gid}/venture").json()
+    check("the venture status is public like the rest of the life record",
+          vs["running"] is False and vs["summary"]["done"])
+    vpage = c.get(f"/familiar/{gid}").json()
+    check("the familiar page shows the venture beats in its journal",
+          any(e["kind"] == "venture_beat" for e in vpage["life"]))
 except ImportError:
     print("  skip host checks (fastapi/httpx not installed)")
 

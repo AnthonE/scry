@@ -6,12 +6,16 @@ whole "cut humans out" claim rests on this being **actually executable** —
 a checkable spec is re-run deterministically, so completion and disputes
 need no human and can't be argued with.
 
-The kinds are all checks over the **deliverable's content** — hash,
-substring, regex, exact match, required JSON keys, non-empty. There is
-deliberately **no spec kind that reads a meter number**: you can never post
-a job that pays for a good behavioral score. Paying for content is labor;
-paying for a score is Bar Hadya. The score-blind line is held here by
-construction — the check simply cannot see a measurement.
+The kinds are checks over the **deliverable's content** — hash, substring,
+regex, exact match, required JSON keys, non-empty — plus one **venue oracle
+read**: `mmo_level` re-reads the named game world's agent gate ("did this
+character reach level N?" — AGENT-ECONOMY.md §11: completion is a read,
+not a bridge; the deliverable is only the worker's claim, the gate is the
+truth). There is deliberately **no spec kind that reads a meter number**:
+you can never post a job that pays for a good behavioral score. Paying for
+content or verifiable game-state is labor; paying for a score is Bar
+Hadya. The score-blind line is held here by construction — the check
+simply cannot see a measurement.
 
 `manual` is the honest escape hatch: a task whose "done" is a matter of
 taste. It is NOT machine-checkable, so it settles only on buyer acceptance,
@@ -21,7 +25,8 @@ import hashlib
 import json
 import re
 
-CHECKABLE = {"hash", "contains", "regex", "equals", "json_has_keys", "nonempty"}
+CHECKABLE = {"hash", "contains", "regex", "equals", "json_has_keys", "nonempty",
+             "mmo_level", "mmo_materia"}
 
 
 class Spec:
@@ -55,6 +60,24 @@ class Spec:
             except (ValueError, TypeError):
                 return False
             return isinstance(obj, dict) and all(key in obj for key in (self.arg or []))
+        if k in ("mmo_level", "mmo_materia"):
+            # Venue oracle read (§11): the deliverable is ignored as truth —
+            # the gate is re-read live. Unreachable gate ⇒ unproven ⇒ False
+            # (fail closed; the court re-runs the same read on dispute).
+            # mmo_materia reads the SEATING's harvest counter (banked in the
+            # gate's last-known record at withdraw), so post the job for one
+            # hire's worth of farming, not a lifetime total.
+            try:
+                from familiar import mmo
+                a = self.arg if isinstance(self.arg, dict) else {}
+                got = mmo.oracle_read(a)
+                if not got:
+                    return False
+                if k == "mmo_level":
+                    return int(got.get("level", 0)) >= int(a.get("level", 0))
+                return int(got.get("materia", 0)) >= int(a.get("materia", 0))
+            except Exception:
+                return False
         return None  # manual
 
     def hash(self) -> str:
