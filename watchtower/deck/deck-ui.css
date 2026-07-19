@@ -81,7 +81,7 @@ header.deck { display: flex; align-items: flex-end; justify-content: space-betwe
 /* ── instruments + L1 inspect cards ───────────────────────────────────── */
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--gap); }
-.inst { padding: var(--pad); cursor: default; outline: none; }
+.inst { padding: var(--pad); padding-bottom: 30px; cursor: default; outline: none; }
 .inst:hover, .inst:focus-within, .inst:focus, [data-cursor].cursor-on {
   border-color: var(--gild-dim);
   box-shadow: inset 0 1px 0 var(--omen-3), var(--glow-trim); }
@@ -154,11 +154,12 @@ dialog.menu-window pre { font-size: 10.5px; overflow: auto; max-height: 40vh;
 /* ── the deck topbar (radio + toggles) ────────────────────────────────── */
 .topbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
   font-size: 11px; color: var(--ink-dim); }
-.topbar button.tog { font-family: var(--face-jrpg); font-size: 11px;
+button.tog { font-family: var(--face-jrpg); font-size: 11px;
   letter-spacing: .1em; background: var(--omen-1); color: var(--ink-dim);
   border: 1px solid var(--steel); border-radius: var(--r); padding: 6px 10px;
   cursor: pointer; }
-.topbar button.tog[aria-pressed="true"] { color: var(--gild);
+button.tog:hover, button.tog:focus { color: var(--gild); border-color: var(--gild-dim); }
+button.tog[aria-pressed="true"] { color: var(--gild);
   border-color: var(--gild-dim); box-shadow: var(--glow-trim); }
 .nowplaying { max-width: 300px; overflow: hidden; white-space: nowrap;
   text-overflow: ellipsis; font-size: 10.5px; }
