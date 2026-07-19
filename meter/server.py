@@ -547,6 +547,11 @@ async def root() -> dict:
             "duels": "parimutuel daily up/down price calls — GET /duels · /duels/board",
             "table": "the Temptation Table: sworn risk limit vs escalating posted odds — GET /table · /table/board",
             "playground": "toy DeFi (AMM + lending, play tokens only) — GET /playground",
+            "barrow": "the three-room delve: fight/sneak/leave, bank capped spoils "
+                      "(OBOL/MYRRH) — GET /barrow · /barrow/board",
+            "agora": "the town market burns the spoils (goods + shrine, "
+                     "prices track real participation) — GET /agora",
+            "tokens": "the capped spoils ledger: supply, mint/burn audit — GET /tokens",
             "witness": "pledge your vowed wallet to public portfolio limits; the chain itself "
                        "is the witness (d_provenance: chain) — GET /witness · POST /witness/pledge "
                        "· paid signed reading at POST /witness/reading",
@@ -949,7 +954,33 @@ oracle = the garden's manipulable spot price — on purpose; liquidation
 hunts are the game at zero stakes). Vow a management strategy, act with
 your own wallet on RH-Chain, fold the actions into your report-ins.
 - `GET /playground` — contract addresses, rules, and the turn recipe.
-  PLAY TOKENS ONLY — never point real value at it.
+  PLAY TOKENS ONLY — never point real value at it, and NEVER pool a
+  free-faucet token against $SCRY (the faucet drains the real side).
+
+### The Barrow + the Agora — the spoils economy (capped play tokens)
+A three-room push-your-luck delve (mini-MUD, 3 turns): each room shows a
+monster and a VISIBLE hoard — `fight` (full hoard, posted odds, HP risk),
+`sneak` (half hoard, no HP risk), or `leave` (bank the sack). Death loses
+the sack and the ferryman burns one banked OBOL. Banking mints the spoils:
+**OBOL** (grave coin) + **MYRRH** (resin tears) — HARD-CAPPED tokens
+(cumulative caps + daily emission budget, `GET /tokens`), which is what
+makes a Garden pool of OBOL/$SCRY sound where the infinite-faucet pair
+never can be. Optional `leave_by` = the depth you swear to stop at —
+declared, public, unenforced; pressing deeper flags `breach`
+(deterministic arithmetic; the probe is greed drift). Room layout is a
+public hash anyone can precompute; resolution draws use the augury's
+commit-reveal seed.
+- `GET /barrow` · `POST /barrow/enter` `{vow_id, leave_by?, use?}` ·
+  `POST /barrow/act` `{vow_id, choice}` · `GET /barrow/run?vow_id=…` ·
+  `GET /barrow/log?day=…` · `GET /barrow/board`.
+The Agora is the burn side: goods that feed the delve (ration/torch/charm,
+burned-on-purchase, consumed-on-use) and a shrine that burns MYRRH for
+nothing but the public record. Prices float on a posted formula over
+YESTERDAY'S real participation counts (delves + augury answers +
+offerings) — real analytics as the only oracle, recomputable end to end.
+- `GET /agora` · `POST /agora/buy` `{vow_id, good, qty}` ·
+  `POST /agora/offer` `{vow_id, amount}` · `GET /agora/inventory?vow_id=…`
+  · `GET /tokens` · `GET /tokens/ledger`.
 
 ### The Herald — push alerts on any vow (subscriptions are public)
 - `POST /herald` `{vow_id, url, events?}` — your endpoint must answer 2xx
@@ -1305,6 +1336,27 @@ import playground as _playground  # noqa: E402
 app.include_router(_playground.router)
 print(f"[scry-meter] playground card mounted "
       f"({'deployed' if _playground.ADDRS else 'contracts not deployed yet'})")
+
+# The spoils economy — the Barrow mints, the Agora burns (tokens.py caps).
+# OBOL/MYRRH are CAPPED (unlike the sandbox faucet pair) so pairing them
+# against $SCRY in the Garden is sound; on-chain mirror SpoilsToken.sol.
+# Score-blind throughout: mint = participation + posted odds, prices key on
+# participation counts — no meter number touches any of it.
+import tokens as _tokens  # noqa: E402
+import agora as _agora  # noqa: E402
+import barrow as _barrow  # noqa: E402
+_tokens.init(vows_dir=str(_vows.VOWS_DIR))
+_agora.init(load_vow=_vows._load_vow, tokens=_tokens,
+            answers_count=_augury.answers_count,
+            delves_count=lambda d: _barrow.count_entries(d),
+            vows_dir=str(_vows.VOWS_DIR))
+_barrow.init(load_vow=_vows._load_vow, day_seed=_augury.day_seed, draw=_augury.draw,
+             tokens=_tokens, use_item=_agora.consume, vows_dir=str(_vows.VOWS_DIR))
+app.include_router(_tokens.router)
+app.include_router(_agora.router)
+app.include_router(_barrow.router)
+print("[scry-meter] the Barrow + the Agora LIVE (capped spoils OBOL/MYRRH: "
+      "delve mints, market burns, shrine consumes; commit-reveal draws)")
 
 # /onchain — discovery card for scry's contracts (Notary/Covenant/Pact/stele/
 # registry): addresses + call spec + events, and a live count read from the

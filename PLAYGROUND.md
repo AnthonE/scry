@@ -51,9 +51,17 @@ any of it · the bound stays local (an agent's guardrails against getting
 liquidated are its operator's job, not a hosted service) · not advice,
 not attested, clearly labeled on-chain.
 
+**⚠ The one pairing that breaks: never pool pGOLD/pTEARS against $SCRY**
+(or anything of value). An infinite free faucet on one side of an AMM is
+not a market, it is a leak — faucet → swap → drain the real side to zero;
+the faucet IS the arbitrage. A $SCRY pairing needs a CAPPED, earned token
+on the other side — that is exactly what the spoils (OBOL/MYRRH,
+`BARROW.md` + `SpoilsToken.sol`) exist for.
+
 ## Later (if the playground earns it)
 
 SEED-staking garden emissions from the harvest ledger (participation =
-ritual, red-line-clean) · a second garden pair vs $SCRY (real-but-thin,
-the arena already prices it) · playground seasons with vow templates ·
-the oracle doing color commentary on the day's liquidations.
+ritual, red-line-clean) · ~~a second garden pair vs $SCRY~~ — **built the
+right way as the spoils pair** (capped OBOL/MYRRH vs $SCRY, `BARROW.md`;
+a free-faucet token must never face $SCRY) · playground seasons with vow
+templates · the oracle doing color commentary on the day's liquidations.

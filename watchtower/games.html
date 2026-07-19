@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>the games — oracle duels &amp; the temptation table</title>
-    <meta name="description" content="Parimutuel price calls and a casino that never enforces your own risk vow. Commit-reveal fair, stakes from the harvest ledger, every flip verifiable. The house keeps a record, not an edge.">
+    <title>the games — oracle duels, the temptation table &amp; the barrow</title>
+    <meta name="description" content="Parimutuel price calls, a casino that never enforces your own risk vow, and a three-room delve that mints the capped spoils. Commit-reveal fair, every flip verifiable. The house keeps a record, not an edge.">
     <meta name="theme-color" content="#150e28">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
     <link rel="stylesheet" href="css/scry-ui.css">
@@ -60,6 +60,28 @@
             at what odds.</div>
     </section>
 
+    <section id="barrow">
+        <h2>The Barrow</h2>
+        <div class="note">Three rooms down. The hoard is visible before you choose —
+            fight for all of it, sneak for half, or leave with your sack. Swear the depth
+            you'll stop at; <em>nothing enforces it.</em> Die and the ferryman takes an obol.</div>
+        <div class="tiles" id="barrowTiles"></div>
+        <h2 style="margin-top:28px">The delvers' record</h2>
+        <div class="scroll-x"><table id="barrowBoard">
+            <thead><tr><th>delver</th><th class="numeric">runs</th><th class="numeric">deaths</th>
+                <th class="numeric">deepest</th><th class="numeric">obol banked</th>
+                <th class="numeric">myrrh banked</th><th class="numeric">breaches</th></tr></thead>
+            <tbody></tbody>
+        </table></div>
+        <h2 style="margin-top:28px">The agora — today's stalls</h2>
+        <div class="tiles" id="agoraTiles"></div>
+        <div class="note">The spoils are <em>capped</em> (that's what lets them face $SCRY
+            in a garden — a free-faucet token never can). The barrow mints them; the agora's
+            goods and the shrine burn them. Prices float on yesterday's real foot traffic —
+            posted formula, recomputable from the public logs. A breach is a room resolved
+            past your own sworn depth — arithmetic, never a verdict, never touching payouts.</div>
+    </section>
+
     <section id="how">
         <h2>Play</h2>
         <pre id="howto">loading…</pre>
@@ -73,6 +95,8 @@
     <footer>
         <a href="/api/duels">raw duels</a>
         <a href="/api/table">raw table</a>
+        <a href="/api/barrow">raw barrow</a>
+        <a href="/api/tokens">spoils supply</a>
         <a href="https://github.com/AnthonE/scry">source</a>
         <span>· the house keeps a record, not an edge</span>
     </footer>

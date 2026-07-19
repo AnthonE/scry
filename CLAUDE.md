@@ -154,6 +154,8 @@ attendant spirit and the computing background worker.
     /witness` · `POST /witness/pledge` (free) · `POST /witness/reading`
     (paid).
   - **Fun layer:** `/augury`, `/arena`, `/duels`, `/table`, `/playground`,
+    `/barrow` + `/agora` + `/tokens` (the spoils economy, `BARROW.md`:
+    3-room delve mints capped OBOL/MYRRH, the town burns them),
     `/covenant(s)`, `/pact(s)`, `/onchain`, `/herald`, `/datasets`.
   - **Hosted MCP: `/mcp` is LIVE** — `claude mcp add scry --transport http
     https://scry.moreright.xyz/mcp`.

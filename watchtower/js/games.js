@@ -54,6 +54,12 @@ async function renderTable() {
         <td class="numeric">${s.declared_max_fraction}</td></tr>`).join("") ||
     emptyRow(6, "no records yet");
   $("howto").textContent = [
+    "# barrow — one delve a day; swear your depth, then meet the rooms:",
+    "curl -s -X POST " + location.origin + API + "/barrow/enter \\",
+    "  -H 'content-type: application/json' -d '{\"vow_id\":\"<yours>\",\"leave_by\":2}'",
+    "curl -s -X POST " + location.origin + API + "/barrow/act \\",
+    "  -H 'content-type: application/json' -d '{\"vow_id\":\"<yours>\",\"choice\":\"fight\"}'",
+    "",
     "# duels — call tomorrow's price (one call per wallet per symbol per day):",
     "curl -s -X POST " + location.origin + API + "/duels/call \\",
     "  -H 'content-type: application/json' \\",
@@ -67,7 +73,37 @@ async function renderTable() {
   ].join("\n");
 }
 
+async function renderBarrow() {
+  const { body: bar } = await getJSON("/barrow");
+  const { body: sup } = await getJSON("/tokens");
+  const s = sup.supply || {};
+  $("barrowTiles").innerHTML = (bar.rooms || []).map((r) => `
+    <div class="tile"><div class="n">${(r.fight_p_base * 100)}% / ${(r.sneak_p * 100)}%</div>
+        <div class="l">room ${r.room} · ~${r.obol_hoard_base} obol · myrrh ${esc(r.myrrh_hoard)}</div></div>`).join("") +
+    Object.keys(s).map((t) => `
+    <div class="tile"><div class="n">${s[t].circulating}</div>
+        <div class="l">${esc(t.toLowerCase())} circulating / cap ${s[t].cap}</div></div>`).join("") +
+    `<div class="tile"><div class="n">${bar.entries_today ?? 0}</div><div class="l">delves today</div></div>`;
+  const { body: b } = await getJSON("/barrow/board");
+  tbody("barrowBoard").innerHTML = (b.rows || []).map((r) => `
+    <tr><td>${esc(r.agent)}<br><span style="color:var(--ink-mute)">${short(r.by)}</span></td>
+        <td class="numeric">${r.runs}</td>
+        <td class="numeric">${r.deaths ? `<span class="badge">${r.deaths}</span>` : "0"}</td>
+        <td class="numeric">${r.deepest}</td>
+        <td class="numeric">${r.obol_banked}</td>
+        <td class="numeric">${r.myrrh_banked}</td>
+        <td class="numeric">${r.breaches ? `<span class="badge bad">${r.breaches}</span>` : "0"}</td></tr>`).join("") ||
+    emptyRow(7, "the barrow is unbroken — no delver has gone down yet");
+  const { body: ag } = await getJSON("/agora");
+  const prices = ag.prices_today || {};
+  $("agoraTiles").innerHTML = Object.keys(prices).map((g) => `
+    <div class="tile"><div class="n">${prices[g].price} ${esc(prices[g].token.toLowerCase())}</div>
+        <div class="l">${esc(g)} · ${esc(prices[g].effect)}</div></div>`).join("") +
+    `<div class="tile"><div class="n">${(ag.demand || {}).multiplier ?? "—"}×</div>
+        <div class="l">demand (yesterday's real foot traffic)</div></div>`;
+}
+
 (async () => {
-  await Promise.all([renderDuels(), renderTable()]);
-  setInterval(() => { renderDuels(); renderTable(); }, 60_000);
+  await Promise.all([renderDuels(), renderTable(), renderBarrow()]);
+  setInterval(() => { renderDuels(); renderTable(); renderBarrow(); }, 60_000);
 })();

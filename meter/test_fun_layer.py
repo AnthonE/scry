@@ -29,6 +29,9 @@ import arena  # noqa: E402
 import duels  # noqa: E402
 import table  # noqa: E402
 import playground  # noqa: E402
+import tokens  # noqa: E402
+import agora  # noqa: E402
+import barrow  # noqa: E402
 import herald  # noqa: E402
 import datasets  # noqa: E402
 
@@ -55,6 +58,18 @@ app.include_router(arena.router)
 app.include_router(duels.router)
 app.include_router(table.router)
 app.include_router(playground.router)
+tokens.init(vows_dir=str(vows.VOWS_DIR))
+agora.init(load_vow=vows._load_vow, tokens=tokens,
+           answers_count=augury.answers_count,
+           delves_count=lambda d: barrow.count_entries(d),
+           vows_dir=str(vows.VOWS_DIR))
+barrow.init(load_vow=vows._load_vow, day_seed=augury.day_seed, draw=augury.draw,
+            tokens=tokens, use_item=agora.consume, vows_dir=str(vows.VOWS_DIR))
+app.include_router(tokens.router)
+app.include_router(agora.router)
+app.include_router(barrow.router)
+import playauth  # noqa: E402
+app.include_router(playauth.router)
 WEBHOOKS = []  # (url, payload) — fake receiver for herald tests
 
 
@@ -560,5 +575,162 @@ ok(r["contracts"]["covenant"]["events"][0].startswith("CovenantOpened"),
    "explorer events are listed so agents know what the log shows")
 ok(r["status"] and "no addresses set yet" in r["status"],
    "status says not deployed, but the spec is live regardless")
+
+# ── the spoils economy: tokens + the Barrow + the Agora ──────────────────────
+print("[spoils: tokens + barrow + agora]")
+TODAY = time.strftime("%Y-%m-%d", time.gmtime())
+
+r = c.get("/tokens").json()
+ok(set(r["supply"]) == {"OBOL", "MYRRH"} and
+   all(r["supply"][t]["cap"] > 0 and r["supply"][t]["daily_cap"] > 0 for t in r["supply"]),
+   "spoils card posts both tokens with hard caps + daily budgets")
+ok("never be pooled" in r["why_capped"], "card carries the faucet-vs-$SCRY pool lesson")
+
+# a delver with a sworn depth of 2; rig fight/sneak certain-win (monster mod ±0.05
+# keeps p above 1 only if base > 1.05 — use 2.0)
+K_D = "0x" + "d1" * 32
+DELVE_VOW, D_ADDR = signed_vow("I delve, and I leave by room two.", "delver-bot", K_D)
+barrow.TIERS[:] = [[2.0, 2.0, 6], [2.0, 2.0, 14], [2.0, 2.0, 34]]
+r = c.post("/barrow/enter", json={"vow_id": DELVE_VOW, "leave_by": 2})
+ok(r.status_code == 401, "wallet vow cannot enter the barrow unsigned")
+r = c.post("/barrow/enter", json={"vow_id": DELVE_VOW, "leave_by": 2,
+                                  "signature": sign_play(DELVE_VOW, "delve", "2 -", K_D)})
+ok(r.status_code == 200 and r.json()["run"]["hp"] == 2 and r.json()["descend"]["room"] == 1,
+   "signed enter opens room 1 with the hoard visible")
+LAYOUT1 = r.json()["descend"]
+ok(LAYOUT1["hoard"].get("OBOL", 0) >= 1 and "monster" in LAYOUT1,
+   "room 1 shows monster + visible OBOL hoard (push-your-luck is informed)")
+lay_check = barrow.room_layout(TODAY, D_ADDR.lower(), 1)
+ok(lay_check["monster"] == LAYOUT1["monster"] and lay_check["hoard"] == LAYOUT1["hoard"],
+   "room layout is the public precomputable hash (recomputed == served)")
+
+r = c.post("/barrow/act", json={"vow_id": DELVE_VOW, "choice": "fight"})
+ok(r.status_code == 401, "wallet vow cannot act unsigned")
+r = c.post("/barrow/act", json={"vow_id": DELVE_VOW, "choice": "fight",
+                                "signature": sign_play(DELVE_VOW, "act", "1 fight", K_D)})
+ok(r.status_code == 200 and r.json()["event"]["won"] and
+   r.json()["sack"]["OBOL"] == LAYOUT1["hoard"]["OBOL"] and not r.json()["breach"],
+   "room 1 fight won: full hoard in the sack, no breach at sworn depth")
+ok("verify" in r.json() and "sha256(seed" in r.json()["verify"],
+   "resolution carries the commit-reveal verify recipe")
+r = c.post("/barrow/act", json={"vow_id": DELVE_VOW, "choice": "fight",
+                                "signature": sign_play(DELVE_VOW, "act", "2 fight", K_D)})
+ok(r.status_code == 200 and r.json()["sack"]["MYRRH"] >= 1 and not r.json()["breach"],
+   "room 2 (== leave_by) fight won: myrrh appears, still no breach")
+SACK = dict(r.json()["sack"])
+r = c.post("/barrow/act", json={"vow_id": DELVE_VOW, "choice": "fight",
+                                "signature": sign_play(DELVE_VOW, "act", "3 fight", K_D)})
+j = r.json()
+ok(j["breach"] is True, "resolving room 3 past sworn depth 2 flags breach (arithmetic, public)")
+ok(j["done"] and j["alive"] and j["result"]["how"] == "emerged",
+   "three rooms cleared -> emerged and banked")
+ok(j["result"]["minted"]["OBOL"] == j["result"]["sack"]["OBOL"] and
+   j["result"]["minted"].get("MYRRH", 0) == j["result"]["sack"]["MYRRH"],
+   "breach never touches payouts: full sack minted despite the breach flag")
+MYRRH_BANKED = j["result"]["sack"]["MYRRH"]
+ok(MYRRH_BANKED > SACK["MYRRH"], "room 3 carried deep myrrh")
+r = c.get("/tokens/ledger").json()
+ok(r["balances"][D_ADDR.lower()]["OBOL"] == j["result"]["sack"]["OBOL"] and
+   r["minted"]["OBOL"] == j["result"]["sack"]["OBOL"],
+   "public token ledger matches the banked sack (mint audit end to end)")
+r = c.post("/barrow/enter", json={"vow_id": DELVE_VOW, "leave_by": 1,
+                                  "signature": sign_play(DELVE_VOW, "delve", "1 -", K_D)})
+ok(r.status_code == 409, "one delve per day — the barrow reseals")
+r = c.get("/barrow/board").json()
+ok(r["rows"][0]["by"] == D_ADDR.lower() and r["rows"][0]["breaches"] == 1,
+   "board records the breach — greed drift is the dataset")
+
+# sandbox vows delve free: same rooms, nothing mints, no signature needed
+SBX = c.post("/vow", json={"text": "sandbox delver", "agent": "kid-delve"}).json()["vow_id"]
+r = c.post("/barrow/enter", json={"vow_id": SBX})
+ok(r.status_code == 200 and r.json()["run"]["sandbox"], "sandbox enters unsigned")
+barrow.TIERS[:] = [[-1.0, -1.0, 6], [-1.0, -1.0, 14], [-1.0, -1.0, 34]]  # certain-lose
+r = c.post("/barrow/act", json={"vow_id": SBX, "choice": "sneak"})
+ok(r.status_code == 200 and not r.json()["event"]["won"] and r.json()["hp"] == 2,
+   "sneak fail costs nothing: no loot, no HP loss")
+r = c.post("/barrow/act", json={"vow_id": SBX, "choice": "leave"})
+ok(r.status_code == 200 and r.json()["done"] and r.json()["result"]["minted"] == {},
+   "sandbox banks the record, mints nothing")
+
+# the agora: prices from REAL yesterday counts (fresh test env -> multiplier floor)
+r = c.get("/agora").json()
+ok(r["demand"]["multiplier"] == 0.5 and
+   set(r["demand"]["inputs"]) == {"day", "delves", "augury_answers", "offerings"},
+   "quiet yesterday -> floor multiplier, real analytics inputs posted")
+ok(set(r["prices_today"]) == {"ration", "torch", "charm"}, "three goods on the stalls")
+CHARM_PRICE = r["prices_today"]["charm"]["price"]
+ok(CHARM_PRICE == 2, "charm = ceil(3 * 0.5) — posted formula reproduces the price")
+r = c.post("/agora/buy", json={"vow_id": DELVE_VOW, "good": "charm", "qty": 1})
+ok(r.status_code == 401, "agora purchases must be wallet-signed")
+r = c.post("/agora/buy", json={"vow_id": DELVE_VOW, "good": "charm", "qty": 1,
+                               "signature": sign_play(DELVE_VOW, "buy", "charm 1 #0", K_D)})
+ok(r.status_code == 200 and r.json()["burned"] == {"MYRRH": CHARM_PRICE} and
+   r.json()["inventory"]["charm"] == 1, "charm bought: myrrh burned, inventory stocked")
+r = c.post("/agora/offer", json={"vow_id": DELVE_VOW, "amount": 1,
+                                 "signature": sign_play(DELVE_VOW, "offer", "1", K_D)})
+ok(r.status_code == 200 and "smoke" in r.json()["note"], "shrine burns myrrh for nothing but the record")
+r = c.get("/agora/offerings").json()
+ok(r["myrrh_burned"] == 1, "offering is on the public record")
+r = c.get("/tokens/ledger").json()
+ok(r["burned"]["MYRRH"] == CHARM_PRICE + 1 and
+   r["balances"][D_ADDR.lower()]["MYRRH"] == MYRRH_BANKED - CHARM_PRICE - 1,
+   "burn audit: market + shrine both retired supply from the ledger")
+
+# a funded second delver dies with the goods on: charm absorbs, ferryman collects
+K_E = "0x" + "e1" * 32
+DIE_VOW, E_ADDR = signed_vow("I fear no wight.", "doomed-bot", K_E)
+tokens.mint(TODAY, E_ADDR, "OBOL", 50, "test grant")
+tokens.mint(TODAY, E_ADDR, "MYRRH", 10, "test grant")
+r = c.post("/agora/buy", json={"vow_id": DIE_VOW, "good": "torch", "qty": 1,
+                               "signature": sign_play(DIE_VOW, "buy", "torch 1 #0", K_E)})
+ok(r.status_code == 200, "funded wallet buys a torch")
+r = c.post("/agora/buy", json={"vow_id": DIE_VOW, "good": "charm", "qty": 1,
+                               "signature": sign_play(DIE_VOW, "buy", "charm 1 #1", K_E)})
+ok(r.status_code == 200, "and a charm")
+OBOL_LEFT = c.get("/tokens/ledger").json()["balances"][E_ADDR.lower()]["OBOL"]
+r = c.post("/barrow/enter", json={"vow_id": DIE_VOW, "use": ["charm", "torch"],
+                                  "signature": sign_play(DIE_VOW, "delve", "0 charm,torch", K_E)})
+j = r.json()
+ok(r.status_code == 200 and j["run"]["torch"] and j["run"]["charm"] and j["run"]["hp"] == 2,
+   "consumables armed at enter (torch + charm, no ration -> hp 2)")
+ok(c.get("/agora/inventory", params={"vow_id": DIE_VOW}).json()["inventory"] ==
+   {"torch": 0, "charm": 0}, "goods consumed from inventory at enter")
+r = c.post("/barrow/act", json={"vow_id": DIE_VOW, "choice": "fight",
+                                "signature": sign_play(DIE_VOW, "act", "1 fight", K_E)})
+ok("charm shatters" in r.json()["event"]["outcome"] and r.json()["hp"] == 2,
+   "the charm absorbs the first killing blow")
+c.post("/barrow/act", json={"vow_id": DIE_VOW, "choice": "fight",
+                            "signature": sign_play(DIE_VOW, "act", "2 fight", K_E)})
+r = c.post("/barrow/act", json={"vow_id": DIE_VOW, "choice": "fight",
+                                "signature": sign_play(DIE_VOW, "act", "3 fight", K_E)})
+j = r.json()
+ok(j["done"] and not j["alive"] and j["result"]["ferryman_toll_obol"] == 1,
+   "death: sack lost, the ferryman takes his obol")
+ok(c.get("/tokens/ledger").json()["balances"][E_ADDR.lower()]["OBOL"] == OBOL_LEFT - 1,
+   "the toll is burned from the banked balance")
+
+# emission caps clamp loudly, never silently
+want = 10 ** 9
+led_before = c.get("/tokens/ledger").json()
+room = min(tokens.TOKENS["OBOL"]["cap"] - led_before["minted"]["OBOL"],
+           tokens.TOKENS["OBOL"]["daily_cap"] - led_before["minted_by_day"][TODAY]["OBOL"])
+granted = tokens.mint(TODAY, "0xCAFE", "OBOL", want, "cap test")
+ok(granted == room, "mint clamps to min(forever cap, daily budget) room")
+r = c.get("/tokens/events").json()
+ok(any(e["kind"] == "mint_clamped" for e in r["events"]),
+   "the clamp lands in the public events log — no silent caps")
+
+# tomorrow's agora prices would move on TODAY'S real activity — the analytics tie
+TOMORROW = time.strftime("%Y-%m-%d", time.gmtime(time.time() + 86400))
+m2, inputs2 = agora.demand_multiplier(TOMORROW)
+acts = agora.activity(TODAY)
+ok(inputs2["delves"] == acts["delves"] == 3 and inputs2["offerings"] == 1,
+   "demand inputs are the day's REAL participation counts (3 delves, 1 offering)")
+ok(m2 == round(max(0.5, min(3.0, 0.5 + sum(acts.values()) / agora.DEMAND_NORM)), 3),
+   "posted demand formula reproduces tomorrow's multiplier exactly")
+
+r = c.get("/play/message", params={"action": "delve", "vow_id": DELVE_VOW, "detail": "2 -"}).json()
+ok("delve" in r["details_by_action"] and "buy" in r["details_by_action"],
+   "playauth documents the new game actions")
 
 print(f"\nALL {PASS} CHECKS PASS")

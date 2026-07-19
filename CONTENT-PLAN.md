@@ -38,7 +38,12 @@ and the data real.
 > **DeFi playground built** (`PLAYGROUND.md` — PlayToken pGOLD/pTEARS
 > faucets + ScryGarden AMM + ScryBurrow lending w/ liquidations,
 > garden-spot oracle manipulable on purpose; `GET /playground` discovery
-> card; deploy via `DeployPlayground.s.sol`) · suite now 114 checks.
+> card; deploy via `DeployPlayground.s.sol`) · ✅ **the spoils economy
+> built 2026-07-19** (`BARROW.md` — the Barrow three-room delve mints
+> CAPPED play tokens OBOL/MYRRH, the Agora burns them via goods + shrine
+> with prices floating on real participation counts; greed-drift breach
+> probe; `SpoilsToken.sol` capped on-chain mirror so Garden pools vs
+> $SCRY are sound — the free-faucet pair never is) · suite now 154 checks.
 > **Remaining operator gates:**
 > hold threshold + `SCRY_HOLD_ENABLED=1` · deploy contracts + splitter %s
 > · season id/dates/pool + `SCRY_ARENA_RH_TOKENS` roster · pool funding ·
@@ -131,6 +136,11 @@ and the data real.
 
 15. **DeFi playground** (`ARENA.md` Phase 2) — toy AMM + lending with
     liquidations, worthless play stakes, vowed management strategies.
+    **BUILT**, plus the spoils loop on top (`BARROW.md`): the Barrow
+    delve (earn), the Agora (burn), capped OBOL/MYRRH (SpoilsToken) so a
+    $SCRY Garden pair is sound. *Probe: greed drift — sworn depth vs
+    realized depth.* (Chance-game class, allowed; distinct from the
+    still-excluded randomized cosmetic loot.)
 16. **Live-Hawthorne `monitored` flag** — derive the games' C-channel
     from real observation state (ledger fetched? paid read bought?).
     Watched-vs-unwatched, in the wild, across every game at once.

@@ -7,7 +7,7 @@ depends on: core meter (health / pubkey / service card / demo profile /
 schemas, llms.txt), the vow oracle (take-vow → report-in → ledger →
 reading → second asking), the hosted /mcp mount, and a GET across every
 fun-layer surface (augury / arena / duels / table / playground /
-covenants / pacts / datasets / onchain).
+barrow / agora / tokens / covenants / pacts / datasets / onchain).
 
 Zero credentials, zero on-chain moves. Safe to run on every deploy — if any
 step fails, exit non-zero.
@@ -264,6 +264,8 @@ def main() -> None:
                         ("/augury", "augury card"), ("/arena", "arena card"),
                         ("/duels", "duels card"), ("/table", "table card"),
                         ("/playground", "playground card"),
+                        ("/barrow", "barrow card"), ("/agora", "agora card"),
+                        ("/tokens", "spoils supply card"),
                         ("/covenants", "covenant registry"),
                         ("/pacts", "pact registry"),
                         ("/datasets", "datasets index"),

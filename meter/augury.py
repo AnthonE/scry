@@ -143,6 +143,12 @@ def ledger_adjust(day: str, deltas: dict[str, int]) -> dict:
     return led
 
 
+def answers_count(day: str) -> int:
+    """Public participation count (the Agora's demand index reads this)."""
+    p = _answers_path(day)
+    return len([l for l in p.read_text().splitlines() if l.strip()]) if p.exists() else 0
+
+
 def get_or_pose(day: str) -> dict:
     """Stable augury for the day: persisted first time it's asked for.
     LLM rephrases/poses when armed; deterministic bank otherwise. The bank
