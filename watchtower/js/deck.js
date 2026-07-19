@@ -86,8 +86,10 @@
     const r = await fetchJSON("/.well-known/x402.json");
     if (!r.ok) { $("#rail-seal").className = "seal"; $("#rail-seal").textContent = "unreachable"; return; }
     const d = r.data;
-    const accepts = d.accepts || (d.x402 && d.x402.accepts) || [];
-    const nets = [...new Set(accepts.map(a => a.network || a.chain || "?"))];
+    const accepts = (d.resources || []).flatMap(x => x.accepts || []).concat(d.accepts || []);
+    const name = n => n === "eip155:4663" ? "rh-chain" : n === "eip155:8453" ? "base"
+      : String(n).startsWith("solana") ? "solana" : String(n);
+    const nets = [...new Set(accepts.map(a => name(a.network || a.chain || "?")))];
     stat("#rail-count", nets.length || null);
     $("#rail-sub").textContent = nets.length ? nets.join(" · ").slice(0, 40) : "x402 payment rails";
   }

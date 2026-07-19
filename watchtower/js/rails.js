@@ -5,19 +5,25 @@
 (() => {
   const { $, fetchJSON, stat } = Deck;
 
-  function railTile(a) {
-    const net = a.network || a.chain || "?";
-    const asset = (a.extra && (a.extra.name || a.extra.assetName)) || a.asset_symbol || a.asset || "";
-    const scheme = a.scheme || "";
-    const payTo = (a.payTo || a.pay_to || "").slice(0, 10);
+  /* CAIP-2 network id → display; asset line is descriptive copy for the
+     known rails (USDG on RH-Chain, USDC via CDP) — the LIVE fact is the
+     network's presence in the manifest. */
+  const NETS = {
+    "eip155:4663": { name: "rh-chain", asset: "USDG", note: "self-hosted Permit2 facilitator" },
+    "eip155:8453": { name: "base", asset: "USDC", note: "CDP facilitator · gas-sponsored" },
+  };
+  function railTile(net, scheme) {
+    const info = NETS[net] || (String(net).startsWith("solana")
+      ? { name: "solana", asset: "USDC", note: "CDP facilitator · gas-sponsored" }
+      : { name: String(net), asset: "rail", note: "" });
     const el = document.createElement("div");
     el.className = "panel inst"; el.tabIndex = 0; el.dataset.cursor = "";
     el.innerHTML =
-      '<div class="klabel">' + net + ' <span class="seal live">live</span></div>' +
-      '<div class="num" style="color:var(--settle-green); font-size:20px;">' + (String(asset).slice(0, 18) || "rail") + "</div>" +
-      '<div class="sub">' + scheme + (payTo ? " · " + payTo + "…" : "") + "</div>" +
-      '<div class="inspect">Straight from the live 402 manifest — network <b>' + net +
-      "</b>, scheme " + (scheme || "?") +
+      '<div class="klabel">' + info.name + ' <span class="seal live">live</span></div>' +
+      '<div class="num" style="color:var(--settle-green); font-size:20px;">' + info.asset + "</div>" +
+      '<div class="sub">' + (scheme || "") + " · " + net.slice(0, 22) + "</div>" +
+      '<div class="inspect">In the live 402 manifest — network <b>' + net +
+      "</b>, scheme " + (scheme || "?") + ". " + info.note +
       '. Prices live on the API card, never beside meter numbers (score-blind).</div>';
     return el;
   }
@@ -35,7 +41,7 @@
       return;
     }
     const d = r.data;
-    const accepts = d.accepts || (d.x402 && d.x402.accepts) || [];
+    const accepts = (d.resources || []).flatMap(x => x.accepts || []).concat(d.accepts || []);
     if (!accepts.length) {
       const el = document.createElement("div");
       el.className = "panel inst";
@@ -43,7 +49,10 @@
       grid.appendChild(el);
       return;
     }
-    accepts.slice(0, 6).forEach(a => grid.appendChild(railTile(a)));
+    const seen = new Map();
+    accepts.forEach(a => { const n = a.network || a.chain || "?";
+      if (!seen.has(n)) seen.set(n, a.scheme || ""); });
+    [...seen].slice(0, 6).forEach(([n, s]) => grid.appendChild(railTile(n, s)));
   }
 
   async function loadHealth() {
