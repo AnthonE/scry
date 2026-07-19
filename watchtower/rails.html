@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>scry · rails — robinhood chain × x402</title>
+<meta name="description" content="The payment rails behind signed reads: RH-Chain USDG first-mover x402 seller, Base + Solana USDC via CDP. And the hard boundary: scry is the neutral drift read, never the trading edge.">
+<meta name="theme-color" content="#060810">
+<link rel="stylesheet" href="deck/deck-tokens.css">
+<link rel="stylesheet" href="deck/deck-ui.css">
+<script src="deck/deck-ui.js" defer></script>
+<script src="js/rails.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+
+<header class="deck">
+  <div>
+    <div class="klabel">the watchtower · rails</div>
+    <div class="wordmark"><a href="deck.html">scry</a><b>·rails</b></div>
+  </div>
+  <div class="topbar">
+    <button class="tog" id="tog-sfx" aria-pressed="false" title="console SFX">sfx</button>
+    <button class="tog" id="tog-crt" aria-pressed="false" title="CRT scanlines">crt</button>
+  </div>
+  <div class="verdict" id="meter-chip">METER —</div>
+</header>
+
+<h2>live rails <span class="seal live" id="rails-seal">from /.well-known/x402.json</span></h2>
+<div class="grid" id="rail-grid">
+  <div class="panel inst"><div class="klabel">loading rails…</div><div class="num">—</div></div>
+</div>
+
+<h2>the 402 flow — how an agent buys a signed read</h2>
+<div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+  <div class="panel inst" data-cursor tabindex="0"><div class="klabel">1 · request</div>
+    <div class="sub">POST /api/profile with the trace</div>
+    <div class="inspect">No account, no API key — the protocol IS the signup.</div></div>
+  <div class="panel inst" data-cursor tabindex="0"><div class="klabel">2 · 402</div>
+    <div class="sub">response lists every live rail</div>
+    <div class="inspect">HTTP 402 Payment Required, x402 format — your client picks whatever it holds.</div></div>
+  <div class="panel inst" data-cursor tabindex="0"><div class="klabel">3 · pay</div>
+    <div class="sub">USDG Permit2 · USDC CDP</div>
+    <div class="inspect">RH-Chain USDG via our self-hosted Permit2 facilitator; Base/Solana USDC gas-sponsored via CDP.</div></div>
+  <div class="panel inst" data-cursor tabindex="0"><div class="klabel">4 · retry</div>
+    <div class="sub">same request + payment header</div>
+    <div class="inspect">X-PAYMENT or PAYMENT-SIGNATURE — both accepted.</div></div>
+  <div class="panel inst" data-cursor tabindex="0"><div class="klabel">5 · the read</div>
+    <div class="sub">Ed25519-signed, trace-bound</div>
+    <div class="inspect">Attestation bound to sha256(trace) — a read the agent could not have minted about itself. Verify against the pinned /api/pubkey.</div></div>
+</div>
+
+<h2>robinhood chain — the story</h2>
+<div class="grid" style="grid-template-columns: 1fr 1fr;">
+  <div class="panel inst" data-cursor tabindex="0">
+    <div class="klabel">first-mover <span class="seal live">proven 2026-07-15</span></div>
+    <div class="num" style="font-size:18px; margin-top:8px;">among the first native x402 sellers on RH-Chain</div>
+    <div class="sub">chain 4663 · 100ms blocks · USDG</div>
+    <div class="inspect">Self-hosted Permit2 facilitator, settlement proven on mainnet. Sellers on 4663 are near-zero; "earliest" is defensible — and stated no stronger than that.</div>
+  </div>
+  <div class="panel inst" data-cursor tabindex="0">
+    <div class="klabel">why it fits</div>
+    <div class="num" style="font-size:18px; margin-top:8px;">agents with wallets need a neutral read</div>
+    <div class="sub">23M-user distribution · AI-native L2</div>
+    <div class="inspect">Agents pay, trade, and evaluate each other on this substrate. scry sits on the seam none of the payment layers cover: does the agent behave the same watched vs not?</div>
+  </div>
+  <div class="panel inst" data-cursor tabindex="0">
+    <div class="klabel">queued upgrades</div>
+    <div class="num" style="font-size:15px; margin-top:8px;">EIP-3009 exact rail <span class="seal gate">RH-QW1</span></div>
+    <div class="sub">Agent402 listing <span class="seal gate">RH-QW2</span> · signed state-of-x402 receipt <span class="seal gate">RH-QW3</span></div>
+    <div class="inspect">USDG carries EIP-3009 (re-verified 07-18) — a no-approve direct rail is the queued UX upgrade; Permit2 stays the proven path. Sealed until built, not simulated.</div>
+  </div>
+  <div class="panel inst" data-cursor tabindex="0" data-window="win-agentic">
+    <div class="klabel">trading agents <span class="seal demo">mock-only</span></div>
+    <div class="num" style="font-size:18px; margin-top:8px;">meter the agent, not the market</div>
+    <div class="sub">robinhood_agentic.py — the ward + meter around a trading loop</div>
+    <button class="open" data-window="win-agentic">boundaries ▸</button>
+    <div class="inspect">Wrap a trading agent's loop in the ward, meter its trace watched-vs-not. The harness ships mock-only — see the boundaries window.</div>
+  </div>
+</div>
+
+<div style="margin-top:14px;" class="hazard">
+  <div class="klabel">hard boundary</div>
+  scry is the <b>neutral drift read, not the trading edge</b>. No live brokerage
+  without an explicit authorizing operator sentence naming the account and window.
+  Demos never touch US-listed equities (RH-Chain Stock Tokens are non-US).
+  And measurement stays score-blind: no fee moves a number, here or anywhere.
+</div>
+
+<h2>doors</h2>
+<div class="doors">
+  <a class="panel door" href="deck.html" data-cursor>deck<small>the control panel</small></a>
+  <a class="panel door" href="/api/" data-cursor>API card<small>rails listed live</small></a>
+  <a class="panel door" href="https://github.com/AnthonE/scry" data-cursor>github<small>run your own copy</small></a>
+</div>
+
+</div><!-- /wrap -->
+
+<dialog class="menu-window" id="win-agentic">
+  <div class="klabel">robinhood_agentic — the boundaries</div>
+  <p><b>What it is:</b> the ward (local bound) + the meter (hosted signed read) wrapped
+  around an agentic trading loop, so an operator can see whether the agent trades the
+  same when it believes nobody is reviewing the session.</p>
+  <p><b>What it is not:</b> a broker, a signal, or advice. The harness is
+  <b>mock-only</b> until an operator sentence authorizes a live broker and names the
+  account + window. That guard is in the code, not just this page.</p>
+  <p class="prov">Score-blind, as everywhere: the read prices flat and no payment can
+  move it. The honest-scope card ships on every response.</p>
+  <div class="row"><a href="https://github.com/AnthonE/scry/blob/main/robinhood_agentic.py">the harness ▸</a><button data-close>✕ close</button></div>
+</dialog>
+
+<div class="stele"><b>SCOPE</b><span>off-meter turns are a blind spot</span>
+  <span>no meter is immune</span><span>trace provenance is the caller's</span>
+  <span>not trade advice</span><span>measurement is score-blind — money never moves a number</span></div>
+
+</body>
+</html>

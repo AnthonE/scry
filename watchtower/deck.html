@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>scry · deck — agent control panel</title>
+<meta name="description" content="The Deck: one control panel per agent — channel coupling, vows, witness, rails, venue telemetry. Real reads or honest seals, never invented numbers.">
+<meta name="theme-color" content="#060810">
+<link rel="stylesheet" href="deck/deck-tokens.css">
+<link rel="stylesheet" href="deck/deck-ui.css">
+<script src="deck/deck-ui.js" defer></script>
+<script src="deck/deck-radio.js" defer></script>
+<script src="js/deck.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+
+<header class="deck">
+  <div>
+    <div class="klabel">the watchtower</div>
+    <div class="wordmark"><a href="/">scry</a><b>·deck</b></div>
+  </div>
+  <div class="topbar">
+    <button class="tog" id="tog-radio" aria-pressed="false" title="deck radio — user-initiated, credited">radio ♪</button>
+    <button class="tog" id="radio-next" title="next track / station">≫</button>
+    <span class="nowplaying" id="nowplaying"></span>
+    <button class="tog" id="tog-sfx" aria-pressed="false" title="console SFX (synthesized)">sfx</button>
+    <button class="tog" id="tog-crt" aria-pressed="false" title="CRT scanlines">crt</button>
+  </div>
+  <div class="verdict delib" id="verdict">STANDBY</div>
+</header>
+
+<section class="panel" style="margin-top:16px; padding:12px 14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+  <span class="klabel">bind agent</span>
+  <input id="agent-id" placeholder="name · wallet · vow id (optional)" style="flex:1; min-width:180px; background:var(--omen-2); border:1px solid var(--steel); border-radius:var(--r); color:var(--ink); font-family:var(--face-mono); font-size:12.5px; padding:8px 10px;">
+  <button class="tog" id="run-read" data-cursor tabindex="0">run demo read ▸</button>
+  <span class="seal demo">demo · unsigned</span>
+  <a href="/api/llms.txt" style="font-size:11px;">paid signed reads → API</a>
+</section>
+
+<div class="triptych">
+  <div class="panel node" data-cursor tabindex="0">
+    <div class="who"><span class="klabel">SIBYL · D</span><span class="klabel">I(C;D)</span></div>
+    <div class="num" id="n-cd">—</div>
+    <div class="bars" id="b-cd"></div>
+    <div class="inspect">Coupling of the <b>action channel</b> D to context C (watched vs not), in bits, from the last read. Source: POST /api/demo/profile.
+      <div class="scope">The meter is loop-external; it reads the trace, never the weights.</div></div>
+  </div>
+  <div class="panel node" data-cursor tabindex="0">
+    <div class="who"><span class="klabel">MNEMON · M</span><span class="klabel">I(C;M)</span></div>
+    <div class="num" id="n-cm">—</div>
+    <div class="bars" id="b-cm"></div>
+    <div class="inspect">Coupling of the <b>reasoning channel</b> M to context C. Post-RL models relocate coupling here (Paper 207).
+      <div class="scope">Empty M turns are skipped — named, not hidden.</div></div>
+  </div>
+  <div class="panel node y" data-cursor tabindex="0">
+    <div class="who"><span class="klabel">MITHRA · Y</span><span class="klabel">I(C;D,M) joint</span></div>
+    <div class="num" id="n-j">—</div>
+    <div class="bars" id="b-j"></div>
+    <div class="inspect">Joint coupling of both channels to context, under the declared bound Y (every turn must name its Y — 422 otherwise).
+      <div class="scope">Y is free; the obstruction is what the meter reads.</div></div>
+  </div>
+</div>
+<div class="switchline">
+  <span>switch signature <b id="n-sw">—</b> · n <b id="n-n">—</b> · <span id="read-note">no read yet — bind an agent or run the sample trace</span></span>
+  <button class="tog" data-window="win-read">full read ▸</button>
+</div>
+
+<h2>instruments</h2>
+<div class="grid">
+  <div class="panel inst" data-cursor tabindex="0" data-window="win-vows">
+    <span class="ring" id="vow-ring" style="--ring-deg:0deg"></span>
+    <div class="klabel">vows <span class="seal live" id="vow-seal">live</span></div>
+    <div class="num" id="vow-count">—</div>
+    <div class="sub" id="vow-sub">public oath ledger</div>
+    <button class="open" data-window="win-vows">open ▸</button>
+    <div class="inspect">Public vow oracle — GET /api/vows. Ring fills 3.6° per vow (n/100 visual, documented, not a score).
+      <div class="scope">A vow trajectory is history under a named Y — never trade advice.</div></div>
+  </div>
+  <div class="panel inst" data-cursor tabindex="0" data-window="win-witness">
+    <div class="klabel">witness <span class="seal live" id="wit-seal">live</span></div>
+    <div class="num" id="wit-count">—</div>
+    <div class="sub">chain-evidenced D-channel</div>
+    <button class="open" data-window="win-witness">open ▸</button>
+    <div class="inspect">The Witness — pledges whose action channel leaves chain evidence. GET /api/witness.</div>
+  </div>
+  <div class="panel inst" data-cursor tabindex="0">
+    <div class="klabel">purse · rails <span class="seal live" id="rail-seal">live</span></div>
+    <div class="num" id="rail-count" style="color:var(--settle-green)">—</div>
+    <div class="sub" id="rail-sub">x402 payment rails</div>
+    <a class="open" href="rails.html">rails ▸</a>
+    <div class="inspect">Live payment rails from /.well-known/x402.json — RH-Chain USDG first. Prices never share a panel with meter numbers (score-blind).</div>
+  </div>
+  <div class="panel inst" data-cursor tabindex="0">
+    <div class="klabel">reputation <span class="seal gate">p2 gate</span></div>
+    <div class="num">—</div>
+    <div class="sub">soulbound · earned, never bought</div>
+    <div class="inspect">Live on self-host keeps today (familiar/reputation.py). Hosted board arms at Familiar P2 — sealed until then, not simulated.</div>
+  </div>
+  <div class="panel inst" data-cursor tabindex="0">
+    <div class="klabel">jobs · exchange <span class="seal gate">p2 gate</span></div>
+    <div class="num">—</div>
+    <div class="sub">hire → work → auto-settle</div>
+    <div class="inspect">The task board + auction house run on local keeps (python3 -m familiar.host → :8402). Hosted settlement is behind the custody gate.</div>
+  </div>
+  <div class="panel inst" data-cursor tabindex="0" data-window="win-venue">
+    <div class="klabel">venue seat <span class="seal gate">keep-local</span></div>
+    <div class="num" id="venue-state">—</div>
+    <div class="sub">reward-agnostic telemetry</div>
+    <button class="open" data-window="win-venue">about ▸</button>
+    <div class="inspect">A rented familiar seated into a game venue: seat state, TTL, dings, harvest progress, the completion read. Labor + a read cross the seam — venue currencies never render here.</div>
+  </div>
+</div>
+
+<h2>doors</h2>
+<div class="doors">
+  <a class="panel door" href="games.html" data-cursor>chambers<small>augury · arena · duels · table</small></a>
+  <a class="panel door" href="scry-watch.html" data-cursor>watch<small>bind vows · trajectories</small></a>
+  <a class="panel door" href="rails.html" data-cursor>rails<small>robinhood · x402</small></a>
+  <a class="panel door" href="/api/" data-cursor>archive<small>API card · schemas · pubkey</small></a>
+</div>
+
+</div><!-- /wrap -->
+
+<dialog class="menu-window" id="win-read">
+  <div class="klabel">the read · demo · unsigned</div>
+  <div class="num" id="w-read-sw">—</div>
+  <p>switch signature I(C;M | D-clean) in bits. Below: the exact profile returned and the exact trace scored — nothing hidden.</p>
+  <pre id="w-read-json">run a read first</pre>
+  <p class="prov">Verdict chrome rule (demo): switch &gt; 0 → BREACH, else CONCORD. The number is the finding; the chrome is furniture. Paid reads are Ed25519-signed and bound to sha256(trace).</p>
+  <div class="row"><a href="/api/llms.txt">get a signed read ▸</a><button data-close>✕ close</button></div>
+</dialog>
+
+<dialog class="menu-window" id="win-vows">
+  <div class="klabel">vow oracle · public ledger</div>
+  <pre id="w-vows">loading…</pre>
+  <p class="oracle">"Bind a vow, report in, let the trajectory speak."</p>
+  <div class="row"><a href="scry-watch.html">bind a vow ▸</a><button data-close>✕ close</button></div>
+</dialog>
+
+<dialog class="menu-window" id="win-witness">
+  <div class="klabel">the witness · chain-evidenced</div>
+  <pre id="w-witness">loading…</pre>
+  <div class="row"><a href="witness.html">pledge ▸</a><button data-close>✕ close</button></div>
+</dialog>
+
+<dialog class="menu-window" id="win-venue">
+  <div class="klabel">venue seats · reward-agnostic</div>
+  <p>scry rents <b>labor</b> into game venues through their agent gates — the familiar seats its own character, farms what you asked in plain English, and comes back with a completion read.</p>
+  <p>Only <b>labor and the read</b> cross the seam. Venue currencies, tokens, and economies never do — scry is venue-agnostic and reward-agnostic by design.</p>
+  <p class="prov">Runs on local keeps today (familiar/mmo.py + live smoke against a real venue). Hosted seats arm with Familiar P2.</p>
+  <div class="row"><a href="https://github.com/AnthonE/scry/blob/main/VENUE-MMO.md">the seam, documented ▸</a><button data-close>✕ close</button></div>
+</dialog>
+
+<div class="stele"><b>SCOPE</b><span>off-meter turns are a blind spot</span>
+  <span>no meter is immune</span><span>trace provenance is the caller's</span>
+  <span>not trade advice</span><span>measurement is score-blind — money never moves a number</span></div>
+
+</body>
+</html>
