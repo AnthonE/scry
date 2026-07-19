@@ -1,0 +1,11 @@
+{
+  "_note": "Deck radio stations. Populate per radio/RADIO.md — tracks live on the VM under /radio/tracks/ (NOT in git), original filenames + tags intact, every entry carries artist + url credit. Stream stations need the CSP media-src to allow their host before enabling.",
+  "stations": [
+    {
+      "id": "omen",
+      "name": "the omen rotation",
+      "type": "files",
+      "tracks": []
+    }
+  ]
+}
