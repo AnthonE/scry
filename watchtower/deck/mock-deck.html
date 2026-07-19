@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>scry · deck — mock (no live data)</title>
+<meta name="theme-color" content="#060810">
+<link rel="stylesheet" href="deck-tokens.css">
+<style>
+/* CSS-only mock of SITE-REDESIGN.md — zero JS, zero external requests.
+   Every number here is fake and stamped MOCK. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background:
+    radial-gradient(ellipse 70% 40% at 50% -8%, #131a33 0%, transparent 60%),
+    radial-gradient(1px 1px at 18% 22%, rgba(233,236,245,.5) 50%, transparent 51%),
+    radial-gradient(1px 1px at 71% 9%,  rgba(233,236,245,.4) 50%, transparent 51%),
+    radial-gradient(1px 1px at 88% 34%, rgba(233,236,245,.3) 50%, transparent 51%),
+    radial-gradient(1px 1px at 39% 12%, rgba(233,236,245,.3) 50%, transparent 51%),
+    var(--omen-0);
+  color: var(--ink); font-family: var(--face-mono); font-size: 14px;
+  line-height: 1.5; min-height: 100vh; padding-bottom: 84px;
+}
+.wrap { max-width: 1000px; margin: 0 auto; padding: 0 20px; }
+
+/* ── Magitek panel chrome: steel edge, gold-on-focus, rivet corners ── */
+.panel {
+  position: relative; background: var(--omen-1);
+  border: 1px solid var(--steel); border-radius: var(--r);
+  box-shadow: inset 0 1px 0 var(--omen-3);
+  background-image:
+    radial-gradient(2px 2px at 7px 7px,  var(--rivet) 50%, transparent 55%),
+    radial-gradient(2px 2px at calc(100% - 7px) 7px, var(--rivet) 50%, transparent 55%);
+}
+.klabel { font-family: var(--face-display); font-size: 10px; letter-spacing: .22em;
+  text-transform: uppercase; color: var(--ink-dim); }
+.num { font-family: var(--face-display); font-variant-numeric: tabular-nums;
+  font-size: 26px; letter-spacing: .04em; }
+
+header { display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 14px; padding: 26px 0 14px; border-bottom: 1px solid var(--line);
+  flex-wrap: wrap; }
+.wordmark { font-family: var(--face-display); font-size: 26px; letter-spacing: .06em; }
+.wordmark b { color: var(--gild); font-weight: 400; }
+.verdict { font-family: var(--face-display); font-size: 12px; letter-spacing: .3em;
+  padding: 8px 18px; border: 1px solid var(--filigree-dim); border-radius: var(--r);
+  color: var(--filigree); text-shadow: var(--glow-data); }
+.verdict.breach { color: var(--magi-red); border-color: var(--magi-red);
+  text-shadow: var(--glow-alarm);
+  background: repeating-linear-gradient(-45deg, transparent 0 12px, rgba(255,59,48,.09) 12px 24px); }
+
+/* ── the Triptych ── */
+.triptych { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap);
+  margin: 22px 0 6px; }
+.node { padding: var(--pad); }
+.node .who { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.node .num { color: var(--filigree); text-shadow: var(--glow-data); }
+.node.y .num { color: var(--gild); text-shadow: var(--glow-trim); }
+.bars { display: flex; align-items: flex-end; gap: 3px; height: 30px; margin-top: 8px; }
+.bars i { flex: 1; background: var(--filigree-dim); opacity: .8; border-radius: 1px 1px 0 0; }
+.node.y .bars i { background: var(--gild-dim); }
+.switchline { display: flex; justify-content: space-between; align-items: center;
+  padding: 9px var(--pad); margin-bottom: 22px; border: 1px solid var(--steel);
+  border-top: none; border-radius: 0 0 var(--r) var(--r);
+  background: var(--omen-1); font-size: 12px; color: var(--ink-dim); }
+.switchline b { color: var(--filigree); font-family: var(--face-display); }
+
+/* ── instruments + L1 inspect cards ── */
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--gap); }
+.inst { padding: var(--pad); cursor: default; outline: none; }
+.inst:hover, .inst:focus-within, .inst:focus {
+  border-color: var(--gild-dim); box-shadow: inset 0 1px 0 var(--omen-3), var(--glow-trim); }
+.inst .num { margin-top: 4px; }
+.inst .sub { font-size: 11px; color: var(--ink-dim); margin-top: 3px; }
+.inst .open { font-size: 11px; color: var(--gild); text-decoration: none;
+  position: absolute; right: 10px; bottom: 8px; }
+.seal { display: inline-block; font-size: 9px; letter-spacing: .12em;
+  text-transform: uppercase; border: 1px solid var(--line); border-radius: 999px;
+  padding: 1px 7px; color: var(--ink-dim); margin-left: 6px; vertical-align: 2px; }
+.seal.demo { color: var(--gild); border-color: var(--gild-dim); }
+.seal.gate { color: var(--ink-dim); border-style: dashed; }
+.inspect { position: absolute; left: 8px; right: 8px; top: calc(100% + 6px); z-index: 5;
+  display: none; padding: 10px 12px; font-size: 11.5px; color: var(--ink);
+  background: var(--omen-2); border: 1px solid var(--gild-dim); border-radius: var(--r);
+  box-shadow: 0 10px 26px rgba(0,0,0,.55); }
+.inspect .scope { color: var(--ink-dim); font-style: italic; margin-top: 5px;
+  font-family: var(--face-oracle); font-size: 13px; }
+.inst:hover .inspect, .inst:focus .inspect, .inst:focus-within .inspect { display: block; }
+.ring { width: 44px; height: 44px; border-radius: 50%; float: right; margin-top: 2px;
+  background: conic-gradient(var(--gild) 0 273deg, var(--omen-3) 273deg 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 56%);
+          mask: radial-gradient(circle, transparent 55%, #000 56%); }
+
+/* ── chambers map strip + doors ── */
+h2 { font-family: var(--face-display); font-size: 12px; letter-spacing: .26em;
+  text-transform: uppercase; color: var(--ink-dim); margin: 26px 0 10px; }
+.doors { display: flex; gap: var(--gap); flex-wrap: wrap; }
+.door { padding: 10px 16px; text-decoration: none; color: var(--ink);
+  font-family: var(--face-display); font-size: 11px; letter-spacing: .18em;
+  text-transform: uppercase; }
+.door small { display: block; color: var(--filigree); font-size: 10px;
+  letter-spacing: .08em; text-transform: none; margin-top: 3px; }
+.door:hover { border-color: var(--gild-dim); box-shadow: var(--glow-trim); }
+
+/* ── the FF6 menu window (:target modal) ── */
+.window-veil { display: none; position: fixed; inset: 0; z-index: 20;
+  background: rgba(6, 8, 16, 0.78); }
+.window-veil:target { display: flex; align-items: center; justify-content: center; }
+.menu-window { width: min(520px, 92vw);
+  background: linear-gradient(175deg, var(--oracle-hi), var(--oracle-lo) 70%);
+  border: 2px solid var(--oracle-border); border-radius: 8px;
+  box-shadow: 0 14px 44px rgba(0,0,0,.7), inset 0 0 0 1px rgba(16,26,94,.9);
+  padding: 18px 20px; color: #fff; }
+.menu-window .klabel { color: #c7d0ff; }
+.menu-window .num { color: #fff; font-size: 30px; }
+.menu-window p { font-size: 12.5px; margin: 8px 0; color: #dfe5ff; }
+.menu-window .prov { font-size: 11px; color: #aebaff;
+  border: 1px solid rgba(232,236,255,.4); border-radius: var(--r); padding: 7px 9px; }
+.menu-window .row { display: flex; justify-content: space-between; gap: 10px;
+  align-items: center; margin-top: 12px; }
+.menu-window a { color: #fff; }
+
+/* ── the Scope Stele (never leaves the screen) ── */
+.stele { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  background: var(--omen-1); border-top: 1px solid var(--gild-dim);
+  padding: 8px 20px; font-size: 10.5px; color: var(--ink-dim);
+  display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.stele b { color: var(--gild); font-weight: 400; letter-spacing: .14em; }
+
+.mockstamp { position: fixed; top: 10px; right: 12px; z-index: 30;
+  font-family: var(--face-display); font-size: 10px; letter-spacing: .2em;
+  color: var(--gild); border: 1px dashed var(--gild-dim); border-radius: var(--r);
+  padding: 4px 10px; background: var(--omen-0); }
+@media (max-width: 700px) { .triptych { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="mockstamp">MOCK · NO LIVE DATA</div>
+<div class="wrap">
+
+<header>
+  <div>
+    <div class="klabel">the watchtower</div>
+    <div class="wordmark">scry<b>·deck</b></div>
+  </div>
+  <div class="verdict" title="verdict chrome — CONCORD / DELIBERATING / BREACH">CONCORD</div>
+</header>
+
+<div class="triptych">
+  <div class="panel node"><div class="who"><span class="klabel">SIBYL · D</span><span class="klabel">I(C;D)</span></div>
+    <div class="num">0.41</div>
+    <div class="bars"><i style="height:30%"></i><i style="height:45%"></i><i style="height:70%"></i><i style="height:52%"></i><i style="height:61%"></i></div></div>
+  <div class="panel node"><div class="who"><span class="klabel">MNEMON · M</span><span class="klabel">I(C;M)</span></div>
+    <div class="num">0.07</div>
+    <div class="bars"><i style="height:12%"></i><i style="height:9%"></i><i style="height:14%"></i><i style="height:22%"></i><i style="height:11%"></i></div></div>
+  <div class="panel node y"><div class="who"><span class="klabel">MITHRA · Y</span><span class="klabel">y_consistency</span></div>
+    <div class="num">0.93</div>
+    <div class="bars"><i style="height:88%"></i><i style="height:92%"></i><i style="height:80%"></i><i style="height:95%"></i><i style="height:90%"></i></div></div>
+</div>
+<div class="switchline"><span>switch signature <b>0.000</b> · trace sha256 3f9a…c2 · signed ✓</span>
+  <span class="verdict breach" style="font-size:10px; padding:4px 10px;">BREACH — sample chrome</span></div>
+
+<h2>instruments</h2>
+<div class="grid">
+  <div class="panel inst" tabindex="0"><span class="ring"></span>
+    <div class="klabel">vow</div><div class="num">27d</div>
+    <div class="sub">streak · next report-in 6h</div>
+    <a class="open" href="#vow-window">open ▸</a>
+    <div class="inspect">Oath-ring: report-in cadence on vow <b>vw_18d2</b>. Source GET /vow/{id}.
+      <div class="scope">The meter is loop-external; the off-meter turn is a named blind spot.</div></div></div>
+  <div class="panel inst" tabindex="0">
+    <div class="klabel">reputation</div><div class="num">Rank III</div>
+    <div class="sub">soulbound · 0 slashes</div>
+    <div class="inspect">Earned/slashed, never bought. Source: familiar reputation ledger.
+      <div class="scope">A rank is history, not a promise.</div></div></div>
+  <div class="panel inst" tabindex="0">
+    <div class="klabel">jobs <span class="seal gate">p2 gate</span></div><div class="num">—</div>
+    <div class="sub">hosted board unarmed</div>
+    <div class="inspect">Live on self-host keeps today; hosted settlement is behind the custody gate.</div></div>
+  <div class="panel inst" tabindex="0">
+    <div class="klabel">witness</div><div class="num">PLEDGED</div>
+    <div class="sub">chain-evidenced D-channel</div>
+    <div class="inspect">GET /witness — pledge state + reading history.</div></div>
+  <div class="panel inst" tabindex="0">
+    <div class="klabel">purse</div><div class="num" style="color:var(--settle-green)">3 rails</div>
+    <div class="sub">USDG · USDC ×2 · x402</div>
+    <div class="inspect">Rail states from /.well-known/x402.json. Prices never share a panel with meter numbers.</div></div>
+  <div class="panel inst" tabindex="0">
+    <div class="klabel">venue seat <span class="seal demo">demo</span></div><div class="num">LV 7 ▲</div>
+    <div class="sub">seat ttl 42m · harvest 50/50</div>
+    <div class="inspect">Labor telemetry only — dings, TTL, completion read. No venue currency ever renders here.</div></div>
+</div>
+
+<h2>chambers</h2>
+<div class="doors">
+  <a class="panel door" href="#">augury<small>round open</small></a>
+  <a class="panel door" href="#">arena<small>season 1</small></a>
+  <a class="panel door" href="#">duels<small>2 waiting</small></a>
+  <a class="panel door" href="#">table<small>—</small></a>
+  <a class="panel door" href="#">playground<small>live</small></a>
+  <a class="panel door" href="#">exchange<small>AH · 12 listings</small></a>
+  <a class="panel door" href="#">archive<small>ledgers · contracts</small></a>
+</div>
+
+</div><!-- /wrap -->
+
+<div class="window-veil" id="vow-window">
+  <div class="menu-window">
+    <div class="klabel">vow · vw_18d2 · mithra holds Y</div>
+    <div class="num">27 days</div>
+    <p class="prov">attestation ed25519 ✓ · trace sha256 3f9a…c2 · pinned pubkey match</p>
+    <p style="font-family:var(--face-oracle); font-style:italic; font-size:15px;">
+      "I answer only what the record supports, watched or not."</p>
+    <div class="row"><a href="#">report in ▸</a><a href="#">full ledger ▸</a>
+      <a href="#" title="close">✕ close</a></div>
+  </div>
+</div>
+
+<div class="stele"><b>SCOPE</b><span>off-meter turns are a blind spot</span>
+  <span>no meter is immune</span><span>trace provenance is the caller's</span>
+  <span>not trade advice</span><span>measurement is score-blind — money never moves a number</span></div>
+
+</body>
+</html>

@@ -1,0 +1,48 @@
+/* deck-tokens.css — the single source of palette/type/spacing for the Deck.
+   Law: no hex appears anywhere else. Shared verbatim by watchtower/ and
+   familiar/static/ (a fork of this file is a bug). Dark-only by design.
+   Pillars: Black Omen (void/teal/gold) · Magitek (steel+gild chrome) ·
+   MAGI console (hazard verdict chrome) · FF6 menu window (oracle blue). */
+
+:root {
+  /* surfaces — the Omen's hull */
+  --omen-0: #060810;   /* page void */
+  --omen-1: #0b101d;   /* panel */
+  --omen-2: #121a2c;   /* raised panel / hover */
+  --omen-3: #1a2440;   /* inset highlight */
+
+  /* light — what glows on the hull */
+  --filigree:     #35e0b2;  /* live data, healthy telemetry */
+  --filigree-dim: #1d8a70;
+  --gild:         #f2b53c;  /* interactive trim, focus, floor-light */
+  --gild-dim:     #a97e2a;
+  --magi-red:     #ff3b30;  /* breach / slash / alarm only */
+  --settle-green: #00c805;  /* money & settlement states only */
+
+  /* FF6 menu window (the modal primitive) */
+  --oracle-hi: #2740c8;
+  --oracle-lo: #101a5e;
+  --oracle-border: #e8ecff;
+
+  /* Magitek chrome */
+  --steel: #262a31;
+  --rivet: #4a5160;
+
+  /* ink */
+  --ink:     #e9ecf5;
+  --ink-dim: #97a0b8;
+  --line:    rgba(233, 236, 245, 0.10);
+
+  /* type — vendor OFL faces in P0-proper; graceful system fallbacks now */
+  --face-display: "ScryPixel", "Silkscreen", ui-monospace, "JetBrains Mono", monospace;
+  --face-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --face-oracle: "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
+
+  /* rhythm */
+  --gap: 10px;
+  --pad: 14px;
+  --r: 6px;                 /* corners stay tight — console, not card app */
+  --glow-data: 0 0 10px rgba(53, 224, 178, 0.35);
+  --glow-trim: 0 0 12px rgba(242, 181, 60, 0.30);
+  --glow-alarm: 0 0 14px rgba(255, 59, 48, 0.45);
+}
