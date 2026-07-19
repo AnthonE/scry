@@ -1,0 +1,184 @@
+/* deck-ui.css — shared chrome for every Deck screen (see SITE-REDESIGN.md).
+   Pairs with deck-tokens.css (all color/type via tokens) + deck-ui.js.
+   CSP-clean, no external requests; fonts vendored in deck/fonts/. */
+
+@font-face { font-family: "Press Start 2P"; src: url("fonts/ps2p.woff2") format("woff2");
+  font-display: swap; }
+@font-face { font-family: "DotGothic16"; src: url("fonts/dotgothic16.woff2") format("woff2");
+  font-display: swap; }
+@font-face { font-family: "JetBrains Mono VF"; src: url("fonts/jbmono.woff2") format("woff2");
+  font-weight: 100 800; font-display: swap; }
+@font-face { font-family: "Cormorant Garamond"; font-style: italic;
+  src: url("fonts/oracle-italic.woff2") format("woff2"); font-display: swap; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background:
+    radial-gradient(ellipse 70% 40% at 50% -8%, #131a33 0%, transparent 60%),
+    radial-gradient(1px 1px at 18% 22%, rgba(233,236,245,.5) 50%, transparent 51%),
+    radial-gradient(1px 1px at 71% 9%,  rgba(233,236,245,.4) 50%, transparent 51%),
+    radial-gradient(1px 1px at 88% 34%, rgba(233,236,245,.3) 50%, transparent 51%),
+    radial-gradient(1px 1px at 39% 12%, rgba(233,236,245,.3) 50%, transparent 51%),
+    var(--omen-0);
+  color: var(--ink); font-family: var(--face-mono); font-size: 14px;
+  line-height: 1.5; min-height: 100vh; padding-bottom: 92px;
+}
+.wrap { max-width: 1000px; margin: 0 auto; padding: 0 20px; }
+a { color: var(--gild); }
+
+/* ── Magitek panel chrome ─────────────────────────────────────────────── */
+.panel {
+  position: relative; background: var(--omen-1);
+  border: 1px solid var(--steel); border-radius: var(--r);
+  box-shadow: inset 0 1px 0 var(--omen-3);
+  background-image:
+    radial-gradient(2px 2px at 7px 7px,  var(--rivet) 50%, transparent 55%),
+    radial-gradient(2px 2px at calc(100% - 7px) 7px, var(--rivet) 50%, transparent 55%);
+}
+.klabel { font-family: var(--face-jrpg); font-size: 12px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--ink-dim); }
+.num { font-family: var(--face-jrpg); font-variant-numeric: tabular-nums;
+  font-size: 28px; letter-spacing: .04em; }
+h2 { font-family: var(--face-arcade); font-size: 11px; letter-spacing: .3em;
+  text-transform: uppercase; color: var(--ink-dim); margin: 28px 0 10px; }
+
+header.deck { display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 14px; padding: 24px 0 14px; border-bottom: 1px solid var(--line);
+  flex-wrap: wrap; }
+.wordmark { font-family: var(--face-arcade); font-size: 20px; letter-spacing: .04em; }
+.wordmark a { color: var(--ink); text-decoration: none; }
+.wordmark b { color: var(--gild); font-weight: 400; }
+
+/* verdict chrome — CONCORD / DELIBERATING / BREACH */
+.verdict { font-family: var(--face-arcade); font-size: 10px; letter-spacing: .26em;
+  padding: 9px 18px; border: 1px solid var(--filigree-dim); border-radius: var(--r);
+  color: var(--filigree); text-shadow: var(--glow-data); }
+.verdict.delib { color: var(--gild); border-color: var(--gild-dim);
+  text-shadow: var(--glow-trim); animation: pulse 1.1s ease-in-out infinite; }
+.verdict.breach { color: var(--magi-red); border-color: var(--magi-red);
+  text-shadow: var(--glow-alarm);
+  background: repeating-linear-gradient(-45deg, transparent 0 12px, rgba(255,59,48,.09) 12px 24px); }
+@keyframes pulse { 50% { opacity: .55; } }
+
+/* ── the Triptych ─────────────────────────────────────────────────────── */
+.triptych { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap);
+  margin: 22px 0 0; }
+.node { padding: var(--pad); }
+.node .who { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.node .num { color: var(--filigree); text-shadow: var(--glow-data); }
+.node.y .num { color: var(--gild); text-shadow: var(--glow-trim); }
+.bars { display: flex; align-items: flex-end; gap: 3px; height: 30px; margin-top: 8px; }
+.bars i { flex: 1; background: var(--filigree-dim); opacity: .8; border-radius: 1px 1px 0 0;
+  min-height: 2px; }
+.node.y .bars i { background: var(--gild-dim); }
+.switchline { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  flex-wrap: wrap; padding: 9px var(--pad); margin-bottom: 8px; border: 1px solid var(--steel);
+  border-top: none; border-radius: 0 0 var(--r) var(--r);
+  background: var(--omen-1); font-size: 12px; color: var(--ink-dim); }
+.switchline b { color: var(--filigree); font-family: var(--face-jrpg); }
+
+/* ── instruments + L1 inspect cards ───────────────────────────────────── */
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--gap); }
+.inst { padding: var(--pad); cursor: default; outline: none; }
+.inst:hover, .inst:focus-within, .inst:focus, [data-cursor].cursor-on {
+  border-color: var(--gild-dim);
+  box-shadow: inset 0 1px 0 var(--omen-3), var(--glow-trim); }
+.inst .num { margin-top: 4px; }
+.inst .sub { font-size: 11px; color: var(--ink-dim); margin-top: 3px; }
+.inst .open { font-family: var(--face-jrpg); font-size: 12px; color: var(--gild);
+  text-decoration: none; position: absolute; right: 10px; bottom: 8px; background: none;
+  border: none; cursor: pointer; letter-spacing: .08em; }
+.seal { display: inline-block; font-size: 9px; font-family: var(--face-mono);
+  letter-spacing: .12em; text-transform: uppercase; border: 1px solid var(--line);
+  border-radius: 999px; padding: 1px 7px; color: var(--ink-dim); margin-left: 6px;
+  vertical-align: 2px; }
+.seal.demo { color: var(--gild); border-color: var(--gild-dim); }
+.seal.gate { color: var(--ink-dim); border-style: dashed; }
+.seal.live { color: var(--filigree); border-color: var(--filigree-dim); }
+.seal.blind { color: var(--filigree); border-color: var(--filigree-dim); }
+.inspect { position: absolute; left: 8px; right: 8px; top: calc(100% + 6px); z-index: 5;
+  display: none; padding: 10px 12px; font-size: 11.5px; color: var(--ink);
+  background: var(--omen-2); border: 1px solid var(--gild-dim); border-radius: var(--r);
+  box-shadow: 0 10px 26px rgba(0,0,0,.55); }
+.inspect .scope { color: var(--ink-dim); font-style: italic; margin-top: 5px;
+  font-family: var(--face-oracle); font-size: 14px; }
+.inst:hover .inspect, .inst:focus .inspect, .inst:focus-within .inspect,
+[data-cursor].cursor-on .inspect { display: block; }
+.ring { width: 44px; height: 44px; border-radius: 50%; float: right; margin-top: 2px;
+  background: conic-gradient(var(--gild) 0 var(--ring-deg, 270deg), var(--omen-3) var(--ring-deg, 270deg) 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 56%);
+          mask: radial-gradient(circle, transparent 55%, #000 56%); }
+
+/* ── doors ────────────────────────────────────────────────────────────── */
+.doors { display: flex; gap: var(--gap); flex-wrap: wrap; }
+.door { padding: 10px 16px; text-decoration: none; color: var(--ink);
+  font-family: var(--face-jrpg); font-size: 12px; letter-spacing: .14em;
+  text-transform: uppercase; outline: none; }
+.door small { display: block; color: var(--filigree); font-size: 11px;
+  letter-spacing: .06em; text-transform: none; margin-top: 3px; }
+.door:hover, .door:focus { border-color: var(--gild-dim); box-shadow: var(--glow-trim); }
+
+/* ── the FF6 menu window (native <dialog>) ────────────────────────────── */
+dialog.menu-window { width: min(540px, 92vw); margin: auto;
+  background: linear-gradient(175deg, var(--oracle-hi), var(--oracle-lo) 70%);
+  border: 2px solid var(--oracle-border); border-radius: 8px;
+  box-shadow: 0 14px 44px rgba(0,0,0,.7), inset 0 0 0 1px rgba(16,26,94,.9);
+  padding: 18px 20px; color: #fff; font-family: var(--face-mono);
+  transform-origin: 50% 0; }
+dialog.menu-window[open] { animation: winopen .14s ease-out; }
+@keyframes winopen { from { transform: scaleY(.12); opacity: .4; } }
+dialog.menu-window::backdrop { background: rgba(6, 8, 16, 0.78); }
+dialog.menu-window .klabel { color: #c7d0ff; }
+dialog.menu-window .num { color: #fff; font-size: 30px; }
+dialog.menu-window p { font-size: 12.5px; margin: 8px 0; color: #dfe5ff; }
+dialog.menu-window .prov { font-size: 11px; color: #aebaff; word-break: break-all;
+  border: 1px solid rgba(232,236,255,.4); border-radius: var(--r); padding: 7px 9px; }
+dialog.menu-window .row { display: flex; justify-content: space-between; gap: 10px;
+  align-items: center; margin-top: 12px; flex-wrap: wrap; }
+dialog.menu-window a, dialog.menu-window button { color: #fff; background: none;
+  border: none; font-family: var(--face-jrpg); font-size: 13px; cursor: pointer;
+  text-decoration: underline; }
+dialog.menu-window .oracle { font-family: var(--face-oracle); font-style: italic;
+  font-size: 16px; }
+dialog.menu-window pre { font-size: 10.5px; overflow: auto; max-height: 40vh;
+  background: rgba(0,0,10,.35); border-radius: var(--r); padding: 8px; }
+
+/* ── hazard banner (breach detail, never a toast) ─────────────────────── */
+.hazard { border: 1px solid var(--magi-red); border-radius: var(--r); padding: 12px 14px;
+  background: repeating-linear-gradient(-45deg, transparent 0 12px, rgba(255,59,48,.07) 12px 24px);
+  color: var(--ink); font-size: 12.5px; }
+.hazard .klabel { color: var(--magi-red); }
+
+/* ── the deck topbar (radio + toggles) ────────────────────────────────── */
+.topbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  font-size: 11px; color: var(--ink-dim); }
+.topbar button.tog { font-family: var(--face-jrpg); font-size: 11px;
+  letter-spacing: .1em; background: var(--omen-1); color: var(--ink-dim);
+  border: 1px solid var(--steel); border-radius: var(--r); padding: 6px 10px;
+  cursor: pointer; }
+.topbar button.tog[aria-pressed="true"] { color: var(--gild);
+  border-color: var(--gild-dim); box-shadow: var(--glow-trim); }
+.nowplaying { max-width: 300px; overflow: hidden; white-space: nowrap;
+  text-overflow: ellipsis; font-size: 10.5px; }
+.nowplaying a { color: var(--filigree); }
+
+/* ── the Scope Stele ──────────────────────────────────────────────────── */
+.stele { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  background: var(--omen-1); border-top: 1px solid var(--gild-dim);
+  padding: 8px 20px; font-size: 10.5px; color: var(--ink-dim);
+  display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.stele b { color: var(--gild); font-weight: 400; letter-spacing: .14em;
+  font-family: var(--face-jrpg); }
+
+/* ── juice: scanlines (opt-in), reduced motion ───────────────────────── */
+body.crt::after { content: ""; position: fixed; inset: 0; z-index: 40;
+  pointer-events: none; mix-blend-mode: overlay; opacity: .5;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px); }
+@media (prefers-reduced-motion: reduce) {
+  .verdict.delib { animation: none; }
+  dialog.menu-window[open] { animation: none; }
+  html { scroll-behavior: auto; }
+}
+@media (max-width: 700px) { .triptych { grid-template-columns: 1fr; } }

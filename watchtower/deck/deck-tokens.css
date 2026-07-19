@@ -33,9 +33,11 @@
   --ink-dim: #97a0b8;
   --line:    rgba(233, 236, 245, 0.10);
 
-  /* type — vendor OFL faces in P0-proper; graceful system fallbacks now */
-  --face-display: "ScryPixel", "Silkscreen", ui-monospace, "JetBrains Mono", monospace;
-  --face-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  /* type — vendored OFL faces (deck/fonts/, @font-face in deck-ui.css) */
+  --face-arcade: "Press Start 2P", ui-monospace, monospace;   /* wordmark, verdict, h2 */
+  --face-jrpg: "DotGothic16", ui-monospace, monospace;        /* numerals, labels, window text */
+  --face-display: var(--face-jrpg);
+  --face-mono: "JetBrains Mono VF", ui-monospace, Menlo, Consolas, monospace;
   --face-oracle: "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
 
   /* rhythm */
