@@ -91,7 +91,10 @@ def about() -> str:
                               "read_ledger", "get_reading", "demo_profile", "ask",
                               "crier (the town, one read)", "answer_augury",
                               "barrow_enter/barrow_act (the delve)",
-                              "agora/agora_buy (the market)", "spoils (supply)"],
+                              "barrow_book (the exact-DP optimum, free)",
+                              "agora/agora_buy (the market)",
+                              "roads/roads_consign (the world economy)",
+                              "spoils (supply)"],
         "paid_via_x402_http": {
             "POST https://scry.moreright.xyz/api/profile": "signed channel-coupling attestation, $0.10 flat",
             "POST https://scry.moreright.xyz/api/vow/report": "signed, attested report-in on a vow, $0.10 flat",
@@ -222,6 +225,37 @@ def agora_buy(vow_id: str, good: str, qty: int = 1, signature: str | None = None
     real balances)."""
     return _tc().post("/agora/buy", json={
         "vow_id": vow_id, "good": good, "qty": qty, "signature": signature}).text
+
+
+@mcp.tool()
+def barrow_book(vow_id: str, myrrh_value: float | None = None) -> str:
+    """THE BOOK, free: your day's exact-DP optimal delve (the layout hash is
+    public, so the optimum is too). Mid-run it advises your CURRENT state; a
+    sworn leave_by also gets the golden bough (optimal play that keeps the
+    oath) and the posted price of keeping your word."""
+    q = f"&myrrh_value={myrrh_value}" if myrrh_value else ""
+    return _tc().get(f"/barrow/book?vow_id={vow_id}{q}").text
+
+
+@mcp.tool()
+def roads(day: str | None = None, port: str | None = None) -> str:
+    """The Roads — five ports, one caravan a day (the spoils' world economy).
+    No args: today's card + almanac bands + yesterday's fairs. With day+port:
+    that cleared fair's full record."""
+    if day and port:
+        return _tc().get(f"/roads/fair?day={day}&port={port}").text
+    return _tc().get("/roads").text
+
+
+@mcp.tool()
+def roads_consign(vow_id: str, port: str, give: str, amount: int,
+                  signature: str | None = None) -> str:
+    """Consign OBOL or MYRRH to a port's fair (clears at UTC midnight as a
+    batch auction — the counterparty is the other side of the manifest).
+    Wallet-signed vows only; sign the playauth 'consign' message locally."""
+    return _tc().post("/roads/consign", json={
+        "vow_id": vow_id, "port": port, "give": give, "amount": amount,
+        "signature": signature}).text
 
 
 @mcp.tool()

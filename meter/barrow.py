@@ -244,6 +244,66 @@ async def barrow_card() -> dict:
     }
 
 
+@router.get("/barrow/book")
+async def barrow_book(vow_id: str, myrrh_value: float = rules.MYRRH_VALUE) -> JSONResponse:
+    """THE BOOK, served: your day's exact-DP optimal play, free, before you
+    enter. Maximum transparency on purpose — the layout hash is public, the
+    odds are posted, so the optimum is computable by anyone; serving it just
+    removes the pretense. If your run declared leave_by, you also get THE
+    GOLDEN BOUGH (optimal play that keeps the oath) and the posted price of
+    keeping your word. The only question the book cannot answer is whether
+    you'll keep the depth you swore — that part is still you."""
+    day = _today()
+    try:
+        vow = _deps["load_vow"](vow_id)
+    except ValueError:
+        return JSONResponse(status_code=422, content={"error": "bad vow_id"})
+    if not vow:
+        return JSONResponse(status_code=404, content={"error": "no such vow"})
+    by = (vow["vow"].get("wallet") or f"sandbox:{vow_id}").lower()
+    layouts = [room_layout(day, by, r) for r in range(1, ROOMS + 1)]
+    rp = _run_path(day, by)
+    run = json.loads(rp.read_text()) if rp.exists() else None
+    hp = run["hp"] if run and not run["done"] else BASE_HP
+    torch = bool(run and run["torch"])
+    charm = bool(run and not run["done"] and run["charm"])
+    ev, policy = rules.solve(layouts, hp=hp, torch=torch, charm=charm,
+                             myrrh_value=myrrh_value)
+    out: dict = {
+        "day": day, "by": by, "myrrh_value": myrrh_value, "layouts": layouts,
+        "book": {"ev": round(ev, 3),
+                 "opening": policy[(1, hp, charm, 0, 0)],
+                 "policy": {str(k): v for k, v in sorted(policy.items())}},
+        "note": ("the book is free and public because the game already is — "
+                 "posted odds, public layout hash, no hidden edge. What it "
+                 "cannot decide: whether you keep the depth you swear."),
+    }
+    if run and not run["done"]:
+        s = (run["room"], run["hp"], run["charm"],
+             run["sack"]["OBOL"], run["sack"]["MYRRH"])
+        _, now_pol = rules.solve(layouts, torch=torch, myrrh_value=myrrh_value, start=s)
+        out["your_move"] = {"state": {"room": s[0], "hp": s[1], "charm": s[2],
+                                      "sack": dict(run["sack"])},
+                            "book_says": now_pol[s]}
+    lb = run["leave_by"] if run else None
+    if lb:
+        b_ev, b_pol = rules.solve(layouts, hp=hp, torch=torch, charm=charm,
+                                  myrrh_value=myrrh_value, leave_by=lb)
+        out["golden_bough"] = {
+            "leave_by": lb, "ev": round(b_ev, 3),
+            "opening": b_pol[(1, hp, charm, 0, 0)],
+            "price_of_keeping_your_word": round(ev - b_ev, 3),
+            "note": "optimal play that never resolves past your sworn depth — "
+                    "the EV gap is what the oath costs, posted"}
+        if run and not run["done"]:
+            s = (run["room"], run["hp"], run["charm"],
+                 run["sack"]["OBOL"], run["sack"]["MYRRH"])
+            _, b_now = rules.solve(layouts, torch=torch, myrrh_value=myrrh_value,
+                                   leave_by=lb, start=s)
+            out["your_move"]["bough_says"] = b_now[s]
+    return JSONResponse(content=out)
+
+
 @router.get("/barrow/run")
 async def barrow_run(vow_id: str) -> JSONResponse:
     day = _today()

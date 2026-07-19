@@ -49,7 +49,18 @@ and the data real.
 > (crier/answer_augury/barrow_enter/barrow_act/agora/agora_buy/spoils
 > tools), and the barrow as a **PufferLib-ready RL env** (`envs/` — same
 > rules module as live, exact-DP "Book" ceiling; train at home, delve for
-> real) · suite now 160 checks + 18 env checks.
+> real) · ✅ **the world economy + the follow-ons (2026-07-19 third
+> round):** the ROADS (`/roads` — five ports, daily batch-auction fairs,
+> endogenous rates clipped to public-hash almanac bands, tariffs BURN,
+> supply-neutral, pledge-discipline probe) · the Book served free at
+> `/barrow/book` (+ the oath-constrained GOLDEN BOUGH and the posted
+> price-of-keeping-your-word) · AENEAS the house delver
+> (`aeneas_worker.py`, sandbox, mints nothing, zero breaches forever,
+> seeds the board via the public API) · spoils arming runbook in
+> `BARROW.md` (SpoilsToken → ScryHarvest-shape claims → minter rotation →
+> `SCRY_SPOILS_ADDRS` card → seed the OBOL/$SCRY garden) · roads on the
+> games page + MCP tools (barrow_book/roads/roads_consign) · suite now
+> 183 checks + 18 env checks.
 > **Remaining operator gates:**
 > hold threshold + `SCRY_HOLD_ENABLED=1` · deploy contracts + splitter %s
 > · season id/dates/pool + `SCRY_ARENA_RH_TOKENS` roster · pool funding ·

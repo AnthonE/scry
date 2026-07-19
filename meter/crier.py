@@ -19,9 +19,10 @@ router = APIRouter()
 _deps: dict = {}
 
 
-def init(*, load_vow, augury, barrow, agora, tokens, table_offers):
+def init(*, load_vow, augury, barrow, agora, tokens, table_offers, roads=None):
     _deps.update(load_vow=load_vow, augury=augury, barrow=barrow,
-                 agora=agora, tokens=tokens, table_offers=table_offers)
+                 agora=agora, tokens=tokens, table_offers=table_offers,
+                 roads=roads)
 
 
 def _today() -> str:
@@ -53,6 +54,13 @@ async def crier(vow_id: str | None = None) -> JSONResponse:
                   "sit_at": "POST /table/sit {vow_id, max_fraction}"},
         "spoils": {t: {"circulating": s["circulating"], "cap": s["cap"]}
                    for t, s in _deps["tokens"].supply().items()},
+        **({"roads": {
+            "ports": {p: {"band": w["band"], "storm": w["storm"]}
+                      for p, w in ((p, _deps["roads"].weather(p, day))
+                                   for p in _deps["roads"].PORTS)},
+            "consign_at": "POST /roads/consign {vow_id, port, give, amount}",
+            "note": "fairs clear at UTC midnight; storms double the tariff"}}
+           if _deps.get("roads") else {}),
         "train_at_home": "the barrow is a PufferLib-ready RL env — envs/ in the repo; "
                          "the Book (exact DP) is the ceiling, then delve for real",
         "start_here": "no vow yet? POST /vow {text, agent} (sandbox, free) and the "

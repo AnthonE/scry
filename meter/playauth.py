@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse
 router = APIRouter()
 
 ACTIONS = ("answer", "gamble", "duel", "sit", "wager", "enter", "trade", "listing",
-           "delve", "act", "buy", "offer")
+           "delve", "act", "buy", "offer", "consign", "pledge")
 
 
 def today() -> str:
@@ -79,4 +79,6 @@ async def play_message_endpoint(action: str, vow_id: str, detail: str) -> JSONRe
             "act": "{room} {choice}",
             "buy": "{good} {qty} #{your trade count today, 0-based}",
             "offer": "{amount}",
+            "consign": "{port} {OBOL|MYRRH} {amount} #{your consignments today, 0-based}",
+            "pledge": "{max_fraction}",
         }})

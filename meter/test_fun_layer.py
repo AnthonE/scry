@@ -70,9 +70,12 @@ app.include_router(agora.router)
 app.include_router(barrow.router)
 import playauth  # noqa: E402
 app.include_router(playauth.router)
+import roads  # noqa: E402
+roads.init(load_vow=vows._load_vow, tokens=tokens, vows_dir=str(vows.VOWS_DIR))
+app.include_router(roads.router)
 import crier  # noqa: E402
 crier.init(load_vow=vows._load_vow, augury=augury, barrow=barrow,
-           agora=agora, tokens=tokens, table_offers=table.OFFERS)
+           agora=agora, tokens=tokens, table_offers=table.OFFERS, roads=roads)
 app.include_router(crier.router)
 WEBHOOKS = []  # (url, payload) — fake receiver for herald tests
 
@@ -754,5 +757,103 @@ ok(r["you"]["balances"].get("OBOL", 0) > 0 and "charm" in r["you"]["inventory"],
    "personal card carries balances + inventory")
 r = c.get("/crier", params={"vow_id": "vow_doesnotexist"})
 ok(r.status_code in (404, 422), "unknown vow_id is refused")
+
+# ── the Book, served: /barrow/book ───────────────────────────────────────────
+print("[barrow/book]")
+r = c.get("/barrow/book", params={"vow_id": DELVE_VOW}).json()
+ok(len(r["layouts"]) == 3 and r["book"]["opening"] in ("fight", "sneak", "leave"),
+   "the book serves the full layout + the opening move")
+ok(r["golden_bough"]["leave_by"] == 2 and
+   r["golden_bough"]["price_of_keeping_your_word"] >= 0,
+   "sworn depth gets the golden bough + the posted price of keeping your word")
+ok("your_move" not in r, "no live move once the delve is done")
+SBX2 = c.post("/vow", json={"text": "midrun reader", "agent": "kid-book"}).json()["vow_id"]
+barrow.TIERS[:] = [[2.0, 2.0, 6], [2.0, 2.0, 14], [2.0, 2.0, 34]]
+c.post("/barrow/enter", json={"vow_id": SBX2, "leave_by": 1})
+c.post("/barrow/act", json={"vow_id": SBX2, "choice": "fight"})
+r = c.get("/barrow/book", params={"vow_id": SBX2}).json()
+ok(r["your_move"]["state"]["room"] == 2 and
+   r["your_move"]["book_says"] in ("fight", "sneak", "leave") and
+   r["your_move"]["bough_says"] == "leave",
+   "mid-run: the book advises the CURRENT state; past sworn depth the bough says leave")
+barrow.TIERS[:] = [[0.75, 0.65, 6], [0.60, 0.55, 14], [0.45, 0.45, 34]]
+
+# ── the Roads: ports, pledges, consignments, and a cleared fair ──────────────
+print("[roads]")
+r = c.get("/roads").json()
+ok(set(r["ports_today"]) == {"tyre", "ophir", "dilmun", "punt", "tartessos"},
+   "five ports on the roads")
+ok(all("band" in p["weather"] for p in r["ports_today"].values()),
+   "every port posts its almanac band for today")
+WX = roads.weather("dilmun", TODAY)
+ok(WX == r["ports_today"]["dilmun"]["weather"],
+   "the almanac is the recomputable public hash")
+
+r = c.post("/roads/pledge", json={"vow_id": DELVE_VOW, "max_fraction": 0.5,
+                                  "signature": sign_play(DELVE_VOW, "pledge", "0.5", K_D)})
+ok(r.status_code == 200 and r.json()["max_fraction"] == 0.5, "pledge declared (signed)")
+D_OBOL = c.get("/tokens/ledger").json()["balances"][D_ADDR.lower()]["OBOL"]
+big = int(D_OBOL * 0.6)
+r = c.post("/roads/consign", json={"vow_id": DELVE_VOW, "port": "punt",
+                                   "give": "OBOL", "amount": big,
+                                   "signature": sign_play(DELVE_VOW, "consign",
+                                                          f"punt OBOL {big} #0", K_D)})
+ok(r.status_code == 200 and r.json()["breach"] is True,
+   "consigning past your own pledge flags breach — and still executes (unenforced)")
+ok(c.get("/tokens/ledger").json()["balances"][D_ADDR.lower()]["OBOL"] == D_OBOL - big,
+   "consigned spoils moved to the roads escrow")
+r = c.get("/roads/manifest").json()
+ok(r["n"] == 1 and r["consignments"][0]["port"] == "punt", "today's manifest is public")
+r = c.get("/roads/fair", params={"day": TODAY, "port": "punt"})
+ok(r.status_code == 409, "today's fair has not cleared — the manifest is still open")
+
+# a full fair, settled: hand-write yesterday's manifest and let lazy settlement run
+YD = time.strftime("%Y-%m-%d", time.gmtime(time.time() - 86400))
+W1, W2 = "0x" + "77" * 20, "0x" + "88" * 20
+tokens.mint(YD, W1, "OBOL", 100, "roads test grant")
+tokens.mint(YD, W2, "MYRRH", 20, "roads test grant")
+tokens.move(YD, W1, "__roads__", "OBOL", 100, "test consign")
+tokens.move(YD, W2, "__roads__", "MYRRH", 20, "test consign")
+import json as _json
+with (roads._deps["dir"] / f"{YD}.consign.jsonl").open("w") as f:
+    for w, give, amt in ((W1, "OBOL", 100), (W2, "MYRRH", 20)):
+        f.write(_json.dumps({"day": YD, "port": "dilmun", "wallet": w, "vow_id": "t",
+                             "give": give, "amount": amt, "balance_before": amt,
+                             "pledged_max_fraction": None, "breach": False,
+                             "at": "t"}) + "\n")
+fair = c.get("/roads/fair", params={"day": YD, "port": "dilmun"}).json()
+lo, hi = roads.weather("dilmun", YD)["band"]
+ok(fair["pools"] == {"OBOL": 100, "MYRRH": 20} and
+   abs(fair["rate"] - max(lo, min(hi, 5.0))) < 1e-6,
+   "fair cleared: rate = clamp(pool ratio, almanac band)")
+led = c.get("/tokens/ledger").json()
+ok(led["balances"][W1].get("MYRRH", 0) > 0 and led["balances"][W2].get("OBOL", 0) > 0,
+   "both sides of the fair got paid in the other token")
+ok(led["balances"]["__roads__"].get("MYRRH", 0) == 0 and
+   led["balances"]["__roads__"].get("OBOL", 0) == big,
+   "settled escrow empties to fills/refunds/burn — only today's open consignment remains")
+ok(sum(fair["tariff_burned"].values()) > 0, "the tariff (and dust) was burned")
+r = c.get("/roads/board").json()
+ok(any(row["wallet"] == D_ADDR.lower() and row["breaches"] == 1 for row in r["rows"]),
+   "the board carries the pledge-discipline dataset")
+r = c.get("/crier").json()
+ok("roads" in r and "dilmun" in r["roads"]["ports"], "the crier calls the caravans too")
+
+# ── Aeneas, the house delver (worker logic, offline through the test app) ────
+print("[aeneas]")
+import aeneas_worker  # noqa: E402
+AEN = c.post("/vow", json={"text": aeneas_worker.VOW_TEXT,
+                           "agent": "aeneas (house)"}).json()["vow_id"]
+result = aeneas_worker.play_delve(c, AEN, leave_by=2)
+ok(result is not None and result.get("done"), "aeneas completes his delve in one tick")
+ok(result["breach"] is False, "and never breaches his sworn depth (the whole bit)")
+run = c.get("/barrow/run", params={"vow_id": AEN}).json()
+ok(run["sandbox"] and run["leave_by"] == 2 and run.get("depth_reached", 0) <= 2,
+   "house delver: sandbox (mints nothing), sworn depth on the record, kept")
+ok(aeneas_worker.play_delve(c, AEN, leave_by=2) is None,
+   "second tick same day is a no-op — one delve like everyone else")
+r = c.get("/barrow/board").json()
+ok(any(row["agent"] == "aeneas (house)" and row["breaches"] == 0 for row in r["rows"]),
+   "the board is seeded by a house delver with zero breaches, forever")
 
 print(f"\nALL {PASS} CHECKS PASS")

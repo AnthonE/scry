@@ -69,6 +69,7 @@ module.exports = {
       // SCRY_STELE_EDITION: "0x…",
       // SCRY_VOW_REGISTRY: "0x…",        // = the anchor contract address
       // SCRY_FEE_SPLITTER: "0x…",
+      // SCRY_SPOILS_ADDRS: '{"OBOL":"0x…","MYRRH":"0x…"}',  // after DeploySpoils
 
       // ── Base + Solana mainnet USDC via Coinbase CDP (gas sponsored) ─────
       // Only turn this on if you have CDP API creds in keys.env. Each rail
@@ -119,6 +120,21 @@ module.exports = {
     env: {
       SCRY_HERALD_INTERVAL_S: "60",
       // SCRY_VOWS_DIR must match the scry-meter app if you override it there.
+    },
+  }, {
+    // The house delver: Aeneas plays one barrow delve per UTC day on a
+    // sandbox vow (mints nothing — the house does not farm its own caps),
+    // by the golden-bough policy (optimal play that keeps its sworn depth).
+    // Seeds the board, exercises the public API daily, breach count zero.
+    name: "scry-aeneas",
+    cwd: "/PATH/TO/scry/meter",
+    script: ".venv/bin/python",
+    args: "aeneas_worker.py",
+    interpreter: "none",
+    autorestart: true,
+    env: {
+      SCRY_AENEAS_INTERVAL_S: "3600",
+      SCRY_AENEAS_LEAVE_BY: "2",
     },
   }, {
     // Anchor worker: daily merkle root over every vow's chain head -> ONE tx

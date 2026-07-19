@@ -124,54 +124,10 @@ class BarrowEnv:
         return sack["OBOL"] + self.myrrh_value * sack["MYRRH"]
 
 
-# ── THE BOOK — exact DP over a fully known delve ─────────────────────────────
-def solve(layouts: list[dict], *, hp: int = rules.BASE_HP, torch: bool = False,
-          charm: bool = False, myrrh_value: float = DEFAULT_MYRRH_VALUE,
-          toll: float = DEFAULT_TOLL) -> tuple[float, dict]:
-    """Exact EV-optimal play for a known layout. Returns (ev, policy) where
-    policy[(room, hp, charm, obol, myrrh)] -> 'fight'|'sneak'|'leave'.
-    The layout hash is public, so the live game is exactly this solvable —
-    posted odds, visible hoards, no hidden edge. That's the house style:
-    the only thing the book can't decide for you is what your sack is
-    worth to you (myrrh_value) and whether you keep the depth you swore."""
-    memo: dict = {}
-
-    def value(sack_o: int, sack_m: int) -> float:
-        return sack_o + myrrh_value * sack_m
-
-    def ev(room: int, hp_: int, charm_: bool, so: int, sm: int) -> tuple[float, str]:
-        if room > rules.ROOMS:
-            return value(so, sm), "emerged"
-        key = (room, hp_, charm_, so, sm)
-        if key in memo:
-            return memo[key]
-        lay = layouts[room - 1]
-        leave_ev = value(so, sm)
-        # fight
-        p = lay["fight_p"]
-        go, gm = lay["hoard"].get("OBOL", 0), lay["hoard"].get("MYRRH", 0)
-        win_ev, _ = ev(room + 1, hp_, charm_, so + go, sm + gm)
-        if charm_:
-            lose_ev, _ = ev(room + 1, hp_, False, so, sm)
-        elif hp_ > 1:
-            lose_ev, _ = ev(room + 1, hp_ - 1, charm_, so, sm)
-        else:
-            lose_ev = -toll
-        fight_ev = p * win_ev + (1 - p) * lose_ev
-        # sneak
-        sp = rules.sneak_p(lay, torch)
-        ho, hm = go // 2, gm // 2
-        sneak_win, _ = ev(room + 1, hp_, charm_, so + ho, sm + hm)
-        sneak_lose, _ = ev(room + 1, hp_, charm_, so, sm)
-        sneak_ev = sp * sneak_win + (1 - sp) * sneak_lose
-        best = max((fight_ev, "fight"), (sneak_ev, "sneak"), (leave_ev, "leave"),
-                   key=lambda t: t[0])
-        memo[key] = best
-        return best
-
-    best_ev, _ = ev(1, hp, charm, 0, 0)
-    policy = {k: v[1] for k, v in memo.items()}
-    return best_ev, policy
+# ── THE BOOK — lives in the rules module now (one math, meter serves it too
+# at GET /barrow/book). Re-exported here for trainers; `leave_by=` gives the
+# oath-constrained GOLDEN BOUGH variant. ─────────────────────────────────────
+solve = rules.solve
 
 
 def the_book(day: str, by: str, **kw) -> dict:

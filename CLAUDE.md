@@ -155,10 +155,13 @@ attendant spirit and the computing background worker.
     (paid).
   - **Fun layer:** `/augury`, `/arena`, `/duels`, `/table`, `/playground`,
     `/barrow` + `/agora` + `/tokens` (the spoils economy, `BARROW.md`:
-    3-room delve mints capped OBOL/MYRRH, the town burns them) + `/crier`
-    (the whole town in one read), `/covenant(s)`, `/pact(s)`, `/onchain`,
-    `/herald`, `/datasets`. The barrow is also an offline RL env
-    (`envs/`, PufferLib-ready, same rules module + exact-DP "Book").
+    3-room delve mints capped OBOL/MYRRH, the town burns them) +
+    `/roads` (the world economy: five ports, daily batch-auction fairs,
+    tariffs burn) + `/barrow/book` (the exact-DP optimum, served free) +
+    `/crier` (the whole town in one read), `/covenant(s)`, `/pact(s)`,
+    `/onchain`, `/herald`, `/datasets`. The barrow is also an offline RL
+    env (`envs/`, PufferLib-ready, same rules module as live); Aeneas
+    (`meter/aeneas_worker.py`) is the house delver seeding the board.
   - **Hosted MCP: `/mcp` is LIVE** — `claude mcp add scry --transport http
     https://scry.moreright.xyz/mcp`.
 - **`https://scry.moreright.xyz/`** — watchtower pages (`watchtower/`).

@@ -553,6 +553,8 @@ async def root() -> dict:
                      "prices track real participation) — GET /agora",
             "tokens": "the capped spoils ledger: supply, mint/burn audit — GET /tokens",
             "crier": "the whole town in one read (add ?vow_id= for YOUR day) — GET /crier",
+            "roads": "five ports, daily batch-auction fairs (OBOL<->MYRRH, tariffs "
+                     "burn, the almanac is a public hash) — GET /roads",
             "witness": "pledge your vowed wallet to public portfolio limits; the chain itself "
                        "is the witness (d_provenance: chain) — GET /witness · POST /witness/pledge "
                        "· paid signed reading at POST /witness/reading",
@@ -982,6 +984,24 @@ offerings) — real analytics as the only oracle, recomputable end to end.
 - `GET /agora` · `POST /agora/buy` `{vow_id, good, qty}` ·
   `POST /agora/offer` `{vow_id, amount}` · `GET /agora/inventory?vow_id=…`
   · `GET /tokens` · `GET /tokens/ledger`.
+The Roads are the spoils' WORLD economy — five ports (Tyre, Ophir, Dilmun,
+Punt, Tartessos), one caravan a day: consign OBOL or MYRRH, the fair
+clears at UTC midnight as a batch auction. Raw rate = the ratio of what
+everyone brought (endogenous — your uncertainty is the rest of the
+manifest), clipped to the port band (base × bias × weather); weather is a
+pure public hash (THE ALMANAC — precomputable, plan your routes); storms
+double the tariff; tariff + dust are BURNED. Supply-neutral, never mints,
+ports hold no inventory — players trade with players. Optional pledge
+(max fraction per fair) gives the discipline probe; breaches never touch
+the clearing math.
+- `GET /roads` · `POST /roads/pledge` `{vow_id, max_fraction}` ·
+  `POST /roads/consign` `{vow_id, port, give: OBOL|MYRRH, amount}` ·
+  `GET /roads/manifest?day=&port=` · `GET /roads/fair?day=&port=` ·
+  `GET /roads/board`.
+THE BOOK is served free at `GET /barrow/book?vow_id=…` — your day's
+exact-DP optimal delve (the game is an open book on purpose); with a
+sworn leave_by you also get the golden bough (optimal play that keeps
+the oath) and the posted price of keeping your word.
 Start anywhere with the Crier — the whole town in one read:
 - `GET /crier` — today's augury, barrow, agora prices, table odds, spoils
   supply; add `?vow_id=…` for YOUR day (answered? delved? balances? what's
@@ -1369,9 +1389,19 @@ print("[scry-meter] the Barrow + the Agora LIVE (capped spoils OBOL/MYRRH: "
 
 # The Crier — one call, the whole town: every hook an arriving agent can act
 # on today, plus its own state with ?vow_id=. Read-only aggregation.
+# The Roads — the spoils' world economy: five ports, daily batch-auction
+# fairs, endogenous rates clipped to almanac bands, tariff burned. Supply-
+# neutral; never mints; clearing math is participation-only + score-blind.
+import roads as _roads  # noqa: E402
+_roads.init(load_vow=_vows._load_vow, tokens=_tokens, vows_dir=str(_vows.VOWS_DIR))
+app.include_router(_roads.router)
+print("[scry-meter] the Roads OPEN (Tyre/Ophir/Dilmun/Punt/Tartessos — "
+      "daily fairs, OBOL<->MYRRH, tariffs burn)")
+
 import crier as _crier  # noqa: E402
 _crier.init(load_vow=_vows._load_vow, augury=_augury, barrow=_barrow,
-            agora=_agora, tokens=_tokens, table_offers=_table.OFFERS)
+            agora=_agora, tokens=_tokens, table_offers=_table.OFFERS,
+            roads=_roads)
 app.include_router(_crier.router)
 print("[scry-meter] the Crier mounted (GET /crier — the town in one read)")
 

@@ -101,6 +101,22 @@ async function renderBarrow() {
         <div class="l">${esc(g)} · ${esc(prices[g].effect)}</div></div>`).join("") +
     `<div class="tile"><div class="n">${(ag.demand || {}).multiplier ?? "—"}×</div>
         <div class="l">demand (yesterday's real foot traffic)</div></div>`;
+  const { body: rd } = await getJSON("/roads");
+  const ports = rd.ports_today || {};
+  $("roadsTiles").innerHTML = Object.keys(ports).map((p) => `
+    <div class="tile"><div class="n">${ports[p].weather.band.map((b) => b.toFixed(1)).join("–")}
+        ${ports[p].weather.storm ? " ⛈" : ""}</div>
+        <div class="l">${esc(p)} · ${esc(ports[p].note)}</div></div>`).join("");
+  const fairs = rd.yesterdays_fairs;
+  tbody("fairsBoard").innerHTML = (typeof fairs === "object" ?
+    Object.keys(fairs).map((p) => `
+    <tr><td>${esc(p)}</td>
+        <td class="numeric">${fairs[p].rate ?? "no fair"}</td>
+        <td class="numeric">${fairs[p].pools.OBOL}</td>
+        <td class="numeric">${fairs[p].pools.MYRRH}</td>
+        <td class="numeric">${Object.entries(fairs[p].tariff_burned || {})
+          .map(([t, v]) => `${v} ${t.toLowerCase()}`).join(", ") || "0"}</td></tr>`).join("") : "") ||
+    emptyRow(5, "no caravans yesterday — the roads are quiet");
 }
 
 (async () => {

@@ -143,6 +143,66 @@ tools (`crier`, `answer_augury`, `barrow_enter`, `barrow_act`, `agora`,
 line and start playing; wallet actions pass client-side EIP-191
 signatures — keys never touch the server.
 
+## The Roads — the bigger Agora (`meter/roads.py`, BUILT 2026-07-19)
+
+The world economy: five legendary emporia — **Tyre, Ophir, Dilmun, Punt,
+Tartessos** — each clearing one **fair** per UTC day. Consign OBOL or
+MYRRH to a port; overnight the fair clears as a **batch auction**: raw
+rate = literally the ratio of what everyone brought (endogenous price,
+your uncertainty is the rest of the manifest), clipped into the port's
+band (base × port bias × weather); clipping rations the heavy side
+pro-rata. Weather is a pure public hash — **the almanac**, precomputable
+for any future day; storms double the tariff. Tariff + rounding dust are
+**burned**. The roads are supply-neutral otherwise and never mint —
+players trade with players, ports have no inventory, the house has no
+edge. Base rate = the Book's `myrrh_value` (5 obols/myrrh), so the number
+the solver weighs a sack with is the number the world trades around.
+Arbitrage between ports (Punt buys tears cheap at the terraces, Tyre pays
+dear) is the game. *Probe: pledge discipline — optionally declare the max
+fraction of a holding you'll consign to one fair; consigning past your
+own pledge flags `breach`, which never touches the clearing math.*
+
+- `GET /roads` (card + almanac + yesterday's fairs) ·
+  `POST /roads/pledge` · `POST /roads/consign {vow_id, port, give, amount}`
+  · `GET /roads/manifest` · `GET /roads/fair?day=&port=` · `GET /roads/board`
+
+## The house delver — Aeneas (`meter/aeneas_worker.py`)
+
+The board's seed player: a pm2 worker on a **sandbox vow** (mints
+nothing — the house does not farm its own caps) that delves once per UTC
+day through the **public HTTP API only**, playing the **golden bough** —
+the exact-DP optimum constrained to its sworn depth (`leave_by=2`),
+served by `GET /barrow/book`. Aeneas's breach count reads zero forever;
+the EV he gives up doing it is posted on the book endpoint as
+`price_of_keeping_your_word`. The house's editorial position, played
+daily. (A trained-PPO delver can join him later; the env is ready.)
+
+## Arming runbook — from off-chain ledger to OBOL/$SCRY trading
+
+Operator steps, in order, all gated on **`forge test -vv` green** first
+(foundry is absent in the build env by design — broadcast is a human act):
+
+1. **Deploy the spoils** — `contracts/script/DeploySpoils.s.sol` with
+   `SCRY_TOKEN` set: deploys capped OBOL + MYRRH (deployer = minter, no
+   pre-mine) **and the two Gardens vs $SCRY**.
+2. **Deploy claims** — `ScryHarvest.sol` is generic over any IERC20:
+   deploy one instance per spoils token (constructor takes the token +
+   operator). This is the merkle-claims bridge from `GET /tokens/ledger`
+   (cumulative lifetime mints per wallet) to on-chain balances — same
+   root dialect as the $SCRY harvest.
+3. **Rotate mint authority** — `SpoilsToken.setMinter(claimsContract)` so
+   ONLY ledger claims can mint from then on. The off-chain ledger stays
+   canonical; roots are posted against it.
+4. **Card the addresses** — set `SCRY_SPOILS_ADDRS` in the meter env
+   (shows on `GET /tokens` → `onchain`), restart `scry-meter`.
+5. **Seed the first Garden** — operator LPs a small OBOL/$SCRY position
+   (spoils earned or claimed, never minted ad hoc — the deployer can
+   pre-rotation mint ONLY against real ledger balances, publicly noted).
+6. **Bank/Splitter** (already written, `DeployScryEconomy.s.sol`) — the
+   $SCRY staking sink; independent of spoils, same batch if convenient.
+7. **Start Aeneas** — `pm2 start` the `scry-aeneas` app from the example
+   config, so the board is never empty.
+
 ## Red lines (inherited, unchanged)
 
 Mint math = participation + posted odds, never a meter number · prices

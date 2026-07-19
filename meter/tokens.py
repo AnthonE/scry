@@ -30,6 +30,10 @@ from fastapi import APIRouter
 router = APIRouter()
 _deps: dict = {}
 
+# operator sets after DeploySpoils.s.sol broadcasts, e.g.
+# SCRY_SPOILS_ADDRS='{"OBOL":"0x…","MYRRH":"0x…","garden_obol":"0x…","garden_myrrh":"0x…","claims_obol":"0x…","claims_myrrh":"0x…"}'
+ADDRS: dict = json.loads(os.getenv("SCRY_SPOILS_ADDRS", "{}"))
+
 _DEFAULTS = {
     "OBOL":  {"cap": 1_000_000, "daily_cap": 5_000,
               "flavor": "the grave coin - the ferryman's fare"},
@@ -122,6 +126,25 @@ def mint(day: str, wallet: str, token: str, amount: int, reason: str) -> int:
     return granted
 
 
+def move(day: str, frm: str, to: str, token: str, amount: int, reason: str) -> bool:
+    """Balance transfer, supply unchanged (the Roads' escrow + settlements).
+    System accounts are dunder-named ('__roads__') and hold no keys — they
+    are lines in the public ledger like everyone else."""
+    if token not in TOKENS or amount <= 0:
+        return False
+    f, t = frm.lower(), to.lower()
+    led = _load()
+    have = led["balances"].get(f, {}).get(token, 0)
+    if have < amount:
+        return False
+    led["balances"][f][token] = have - amount
+    led["balances"].setdefault(t, {})[token] = \
+        led["balances"].get(t, {}).get(token, 0) + amount
+    _save(led)
+    _event(day, "move", f"{f}->{t}", token, amount, reason)
+    return True
+
+
 def burn(day: str, wallet: str, token: str, amount: int, reason: str) -> bool:
     """Burn spoils from a wallet's balance (Agora purchases, offerings, the
     ferryman's toll). Returns False if the balance can't cover it."""
@@ -155,7 +178,15 @@ async def tokens_card() -> dict:
                        "pooled against real value."),
         "cap_semantics": ("caps are on CUMULATIVE mint - burning retires supply forever; "
                           "when a token mints out, that season is over"),
-        "onchain": "contracts/src/SpoilsToken.sol - merkle claims vs this ledger at deploy",
+        "onchain": {
+            "deployed": bool(ADDRS),
+            "addresses": ADDRS or None,
+            "status": None if ADDRS else
+                "not deployed yet - SpoilsToken.sol + DeploySpoils.s.sol are in the "
+                "repo; the arming runbook is in BARROW.md",
+            "claims": "ScryHarvest-shape merkle claims against this public ledger "
+                      "(cumulative lifetime balances) once armed",
+        },
         "red_line": "mint math is participation + posted odds, never a meter number",
         "audit": "GET /tokens/ledger + GET /tokens/events?day=YYYY-MM-DD",
     }

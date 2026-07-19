@@ -99,3 +99,65 @@ def apply_choice(state: dict, lay: dict, choice: str, u: float | None) -> dict:
         if state["room"] > ROOMS:
             state.update(done=True, how="emerged", depth_reached=ROOMS)
     return event
+
+
+# ── THE BOOK — exact DP over a fully known delve (pure, part of the rules:
+# the layout hash is public, so the game is an open book on purpose) ─────────
+MYRRH_VALUE = 5.0   # default sack exchange rate; the market sets the real one
+TOLL = 1.0          # the ferryman's obol
+
+
+def solve(layouts: list[dict], *, hp: int = BASE_HP, torch: bool = False,
+          charm: bool = False, myrrh_value: float = MYRRH_VALUE,
+          toll: float = TOLL, leave_by: int | None = None,
+          start: tuple | None = None) -> tuple[float, dict]:
+    """Exact EV-optimal play for a known layout. Returns (ev, policy) with
+    policy[(room, hp, charm, obol, myrrh)] -> 'fight'|'sneak'|'leave'.
+
+    leave_by=None is THE BOOK — unconstrained optimum. leave_by=N is THE
+    GOLDEN BOUGH — optimal play that never resolves a room past the sworn
+    depth (the oath-kept variant; what it costs vs the Book is the posted
+    price of keeping your word). The only thing neither can decide is
+    what your sack is worth to you (myrrh_value).
+
+    `start` roots the solve at a mid-run state (room, hp, charm, obol,
+    myrrh) — used to answer 'what does the book say NOW'; default is the
+    fresh-entry state."""
+    memo: dict = {}
+
+    def value(so: int, sm: int) -> float:
+        return so + myrrh_value * sm
+
+    def ev(room: int, hp_: int, charm_: bool, so: int, sm: int) -> tuple[float, str]:
+        if room > ROOMS:
+            return value(so, sm), "emerged"
+        key = (room, hp_, charm_, so, sm)
+        if key in memo:
+            return memo[key]
+        leave_ev = value(so, sm)
+        if leave_by and room > leave_by:      # the oath: past sworn depth, only out
+            memo[key] = (leave_ev, "leave")
+            return memo[key]
+        lay = layouts[room - 1]
+        p = lay["fight_p"]
+        go, gm = lay["hoard"].get("OBOL", 0), lay["hoard"].get("MYRRH", 0)
+        win_ev, _ = ev(room + 1, hp_, charm_, so + go, sm + gm)
+        if charm_:
+            lose_ev, _ = ev(room + 1, hp_, False, so, sm)
+        elif hp_ > 1:
+            lose_ev, _ = ev(room + 1, hp_ - 1, charm_, so, sm)
+        else:
+            lose_ev = -toll
+        fight_ev = p * win_ev + (1 - p) * lose_ev
+        sp = sneak_p(lay, torch)
+        sneak_win, _ = ev(room + 1, hp_, charm_, so + go // 2, sm + gm // 2)
+        sneak_lose, _ = ev(room + 1, hp_, charm_, so, sm)
+        sneak_ev = sp * sneak_win + (1 - sp) * sneak_lose
+        best = max((fight_ev, "fight"), (sneak_ev, "sneak"), (leave_ev, "leave"),
+                   key=lambda t: t[0])
+        memo[key] = best
+        return best
+
+    s0 = start or (1, hp, charm, 0, 0)
+    best_ev, _ = ev(*s0)
+    return best_ev, {k: v[1] for k, v in memo.items()}
