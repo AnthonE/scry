@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+familiar/state/
+watchtower/radio/tracks/
