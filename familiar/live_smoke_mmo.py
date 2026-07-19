@@ -66,7 +66,9 @@ def main() -> int:
                            max_beats=max_beats, beat_seconds=2.0)
     final = summary.get("final") or {}
     print(f"  {summary['beats']} beats in {time.time() - t0:.0f}s → "
-          f"level {final.get('level')} · {final.get('xp')} xp · done={summary['done']}")
+          f"level {final.get('level')} · {final.get('xp')} xp · "
+          f"◈{final.get('materia')} materia · {final.get('items_looted')} stacks · "
+          f"done={summary['done']}")
     for e in fam.life(limit=8):
         print(f"    [{e['kind']}] {e.get('say', e.get('goal', ''))}")
 

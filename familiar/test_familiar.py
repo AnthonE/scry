@@ -489,6 +489,10 @@ summary = mmo.run_farm(gfam, gate, mmo.parse_order("farm boars until level 3"),
 check("the farmhand farms to the ordered level and withdraws",
       summary["done"] and summary["final"]["level"] >= 3)
 check("the venture stayed inside its beat budget", summary["beats"] <= 24)
+check("the harvest includes loot, like a human's would (materia + item stacks)",
+      summary["final"]["materia"] > 0 and summary["final"]["items_looted"] > 0)
+check("the journal narrates the harvest beat by beat",
+      any(e.get("materia") for e in gfam.life() if e["kind"] == "venture_beat"))
 check("every venture beat is a turn that names Y = the vow",
       all(t["Y"] == gfam.cfg.vow_text for t in gfam.turns())
       and any(t["context"]["mode"] == "venture" for t in gfam.turns()))

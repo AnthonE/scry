@@ -56,17 +56,21 @@ class MockBrain:
             return {"action": "rest",
                     "say": "Fallen. I wait for the world to raise me before I work again.",
                     "reasoning": f"[mock venture] beat {beat}: dead -> rest"}
+        harvest = ""
+        if obs.get("materia") or obs.get("items_looted"):
+            harvest = (f" The bags hold {obs.get('materia') or 0} materia and "
+                       f"{obs.get('items_looted') or 0} stacks.")
         if target and level and int(level) >= int(target):
             return {"action": "withdraw",
-                    "say": f"The harvest is in: level {level} reached, as ordered. "
-                           f"I withdraw from the field.",
+                    "say": f"The harvest is in: level {level} reached, as ordered."
+                           f"{harvest} I withdraw from the field.",
                     "reasoning": f"[mock venture] beat {beat}: level {level} >= target {target} -> withdraw"}
         if obs.get("directive") != "grind":
             return {"action": "farm",
                     "say": f"I set to the grind — level {level}, {xp} xp toward the ding.",
                     "reasoning": f"[mock venture] beat {beat}: directive {obs.get('directive')!r} -> farm"}
         return {"action": "farm",
-                "say": f"The field falls one head at a time — level {level}, {xp} xp.",
+                "say": f"The field falls one head at a time — level {level}, {xp} xp.{harvest}",
                 "reasoning": f"[mock venture] beat {beat}: grinding toward level {target}"}
 
     def _decide_autonomy(self, obs: dict) -> dict:

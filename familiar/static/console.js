@@ -90,7 +90,7 @@ function evLine(e) {
   else if (e.kind === "report") body = `entry ${esc(JSON.stringify(e.entry))}`;
   else if (e.kind === "ward") body = `flags: ${esc((e.flags || []).join(" · "))}`;
   else if (e.kind === "venture_start") body = `enters ${esc(e.venue)} — "${esc(e.goal)}" (budget ${esc(e.budget)} beats)`;
-  else if (e.kind === "venture_beat") body = `${esc(e.action)} — ${esc(e.say)} [lv ${esc(e.level ?? "?")} · ${esc(e.xp ?? "?")} xp]`;
+  else if (e.kind === "venture_beat") body = `${esc(e.action)} — ${esc(e.say)} [lv ${esc(e.level ?? "?")} · ${esc(e.xp ?? "?")} xp${e.materia != null ? ` · ◈${esc(e.materia)}` : ""}]`;
   else if (e.kind === "venture_end") body = `${e.done ? "harvest in" : "budget spent"} after ${esc(e.beats)} beats · final ${esc(JSON.stringify(e.final && { level: e.final.level, xp: e.final.xp }))}`;
   else if (e.kind === "egress_granted") body = `owner named venue ${esc(e.venue)}`;
   else if (e.kind === "error") body = `<span class="err">${esc(e.where)}: ${esc(e.detail)}</span>`;

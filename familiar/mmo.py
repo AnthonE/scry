@@ -150,6 +150,8 @@ class MockGate:
     NOT the venue's real curve and nothing here pretends otherwise."""
 
     XP_PER_BEAT = 40
+    MATERIA_PER_BEAT = 3     # the kill "coin" auto-looted on open (mirrors the venue's rhythm)
+    ITEM_EVERY_BEATS = 2     # an item stack harvested every other grinding beat
 
     def __init__(self, venue: str = "mock"):
         self.venue = venue
@@ -169,7 +171,8 @@ class MockGate:
                 "wallet": wallet, "char_id": int(char_id), "class_id": int(class_id),
                 "name": name, "x": 0.0, "z": 0.0,
                 "level": int(prior.get("level", 1)), "xp": int(prior.get("xp", 0)),
-                "hp": 100.0, "max_hp": 100.0, "dead": False, "directive": "idle"}
+                "hp": 100.0, "max_hp": 100.0, "dead": False, "directive": "idle",
+                "materia": 0, "items_looted": 0, "beats": 0}
         return {"ok": True, "queued": "join"}
 
     def directive(self, wallet: str, char_id: int, directive: dict) -> dict:
@@ -200,7 +203,11 @@ class MockGate:
 
     def _advance(self, seat: dict):
         if seat["directive"] == "grind" and not seat["dead"]:
+            seat["beats"] = seat.get("beats", 0) + 1
             seat["xp"] += self.XP_PER_BEAT
+            seat["materia"] = seat.get("materia", 0) + self.MATERIA_PER_BEAT
+            if seat["beats"] % self.ITEM_EVERY_BEATS == 0:
+                seat["items_looted"] = seat.get("items_looted", 0) + 1
             while seat["xp"] >= seat["level"] * 100:
                 seat["xp"] -= seat["level"] * 100
                 seat["level"] += 1
@@ -290,6 +297,8 @@ def run_farm(fam, gate, order: dict, char_id: int = 0, max_beats: int = 24,
                "level": world.get("level"), "xp": world.get("xp"),
                "hp": world.get("hp"), "dead": bool(world.get("dead")),
                "directive": world.get("directive"),
+               "materia": world.get("materia"),
+               "items_looted": world.get("items_looted"),
                "until_level": order.get("until_level")}
         decision = fam.brain.decide(obs)
         action = decision.get("action", "rest")
@@ -297,7 +306,9 @@ def run_farm(fam, gate, order: dict, char_id: int = 0, max_beats: int = 24,
 
         outcome = _act_venture(fam, gate, wallet, char_id, action, decision, order, seated)
         fam.journal("venture_beat", n=i, action=action, say=decision.get("say", ""),
-                    level=world.get("level"), xp=world.get("xp"), outcome=outcome)
+                    level=world.get("level"), xp=world.get("xp"),
+                    materia=world.get("materia"), items=world.get("items_looted"),
+                    outcome=outcome)
         beats.append({"action": action, "outcome": outcome})
 
         if action == "done" or (isinstance(outcome, dict) and outcome.get("stop")):
