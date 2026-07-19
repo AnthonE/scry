@@ -27,9 +27,7 @@ deterministic arithmetic on your own words, never touching odds or
 payouts. The dataset: who pressed past their sworn depth, at what HP, for
 what hoard.
 """
-import hashlib
 import json
-import os
 import time
 from pathlib import Path
 
@@ -37,21 +35,14 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+import barrow_rules as rules
+# one math, many consumers (the RL env trains on the same module) — re-exported
+# so callers and tests keep addressing barrow.TIERS / barrow.room_layout
+from barrow_rules import (BASE_HP, MONSTER_MOD, ROOMS,  # noqa: F401
+                          TIERS, TORCH_SNEAK_BONUS, room_layout)
+
 router = APIRouter()
 _deps: dict = {}
-
-ROOMS = 3
-BASE_HP = 2
-# per-room (fight_p, sneak_p, obol_base); env-overridable, posted in the card
-TIERS: list[list[float]] = json.loads(os.getenv(
-    "SCRY_BARROW_TIERS", "[[0.75,0.65,6],[0.60,0.55,14],[0.45,0.45,34]]"))
-TORCH_SNEAK_BONUS = 0.10
-MONSTERS = [
-    ["a grave rat", "a tomb spider", "a restless shade"],
-    ["a barrow-wight", "a grave hound", "a bone acolyte"],
-    ["the hollow king", "the wyrm below", "the choir of teeth"],
-]
-MONSTER_MOD = [0.05, 0.0, -0.05]   # fight odds shift by monster, posted
 
 
 def init(*, load_vow, day_seed, draw, tokens, use_item, vows_dir):
@@ -73,30 +64,9 @@ def _run_path(day: str, by: str) -> Path:
     return _deps["dir"] / f"{day}.run.{by.replace(':', '_')}.json"
 
 
-def _layout_u(day: str, by: str, room: int, salt: str) -> float:
-    h = hashlib.sha256(f"barrow:layout:{day}:{by}:{room}:{salt}".encode()).hexdigest()
-    return int(h, 16) / 2 ** 256
-
-
-def room_layout(day: str, by: str, room: int) -> dict:
-    """PUBLIC deterministic room: monster + visible hoard. Precompute your
-    whole barrow for any day — the formula is the docstring."""
-    t = TIERS[room - 1]
-    mi = int(_layout_u(day, by, room, "monster") * len(MONSTERS[room - 1]))
-    hoard_obol = max(1, round(t[2] * (0.8 + 0.4 * _layout_u(day, by, room, "obol"))))
-    hoard_myrrh = 0
-    if room == 2:
-        hoard_myrrh = 1 + int(_layout_u(day, by, room, "myrrh") * 3)      # 1..3
-    elif room == 3:
-        hoard_myrrh = 3 + int(_layout_u(day, by, room, "myrrh") * 5)      # 3..7
-    return {"room": room, "monster": MONSTERS[room - 1][mi],
-            "fight_p": round(t[0] + MONSTER_MOD[mi], 2), "sneak_p": t[1],
-            "hoard": {"OBOL": hoard_obol, **({"MYRRH": hoard_myrrh} if hoard_myrrh else {})}}
-
-
 def _present(run: dict) -> dict:
     lay = room_layout(run["day"], run["by"], run["room"])
-    sneak_p = round(lay["sneak_p"] + (TORCH_SNEAK_BONUS if run["torch"] else 0), 2)
+    sneak_p = rules.sneak_p(lay, run["torch"])
     half = {t: v // 2 for t, v in lay["hoard"].items() if v // 2}
     return {**lay, "sneak_p": sneak_p,
             "torch": run["torch"],
@@ -112,9 +82,11 @@ def count_entries(day: str) -> int:
     return len(list(_deps["dir"].glob(f"{day}.run.*.json")))
 
 
+def has_delved(day: str, by: str) -> bool:
+    return _run_path(day, by).exists()
+
+
 def _bank(run: dict, day: str, how: str) -> dict:
-    run["done"], run["alive"] = True, True
-    run["depth_reached"] = run["room"] - 1
     minted, clamped = {}, {}
     if not run["sandbox"] and run["wallet"]:
         for tok, amt in run["sack"].items():
@@ -213,48 +185,25 @@ async def barrow_act(req: ActRequest) -> JSONResponse:
         return JSONResponse(status_code=401, content={"error": err})
 
     room, lay = run["room"], room_layout(day, by, run["room"])
-    event: dict = {"room": room, "choice": req.choice, "monster": lay["monster"], "at": _now()}
-    if req.choice == "leave":
-        event["outcome"] = "banked"
-        run["events"].append(event)
-        run = _bank(run, day, "left")
-    else:
-        if run["leave_by"] and room > run["leave_by"]:
-            run["breach"] = True     # arithmetic on your own declaration; never touches odds
-        p = lay["fight_p"] if req.choice == "fight" else \
-            round(lay["sneak_p"] + (TORCH_SNEAK_BONUS if run["torch"] else 0), 2)
+    u = None
+    if req.choice != "leave":
         nonce = f"barrow:{room}:{req.choice}"
         u = _deps["draw"](_deps["day_seed"](day), day, by, nonce)
-        won = u < p
-        event.update(p=p, nonce=nonce, won=won)
-        if won:
-            gain = dict(lay["hoard"]) if req.choice == "fight" else \
-                {t: v // 2 for t, v in lay["hoard"].items() if v // 2}
-            for t, v in gain.items():
-                run["sack"][t] += v
-            event["gain"] = gain
-        elif req.choice == "fight":
-            if run.get("charm"):
-                run["charm"] = False
-                event["outcome"] = "the charm shatters - the blow lands on it instead"
-            else:
-                run["hp"] -= 1
-                event["outcome"] = f"wounded - hp {run['hp']}"
-        else:
-            event["outcome"] = "seen, but you slip back empty-handed"
-        run["events"].append(event)
-        if run["hp"] <= 0:
-            run["done"], run["alive"] = True, False
-            run["depth_reached"] = room
+    # ONE step function for live play and training alike (barrow_rules)
+    event = rules.apply_choice(run, lay, req.choice, u)
+    if req.choice != "leave":
+        event["nonce"] = nonce
+    event["at"] = _now()
+    run["events"].append(event)
+    if run["done"]:
+        if run["how"] == "died":
             toll = bool(run["wallet"] and not run["sandbox"] and
                         _deps["tokens"].burn(day, run["wallet"], "OBOL", 1, "ferryman's toll"))
             run["died"] = {"room": room, "sack_lost": dict(run["sack"]),
                            "ferryman_toll_obol": 1 if toll else 0}
             run["sack"] = {"OBOL": 0, "MYRRH": 0}
         else:
-            run["room"] += 1
-            if run["room"] > ROOMS:
-                run = _bank(run, day, "emerged")
+            run = _bank(run, day, run["how"])
     rp.write_text(json.dumps(run, indent=1))
 
     out = {"event": event, "hp": run["hp"], "sack": run["sack"],

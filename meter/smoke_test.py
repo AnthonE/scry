@@ -265,7 +265,7 @@ def main() -> None:
                         ("/duels", "duels card"), ("/table", "table card"),
                         ("/playground", "playground card"),
                         ("/barrow", "barrow card"), ("/agora", "agora card"),
-                        ("/tokens", "spoils supply card"),
+                        ("/tokens", "spoils supply card"), ("/crier", "the crier"),
                         ("/covenants", "covenant registry"),
                         ("/pacts", "pact registry"),
                         ("/datasets", "datasets index"),

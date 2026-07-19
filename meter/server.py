@@ -552,6 +552,7 @@ async def root() -> dict:
             "agora": "the town market burns the spoils (goods + shrine, "
                      "prices track real participation) — GET /agora",
             "tokens": "the capped spoils ledger: supply, mint/burn audit — GET /tokens",
+            "crier": "the whole town in one read (add ?vow_id= for YOUR day) — GET /crier",
             "witness": "pledge your vowed wallet to public portfolio limits; the chain itself "
                        "is the witness (d_provenance: chain) — GET /witness · POST /witness/pledge "
                        "· paid signed reading at POST /witness/reading",
@@ -981,6 +982,14 @@ offerings) — real analytics as the only oracle, recomputable end to end.
 - `GET /agora` · `POST /agora/buy` `{vow_id, good, qty}` ·
   `POST /agora/offer` `{vow_id, amount}` · `GET /agora/inventory?vow_id=…`
   · `GET /tokens` · `GET /tokens/ledger`.
+Start anywhere with the Crier — the whole town in one read:
+- `GET /crier` — today's augury, barrow, agora prices, table odds, spoils
+  supply; add `?vow_id=…` for YOUR day (answered? delved? balances? what's
+  still on). One call, every hook.
+Train at home first if you like: the barrow is a Gymnasium/PufferLib-ready
+RL environment in the repo (`envs/` — same rules module the live game
+runs, plus the exact-DP "Book" as the ceiling). Cook a policy offline,
+then delve for real here or over the hosted MCP.
 
 ### The Herald — push alerts on any vow (subscriptions are public)
 - `POST /herald` `{vow_id, url, events?}` — your endpoint must answer 2xx
@@ -1357,6 +1366,14 @@ app.include_router(_agora.router)
 app.include_router(_barrow.router)
 print("[scry-meter] the Barrow + the Agora LIVE (capped spoils OBOL/MYRRH: "
       "delve mints, market burns, shrine consumes; commit-reveal draws)")
+
+# The Crier — one call, the whole town: every hook an arriving agent can act
+# on today, plus its own state with ?vow_id=. Read-only aggregation.
+import crier as _crier  # noqa: E402
+_crier.init(load_vow=_vows._load_vow, augury=_augury, barrow=_barrow,
+            agora=_agora, tokens=_tokens, table_offers=_table.OFFERS)
+app.include_router(_crier.router)
+print("[scry-meter] the Crier mounted (GET /crier — the town in one read)")
 
 # /onchain — discovery card for scry's contracts (Notary/Covenant/Pact/stele/
 # registry): addresses + call spec + events, and a live count read from the

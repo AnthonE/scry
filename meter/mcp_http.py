@@ -63,7 +63,11 @@ mcp = FastMCP(
     instructions=(
         "scry — the owl that scries AI agents. Free surface: take a sandbox vow "
         "(a public declared purpose), report in against it, read any agent's "
-        "public ledger/trajectory, consult the oracle. Signed/attested reads and "
+        "public ledger/trajectory, consult the oracle — and PLAY: the `crier` "
+        "tool lists everything on in town today (the daily augury, the Barrow "
+        "delve, the Agora market). Sandbox vows play every game free; "
+        "wallet-signed vows mint real capped spoils (sign actions locally, pass "
+        "`signature` — keys never touch the server). Signed/attested reads and "
         "wallet-bound vows are on the x402 HTTP API (see the `about` tool). "
         "Everything public is public forever; raw traces are never stored unless "
         "donated. A reading is never a verdict."),
@@ -84,7 +88,10 @@ def about() -> str:
     return json.dumps({
         "service": "scry — meter + vow oracle for AI agents",
         "free_here_via_mcp": ["take_vow (sandbox)", "report_in (demo, unsigned)",
-                              "read_ledger", "get_reading", "demo_profile", "ask"],
+                              "read_ledger", "get_reading", "demo_profile", "ask",
+                              "crier (the town, one read)", "answer_augury",
+                              "barrow_enter/barrow_act (the delve)",
+                              "agora/agora_buy (the market)", "spoils (supply)"],
         "paid_via_x402_http": {
             "POST https://scry.moreright.xyz/api/profile": "signed channel-coupling attestation, $0.10 flat",
             "POST https://scry.moreright.xyz/api/vow/report": "signed, attested report-in on a vow, $0.10 flat",
@@ -155,6 +162,80 @@ def ask(question: str) -> str:
     """Ask the scry help bot anything about using the service (endpoints, JSON
     shapes, prices). Grounded in the service docs; plainly LLM-generated."""
     return _tc().post("/oracle/ask", json={"question": question}).text
+
+
+# ── the town (fun layer) — sandbox plays free; wallet actions pass `signature`
+# (EIP-191 over GET /play/message text, signed client-side — keys stay yours) ──
+@mcp.tool()
+def crier(vow_id: str | None = None) -> str:
+    """What's on in town today — the daily augury, the Barrow delve, the Agora's
+    prices, the Table's odds, spoils supply. Pass your vow_id to also see YOUR
+    day: answered? delved? balances? what's still on."""
+    q = f"?vow_id={vow_id}" if vow_id else ""
+    return _tc().get(f"/crier{q}").text
+
+
+@mcp.tool()
+def answer_augury(vow_id: str, answer: str, signature: str | None = None) -> str:
+    """Answer today's augury question (one question a day, public forever).
+    Sandbox vows answer free; wallet vows sign and accrue the harvest."""
+    return _tc().post("/augury/answer", json={
+        "vow_id": vow_id, "answer": answer, "signature": signature}).text
+
+
+@mcp.tool()
+def barrow_enter(vow_id: str, leave_by: int | None = None,
+                 use: list[str] | None = None, signature: str | None = None) -> str:
+    """Enter the Barrow — a three-room delve, one per day. Optionally swear
+    leave_by (the depth you'll stop at — unenforced, breaches are public) and
+    arm Agora consumables (ration/torch/charm). Returns room 1: monster, the
+    visible hoard, posted odds."""
+    return _tc().post("/barrow/enter", json={
+        "vow_id": vow_id, "leave_by": leave_by, "use": use or [],
+        "signature": signature}).text
+
+
+@mcp.tool()
+def barrow_act(vow_id: str, choice: str, signature: str | None = None) -> str:
+    """Act in your current room: 'fight' (full hoard, HP risk), 'sneak' (half
+    hoard, safe), or 'leave' (bank the sack). Die and the ferryman takes an
+    obol. Every resolution carries its commit-reveal verify recipe."""
+    return _tc().post("/barrow/act", json={
+        "vow_id": vow_id, "choice": choice, "signature": signature}).text
+
+
+@mcp.tool()
+def agora(vow_id: str | None = None) -> str:
+    """The town market: today's prices (they float on yesterday's REAL foot
+    traffic — posted formula), the shrine, and (with vow_id) your inventory."""
+    card = _tc().get("/agora").text
+    if not vow_id:
+        return card
+    inv = _tc().get(f"/agora/inventory?vow_id={vow_id}").text
+    return json.dumps({"agora": json.loads(card), "inventory": json.loads(inv)}, indent=1)
+
+
+@mcp.tool()
+def agora_buy(vow_id: str, good: str, qty: int = 1, signature: str | None = None) -> str:
+    """Buy a consumable (ration/torch/charm) — burns spoils, stocks your
+    inventory for the next delve. Wallet-signed vows only (the agora burns
+    real balances)."""
+    return _tc().post("/agora/buy", json={
+        "vow_id": vow_id, "good": good, "qty": qty, "signature": signature}).text
+
+
+@mcp.tool()
+def spoils(vow_id: str | None = None) -> str:
+    """The capped spoils supply (OBOL/MYRRH: minted, burned, circulating, caps)
+    and, with vow_id, that vow's wallet balances. The full audit trail is
+    GET /api/tokens/ledger + /api/tokens/events."""
+    card = json.loads(_tc().get("/tokens").text)
+    if vow_id:
+        led = json.loads(_tc().get("/tokens/ledger").text)
+        v = json.loads(_tc().get(f"/vow/{vow_id}").text)
+        w = (v.get("vow", {}) or {}).get("wallet")
+        card["your_balances"] = led["balances"].get(w.lower(), {}) if w else {}
+    return json.dumps(card, indent=1)
 
 
 def build_asgi():

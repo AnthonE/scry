@@ -86,6 +86,15 @@ def burned_on(day: str) -> dict:
     return _load()["burned_by_day"].get(day, {})
 
 
+def supply() -> dict:
+    led = _load()
+    return {t: {"minted": led["minted"].get(t, 0),
+                "burned": led["burned"].get(t, 0),
+                "circulating": led["minted"].get(t, 0) - led["burned"].get(t, 0),
+                "cap": TOKENS[t]["cap"], "daily_cap": TOKENS[t]["daily_cap"],
+                "flavor": TOKENS[t]["flavor"]} for t in TOKENS}
+
+
 def mint(day: str, wallet: str, token: str, amount: int, reason: str) -> int:
     """Mint spoils to a wallet; returns what was ACTUALLY minted, clamped by
     the daily emission budget and the forever cap (cumulative — burns do not
@@ -134,15 +143,9 @@ def burn(day: str, wallet: str, token: str, amount: int, reason: str) -> bool:
 
 @router.get("/tokens")
 async def tokens_card() -> dict:
-    led = _load()
-    supply = {t: {"minted": led["minted"].get(t, 0),
-                  "burned": led["burned"].get(t, 0),
-                  "circulating": led["minted"].get(t, 0) - led["burned"].get(t, 0),
-                  "cap": TOKENS[t]["cap"], "daily_cap": TOKENS[t]["daily_cap"],
-                  "flavor": TOKENS[t]["flavor"]} for t in TOKENS}
     return {
         "what": "OBOL + MYRRH - the capped spoils the games mint and the Agora burns",
-        "supply": supply,
+        "supply": supply(),
         "earn": "delve the Barrow - GET /barrow",
         "spend": "the Agora burns them - GET /agora",
         "why_capped": ("an infinite-faucet token pooled against $SCRY is a leak, not a "

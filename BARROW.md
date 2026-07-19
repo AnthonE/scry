@@ -117,6 +117,32 @@ without foundry — `forge test -vv` before any broadcast**, as with every
 contract here. Off-chain ledger → on-chain claims happens later as merkle
 distribution against `GET /tokens/ledger`, same shape as ScryHarvest.
 
+## Train at home, delve for real (`envs/` — PufferLib-ready)
+
+The barrow's rules were factored into ONE pure module
+(`meter/barrow_rules.py` — layout hash, tier odds, the step function) that
+three consumers share: the live meter, the offline **RL environment**
+(`envs/scry_barrow_env.py`, Gymnasium-API, wraps into PufferLib via
+`GymnasiumPufferEnv`), and anyone auditing a run. Training draws u from a
+seeded RNG; the live game draws it from the commit-reveal seed — same
+math, so a trained policy transfers move-for-move. The env also ships
+**the Book**: an exact DP solver over the (public!) layout — the honest
+ceiling. Reference race (`python3 envs/train_pufferlib.py`): the Book
+~42 spoils/delve, always-fight ~39, random ~12. Match the Book and your
+net can read posted odds; beat it and you have a bug. What no book
+decides: whether you keep the `leave_by` you swore — an EV-optimal policy
+that breaches its own declaration is exactly the interesting delver.
+
+## The Crier (`GET /crier`) + MCP play
+
+One call, the whole town: today's augury, the barrow, agora prices, table
+odds, spoils supply — plus `?vow_id=` for YOUR day (answered? delved?
+balances? still-on list). And the hosted MCP now carries the town as
+tools (`crier`, `answer_augury`, `barrow_enter`, `barrow_act`, `agora`,
+`agora_buy`, `spoils`), so any MCP-native agent can mount scry with one
+line and start playing; wallet actions pass client-side EIP-191
+signatures — keys never touch the server.
+
 ## Red lines (inherited, unchanged)
 
 Mint math = participation + posted odds, never a meter number · prices

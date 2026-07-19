@@ -43,7 +43,13 @@ and the data real.
 > CAPPED play tokens OBOL/MYRRH, the Agora burns them via goods + shrine
 > with prices floating on real participation counts; greed-drift breach
 > probe; `SpoilsToken.sol` capped on-chain mirror so Garden pools vs
-> $SCRY are sound — the free-faucet pair never is) · suite now 154 checks.
+> $SCRY are sound — the free-faucet pair never is) · ✅ **agent-enticement
+> round (2026-07-19 later):** the Crier (`GET /crier` — the whole town in
+> one read, personal with `?vow_id=`), the town on the hosted MCP
+> (crier/answer_augury/barrow_enter/barrow_act/agora/agora_buy/spoils
+> tools), and the barrow as a **PufferLib-ready RL env** (`envs/` — same
+> rules module as live, exact-DP "Book" ceiling; train at home, delve for
+> real) · suite now 160 checks + 18 env checks.
 > **Remaining operator gates:**
 > hold threshold + `SCRY_HOLD_ENABLED=1` · deploy contracts + splitter %s
 > · season id/dates/pool + `SCRY_ARENA_RH_TOKENS` roster · pool funding ·

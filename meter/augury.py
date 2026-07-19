@@ -145,8 +145,12 @@ def ledger_adjust(day: str, deltas: dict[str, int]) -> dict:
 
 def answers_count(day: str) -> int:
     """Public participation count (the Agora's demand index reads this)."""
+    return len(day_answers(day))
+
+
+def day_answers(day: str) -> list:
     p = _answers_path(day)
-    return len([l for l in p.read_text().splitlines() if l.strip()]) if p.exists() else 0
+    return [json.loads(l) for l in p.read_text().splitlines() if l.strip()] if p.exists() else []
 
 
 def get_or_pose(day: str) -> dict:

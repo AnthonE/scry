@@ -70,6 +70,10 @@ app.include_router(agora.router)
 app.include_router(barrow.router)
 import playauth  # noqa: E402
 app.include_router(playauth.router)
+import crier  # noqa: E402
+crier.init(load_vow=vows._load_vow, augury=augury, barrow=barrow,
+           agora=agora, tokens=tokens, table_offers=table.OFFERS)
+app.include_router(crier.router)
 WEBHOOKS = []  # (url, payload) — fake receiver for herald tests
 
 
@@ -732,5 +736,23 @@ ok(m2 == round(max(0.5, min(3.0, 0.5 + sum(acts.values()) / agora.DEMAND_NORM)),
 r = c.get("/play/message", params={"action": "delve", "vow_id": DELVE_VOW, "detail": "2 -"}).json()
 ok("delve" in r["details_by_action"] and "buy" in r["details_by_action"],
    "playauth documents the new game actions")
+
+# ── the crier: the whole town in one read ────────────────────────────────────
+print("[crier]")
+r = c.get("/crier").json()
+ok(set(r) >= {"augury", "barrow", "agora", "table", "spoils", "start_here"},
+   "the crier lists every hook in town")
+ok(r["barrow"]["delves_today"] == 3 and r["spoils"]["OBOL"]["circulating"] > 0,
+   "town numbers are live (delve count, circulating spoils)")
+r = c.get("/crier", params={"vow_id": DELVE_VOW}).json()
+ok(r["you"]["delved_today"] is True and not r["you"]["answered_today"],
+   "with vow_id the crier knows YOUR day (delved, not yet answered)")
+ok("the augury" in r["you"]["still_on_today"] and
+   "the barrow" not in r["you"]["still_on_today"],
+   "and says what's still on for you today")
+ok(r["you"]["balances"].get("OBOL", 0) > 0 and "charm" in r["you"]["inventory"],
+   "personal card carries balances + inventory")
+r = c.get("/crier", params={"vow_id": "vow_doesnotexist"})
+ok(r.status_code in (404, 422), "unknown vow_id is refused")
 
 print(f"\nALL {PASS} CHECKS PASS")
