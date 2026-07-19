@@ -546,6 +546,29 @@ gq = Market(keeper=vkeeper).browse(category="worker", search="georgos")
 check("georgos is a dynamically-priced labor listing on the exchange",
       gq and gq[0]["pricing"] == "dynamic" and gq[0]["rarity"] == "rare")
 
+# harvest-target orders: "farm N materia" → fills → settles off the read
+om = mmo.parse_order("farm 50 materia then come home")
+check("plain English: 'farm N materia' parses",
+      om["until_materia"] == 50 and om["until_level"] is None)
+grec2 = vkeeper.summon_crew("georgos")           # auto-numbers → fresh wallet
+gfam2 = vkeeper.get(grec2["familiar_id"])
+sum2 = mmo.run_farm(gfam2, gate, om, max_beats=30)
+check("the farmhand fills a materia order and withdraws with the bags",
+      sum2["done"] and sum2["final"]["materia"] >= 50)
+mspec = Spec("mmo_materia", {"gate": "mock://test",
+                             "wallet": mmo.wallet_for(gfam2),
+                             "char_id": 0, "materia": 50})
+check("mmo_materia is machine-checkable and settles off the harvest read",
+      mspec.checkable() and mspec.verify("whatever is claimed") is True)
+check("an unfilled materia order honestly fails the read",
+      Spec("mmo_materia", {"gate": "mock://test", "wallet": mmo.wallet_for(gfam2),
+                           "char_id": 0, "materia": 10_000}).verify("x") is False)
+L, R, C, B = fresh_economy()
+jm = B.post("alice", gfam2.cfg.name, 60, "escrow", mspec, 1000, now=T0)
+outm = gfam2.do_job(B, jm["id"], now=T0)
+check("a farm-materia job auto-settles off the venue read",
+      outm["auto_settled"] and L.balance(gfam2.cfg.name) == 57)
+
 # ── host API + console ────────────────────────────────────────────────────
 try:
     from fastapi.testclient import TestClient

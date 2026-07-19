@@ -131,7 +131,7 @@ attendant spirit and the computing background worker.
   millennia drift less than coined ones (the language throughline). Crew:
   **Mithra** (Oath-Keeper), **Sibyl** (Augur), **Mnemon** (Record),
   **Herald** (Messenger), **Lar** (Ward). Reach for the oldest true name.
-- **Status:** P1 BUILT (`familiar/` — local keep + web console, 50-check
+- **Status:** P1 BUILT (`familiar/` — local keep + web console, 140+-check
   offline suite; sandbox-only: no wallet/custody/payments yet). P2 = the
   hosted, paid marketplace. Self-host is first-class and is the unwatched
   data baseline.
@@ -311,6 +311,6 @@ the same claim: the oldest words carry the least drift.
 3. `MONITOR-YOUR-AGENT.md` + `HARNESSES.md` for honest-scope + integration.
 4. Touching the hosted meter → edit `meter/` here (canonical).
 5. Touching the marketplace → `familiar/`; run `python3
-   familiar/test_familiar.py` (offline, 50 checks).
+   familiar/test_familiar.py` (offline, 140+ checks).
 6. `verify` skill: `python3 scry_verify.py` — 0 creds, 0 network,
    dependency-free, sub-second. `session-start-hook` is NOT for this repo.

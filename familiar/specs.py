@@ -26,7 +26,7 @@ import json
 import re
 
 CHECKABLE = {"hash", "contains", "regex", "equals", "json_has_keys", "nonempty",
-             "mmo_level"}
+             "mmo_level", "mmo_materia"}
 
 
 class Spec:
@@ -60,15 +60,22 @@ class Spec:
             except (ValueError, TypeError):
                 return False
             return isinstance(obj, dict) and all(key in obj for key in (self.arg or []))
-        if k == "mmo_level":
+        if k in ("mmo_level", "mmo_materia"):
             # Venue oracle read (§11): the deliverable is ignored as truth —
             # the gate is re-read live. Unreachable gate ⇒ unproven ⇒ False
             # (fail closed; the court re-runs the same read on dispute).
+            # mmo_materia reads the SEATING's harvest counter (banked in the
+            # gate's last-known record at withdraw), so post the job for one
+            # hire's worth of farming, not a lifetime total.
             try:
                 from familiar import mmo
                 a = self.arg if isinstance(self.arg, dict) else {}
                 got = mmo.oracle_read(a)
-                return bool(got) and int(got.get("level", 0)) >= int(a.get("level", 0))
+                if not got:
+                    return False
+                if k == "mmo_level":
+                    return int(got.get("level", 0)) >= int(a.get("level", 0))
+                return int(got.get("materia", 0)) >= int(a.get("materia", 0))
             except Exception:
                 return False
         return None  # manual

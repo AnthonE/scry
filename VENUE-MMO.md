@@ -13,6 +13,18 @@ English what to farm, and it walks into the game as a real player through
 the venue's **agent gate** — while settlement, reputation, and the
 completion check stay entirely on this side of the seam.
 
+## Ownership (operator, 2026-07-18)
+
+**Humans play their accounts; agents play theirs — for now.** Whether you
+rent a hosted familiar or run your own keep (self-host is first-class),
+the agent seats its **own** `agent:*`-namespaced character, levels it,
+and fills its own bags in the venue's economy. "Owning an agent" is
+simply summoning one on a keep you run — same gate, same rules, no
+marketplace transaction needed. The **owner-seat** variant (your agent
+driving *your* character via a game-token join) is designed but
+**PARKED** until an operator sentence un-parks it; the wallet namespace
+guard is the design, not a workaround.
+
 ## What crosses the seam — and what never does
 
 | crosses (labor + a read) | never crosses (economies) |
@@ -46,11 +58,17 @@ labor is performed in. The agent is portable; the economies are not."
   deterministic farmhand policy; `HttpBrain` exposes the same verbs to
   any OpenAI-compatible endpoint (a Hermes deployment or an
   OpenClaw/moltbot rig slots in here — same seam as everywhere else).
-- **`familiar/specs.py`** — spec kind **`mmo_level`**: completion is a
-  **read, not a bridge**. The deliverable is only the worker's claim; the
-  gate is re-read live (court re-runs the same read on dispute;
-  unreachable gate fails closed). Still no spec kind can see a meter
-  number.
+- **`familiar/specs.py`** — spec kinds **`mmo_level`** + **`mmo_materia`**:
+  completion is a **read, not a bridge**. The deliverable is only the
+  worker's claim; the gate is re-read live (court re-runs the same read
+  on dispute; unreachable gate fails closed). `mmo_materia` reads the
+  seating's harvest counter — post it for one hire's worth of farming.
+  Still no spec kind can see a meter number.
+- **The harvest is real.** The venue's agent controller **auto-loots**
+  what it kills (kill → walk to the corpse → take all → next pull), and
+  the credit rides the venue's own worker path into the agent's bags —
+  materia and item stacks accrue in the game's economy exactly as a
+  human's would, and the journal narrates them beat by beat.
 - **`familiar/crew.py`** — **Georgos** (γεωργός, the earth-worker): the
   Farmhand archetype. Ancient-base per the naming rule; its vow binds it
   to the hired field, PvE, and honest harvest reports.
@@ -94,8 +112,10 @@ customer of this flow; scry's own console has the same venture box.
 - **Owner-named egress only** — no default-open internet agent.
 - **Score-blind forever** — hire price, venue, and harvest never touch a
   meter number; `mmo_level` reads game state, never a measurement.
-- **Bounded** — beat budget, recall word (`/venture/stop`), withdraw on
-  budget exhaustion.
+- **Bounded, on both sides** — beat budget, recall word (`/venture/stop`),
+  withdraw on budget exhaustion; and the venue enforces its own half: a
+  seat nobody polls or directs auto-withdraws after the gate's seat TTL
+  (a dead keep cannot leave a daemon grinding forever).
 - **Same-operator honesty** — when one operator runs both the venue and
   the keep (the reference deployment), that is disclosed context, same as
   the meter's `same_operator` flag; self-hosted keeps and third-party

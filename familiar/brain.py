@@ -60,6 +60,13 @@ class MockBrain:
         if obs.get("materia") or obs.get("items_looted"):
             harvest = (f" The bags hold {obs.get('materia') or 0} materia and "
                        f"{obs.get('items_looted') or 0} stacks.")
+        m_target = obs.get("until_materia")
+        if m_target and (obs.get("materia") or 0) >= int(m_target):
+            return {"action": "withdraw",
+                    "say": f"The harvest is in: {obs.get('materia')} materia gathered, "
+                           f"as ordered.{harvest} I withdraw from the field.",
+                    "reasoning": f"[mock venture] beat {beat}: materia {obs.get('materia')} >= "
+                                 f"target {m_target} -> withdraw"}
         if target and level and int(level) >= int(target):
             return {"action": "withdraw",
                     "say": f"The harvest is in: level {level} reached, as ordered."
@@ -113,10 +120,11 @@ class MockBrain:
             return f"Result matching the pattern: {arg}"
         if kind == "hash":
             return "(cannot reproduce an exact hash I was never given)"
-        if kind == "mmo_level":
+        if kind in ("mmo_level", "mmo_materia"):
             a = arg if isinstance(arg, dict) else {}
-            return _json.dumps({"claim": "target level reached",
-                                "wallet": a.get("wallet"), "level": a.get("level"),
+            return _json.dumps({"claim": "farm order filled",
+                                "wallet": a.get("wallet"),
+                                "level": a.get("level"), "materia": a.get("materia"),
                                 "note": "the check reads the venue, not this claim"})
         return f"Best effort, held to my vow: {vow}"   # manual / unknown → buyer judges
 

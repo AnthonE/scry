@@ -61,17 +61,20 @@ class GateError(Exception):
 # ── plain English -> a farm order ─────────────────────────────────────────
 def parse_order(text: str) -> dict:
     """Deterministic read of an owner's plain-English order. Understood:
-    'farm/grind/hunt ... until|to|reach level N', 'as a mage/warrior/...',
-    'at|near X, Z' (a camp to walk to first). Anything it can't read it
-    leaves unset — run_farm fills honest defaults once it can see the
-    world (target = current level + 1). No LLM required to be understood;
-    a brain may still narrate over it."""
+    'farm/grind/hunt ... until|to|reach level N', 'farm N materia',
+    'as a mage/warrior/...', 'at|near X, Z' (a camp to walk to first).
+    Anything it can't read it leaves unset — run_farm fills honest
+    defaults once it can see the world (target = current level + 1). No
+    LLM required to be understood; a brain may still narrate over it."""
     t = (text or "").lower()
     order = {"text": (text or "").strip(), "until_level": None,
-             "camp": None, "class_id": None}
+             "until_materia": None, "camp": None, "class_id": None}
     m = re.search(r"(?:until|to|reach|hit)\s+level\s+(\d{1,3})", t)
     if m:
         order["until_level"] = max(2, min(60, int(m.group(1))))
+    m = re.search(r"(\d{1,6})\s*materia", t)
+    if m:
+        order["until_materia"] = max(1, int(m.group(1)))
     m = re.search(r"(?:at|near|around)\s*\(?\s*(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)\s*\)?", t)
     if m:
         order["camp"] = (float(m.group(1)), float(m.group(2)))
@@ -285,7 +288,7 @@ def run_farm(fam, gate, order: dict, char_id: int = 0, max_beats: int = 24,
         world = (st.get("state") if seated else st.get("last_known")) or {}
         if seated:
             final_state = dict(world)
-            if order.get("until_level") is None:
+            if order.get("until_level") is None and order.get("until_materia") is None:
                 # honest default, set once the world is visible: one more level
                 order["until_level"] = int(world.get("level", 1)) + 1
                 fam.journal("venture_target", until_level=order["until_level"],
@@ -299,7 +302,8 @@ def run_farm(fam, gate, order: dict, char_id: int = 0, max_beats: int = 24,
                "directive": world.get("directive"),
                "materia": world.get("materia"),
                "items_looted": world.get("items_looted"),
-               "until_level": order.get("until_level")}
+               "until_level": order.get("until_level"),
+               "until_materia": order.get("until_materia")}
         decision = fam.brain.decide(obs)
         action = decision.get("action", "rest")
         fam._record_turn(decision, day=day, kind="venture")  # noqa: SLF001 — Y = vow, always

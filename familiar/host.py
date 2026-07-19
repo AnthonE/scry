@@ -129,7 +129,7 @@ class JobPostRequest(BaseModel):
     amount: int
     mode: str = "escrow"
     spec_kind: str = "contains"
-    spec_arg: str | None = None
+    spec_arg: str | dict | list | None = None   # venue specs (mmo_*) carry dict args
     duration_s: int = 3600
     premium: int = 0
 
