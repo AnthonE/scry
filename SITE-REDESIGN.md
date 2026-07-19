@@ -216,4 +216,49 @@ MAGI screen was staging — a mind voting against itself in the open.
 
 **Guards recap (from CLAUDE.md, restated as UI law):** stele always ·
 score-blind seals · never fake data · no shell/no CDN/no build step ·
-venue shows labor never economy · brand says "scry" only.
+venue shows labor never economy (**reward-agnostic** — operator, 2026-07-19:
+scry interfaces with the MMO as a venue and doesn't care what the venue
+pays in; no venue currency ever renders here) · brand says "scry" only.
+
+---
+
+## 8. LOCKED 2026-07-19 — fonts, juice, radio, rails (frontend built this pass)
+
+**Fonts (vendored, OFL, `deck/fonts/` + `OFL-NOTE.md`):** Press Start 2P =
+arcade display (wordmark/verdict/h2) · DotGothic16 = the JRPG menu face
+(numerals/labels/window text) · JetBrains Mono variable = data ·
+Cormorant Italic = oracle prose. Google-Fonts `<link>`s are now a bug.
+
+**The juice layer (`deck-ui.js` + `deck-ui.css`):** synthesized WebAudio
+SFX — cursor blip / confirm chime / cancel thud / two-tone breach klaxon —
+zero audio assets, default OFF, persisted toggle. SNES cursor: arrows walk
+`[data-cursor]`, Enter/Z opens the target window, Esc/X closes. FF6 window
+open animation (vertical expand). Optional CRT scanline toggle.
+`prefers-reduced-motion` kills all of it.
+
+**Deck radio (`deck-radio.js` + `radio/RADIO.md`):** manifest-driven,
+user-initiated only, never behind a fee, branded "deck radio". OC ReMix
+terms compliance is structural: `files` tracks REQUIRE title/artist/url and
+the now-playing bar renders "title — artist · track · ocremix.org" links;
+MP3s deploy to the VM (`radio/tracks/`, git-ignored) with original names +
+tags; one manifest edit removes the whole layer. Stream stations (e.g.
+Rainwave's OCR channel) allowed once their URL is verified embeddable +
+nginx CSP `media-src` admits the host.
+
+**Built pages:** `deck.html` + `js/deck.js` (the control panel: Triptych
+wired to `POST /api/demo/profile` with a visible sample trace — full
+returned JSON + trace shown in the read window; vows/witness/rails
+instruments live; reputation/jobs/venue sealed honestly) · `rails.html` +
+`js/rails.js` (the Robinhood/RH-Chain surface: live rail tiles from
+`/.well-known/x402.json`, the 5-step 402 flow, first-mover story at
+defensible strength, queued RH-QW1/2/3 sealed, the mock-only
+trading-agent boundaries in a hazard card + window).
+
+**Backend follow-ups (frontend-first per operator; none block the pages):**
+1. `GET /deck/stats` aggregator (Approach landing counts — unsigned infra
+   stats, clearly not a measurement).
+2. nginx CSP `media-src` addition IF a stream radio station is enabled.
+3. Vow/witness list response shapes: pages code defensively
+   (`vows|items|array`); pin the shapes when convenient.
+4. Later: per-vow `y_consistency` surfaced for MITHRA·Y when a vow is
+   bound (today the third node honestly shows the joint I(C;D,M)).
