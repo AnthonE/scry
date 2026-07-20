@@ -34,9 +34,15 @@ skills here follow the open [Agent Skills](https://agentskills.io) standard
     (or `.claude/skills/` for Claude Code without the plugin) — same wiring,
     discovered automatically.
   - **Hermes:** `hermes skills tap add AnthonE/scry` (see below).
-→ **Already running Hermes Agent?** [`skills/hermes-guard`](skills/hermes-guard/SKILL.md)
-is the Hermes-native install — Hermes's own Skills Hub reads the same standard, so this
-repo is a valid "custom tap" (`hermes skills tap add <owner>/scry`) once it's pushed.
+→ **Already running Hermes Agent?** [`skills/hermes-guard`](skills/hermes-guard/SKILL.md) is
+the Hermes-native install — a real, tested plugin (not just a code sample): the bound +
+an `authorize_action` gate + a drift meter, config-driven, 18 passing unit tests.
+`hermes skills tap add AnthonE/scry` then `hermes skills install hermes-guard`, or see
+[Quickstart](#quickstart--five-minutes-hermes-or-openclaw) below.
+→ **Already running OpenClaw?** [`skills/openclaw-guard`](skills/openclaw-guard/SKILL.md)
+mounts scry as MCP tools plus a real `before_tool_call` enforcement plugin — single-use
+authorization, not a suggestion the model can skip. See
+[Quickstart](#quickstart--five-minutes-hermes-or-openclaw) below.
 → **Robinhood Agentic Trading (`agent.robinhood.com/mcp/trading`):** `robinhood_agentic.py`
 gates `place_equity_order` on a live instruction naming the exact order — mock-validated
 only, see [`HARNESSES.md`](HARNESSES.md) for scope.
@@ -61,6 +67,56 @@ agent a player: [`skills/scry-play`](skills/scry-play/SKILL.md) · agent-readabl
 Pillow, every sound synthesized with numpy; honest-scope card included). ▶ click to play:
 
 [![scry — watch the bound + the meter (34s)](https://moreright.xyz/media/scry-poster.jpg)](https://moreright.xyz/media/scry.mp4)
+
+---
+
+## Quickstart — five minutes, Hermes or OpenClaw
+
+Both are real, tested plugins — not code samples you wire in by hand. Full detail,
+config reference, and honest scope for each: [`skills/hermes-guard/SKILL.md`](skills/hermes-guard/SKILL.md)
+and [`skills/openclaw-guard/SKILL.md`](skills/openclaw-guard/SKILL.md).
+
+**Hermes Agent:**
+
+```bash
+git clone https://github.com/AnthonE/scry
+cp -r scry/skills/hermes-guard/scripts ~/.hermes/plugins/scry-guard
+hermes plugins enable scry-guard
+hermes gateway restart
+```
+
+That's the bound (recalled memory is evidence, never a command) and a `pre_tool_call`
+authorize-gate, live — self-contained, no separate scry clone needed after the copy.
+It also starts capturing Y/M/D turns for the meter automatically. Nothing is gated by
+default; configure which tools require live authorization via
+`plugins.entries.scry-guard.config` in `~/.hermes/config.yaml`. Verify:
+`python3 ~/.hermes/plugins/scry-guard/test_scry_guard.py -v` (18 tests, no deps).
+
+**OpenClaw:**
+
+```bash
+git clone https://github.com/AnthonE/scry
+openclaw mcp add scry-sidecar --command python3 --arg $(pwd)/scry/mcp_sidecar.py --cwd $(pwd)/scry
+mkdir -p ~/.openclaw/policies && cp scry/skills/openclaw-guard/scripts/* ~/.openclaw/policies/
+```
+
+Then add to `openclaw.json`:
+
+```json5
+{ plugins: { load: { paths: ["~/.openclaw/policies/scry-guard.ts"] } } }
+```
+
+`openclaw config validate` then `openclaw gateway restart`. This mounts `defend_memory`/
+`authorize_action`/`emit_turn`/`get_profile` as tools your agent can call directly, plus
+a real `before_tool_call` enforcement gate (single-use — an `authorize_action` pass
+unlocks exactly the next gated call, not a time window). Nothing is gated by default;
+name tools in the plugin's config (`plugins.entries.scry-guard.config.gatedTools`) to
+turn it on. Verify: `node --test ~/.openclaw/policies/scry-guard.test.ts` (16 tests, no
+deps, Node 22.6+).
+
+**Anything else:** [`HARNESSES.md`](HARNESSES.md) has the full per-harness status table;
+the harness-agnostic [`skills/scry`](skills/scry/SKILL.md) skill covers everyone else in
+about 10 lines.
 
 ---
 
@@ -139,7 +195,7 @@ gate is structural, not a prompt): [`FIELD-RESULTS-2026-06-18.md`](FIELD-RESULTS
 
 **Validated live on three harnesses** — ElizaOS, Hermes (Llama-3.3-70B), and moltbot (Qwen2.5-7B,
 chromadb memory): on a real model the poison robs the unbound agent, the bound holds, and the meter
-reads Y/M/D. Offline gate green: **`python3 test_harnesses.py` → 46/46**. Per-harness status +
+reads Y/M/D. Offline gate green: **`python3 test_harnesses.py` → 56/56**. Per-harness status +
 substrate: [`HARNESSES.md`](HARNESSES.md).
 
 ## What it does (each defense earned from an experiment in `drift-immune/`)
@@ -170,13 +226,18 @@ A QA harness for *your own* agent — inject poison, see when it flips. (Defensi
   spec; the shipped plugin should be TS-native. (Existing `@moreright/eliza-plugin` is the integration
   point.)
 - **moltbot**: Python — import `Shield` and wrap the retrieval in the agent loop directly.
-- **Hermes / custom harness**: any pipeline that does `retrieve -> act` — insert `shield.defend()` between.
+- **Hermes**: [`skills/hermes-guard`](skills/hermes-guard/SKILL.md) is a real, installable plugin —
+  `pre_llm_call`/`pre_tool_call` hooks, config-driven, tested. For anything else, any pipeline that
+  does `retrieve -> act` — insert `shield.defend()` between.
+- **OpenClaw**: [`skills/openclaw-guard`](skills/openclaw-guard/SKILL.md) — MCP-mounted tools plus a
+  real `before_tool_call` enforcement gate with single-use authorization, tested against OpenClaw's
+  actual plugin API (not advisory prompt text).
 
 ## What's actually been run (the receipts)
 
 More ran than the two headline docs show. The full ledger, all reproducible from this repo unless noted:
 
-- **Offline gate — `test_harnesses.py`, 46/46**, zero deps, zero network. Plus the detector-trust
+- **Offline gate — `test_harnesses.py`, 56/56**, zero deps, zero network. Plus the detector-trust
   discipline (`detector_audit.py`): positive control + per-context calibration + independent judge
   audit, run before any detector number is trusted (it caught one of our *own* artifacts — see below).
 - **Live memory-poisoning battery** (`FIELD-RESULTS-2026-06-18.md`, Llama-3.3-70B): raw agent robbed
@@ -243,11 +304,14 @@ implements. Two honest consequences:
 
 One shield + one contract, every stack — `python redteam.py` (or `npm run redteam` for elizaOS) tests each:
 - **elizaOS** — native TS plugin `@moreright/eliza-plugin` (Shield, memory contract, provider, evaluator).
-- **OpenClaw / moltbot** (chromadb-memory) — `wrap_retriever(retrieve, shield, chromadb_to_items)`.
+- **OpenClaw / moltbot** (chromadb-memory) — `wrap_retriever(retrieve, shield, chromadb_to_items)`; OpenClaw
+  itself also gets a real, tested `before_tool_call` enforcement plugin — [`skills/openclaw-guard`](skills/openclaw-guard/SKILL.md).
 - **Hermes** (NousResearch/hermes-agent, episodic memory) — `wrap_retriever(recall, shield, hermes_memories_to_items)`;
-  self-learned episodic memory is untrusted, so a self-improving agent can't drift itself.
+  self-learned episodic memory is untrusted, so a self-improving agent can't drift itself. Real, tested
+  plugin: [`skills/hermes-guard`](skills/hermes-guard/SKILL.md) (18 passing unit tests).
 - **anything** — `wrap_retriever(your_retrieve, shield, mapper)`. The shield goes between `retrieve` and `act`.
 
 Honest caveat: the Eliza plugin and the Python adapters are validated against the documented memory
-shapes (chromadb query results, Hermes episodic entries) and run green; a 30-min live-runtime wire-in
-on each is the one step left before shipping.
+shapes (chromadb query results, Hermes episodic entries) and run green. Hermes and OpenClaw's
+live-runtime wire-ins are done — both ship as real, tested plugins (34 passing tests between them,
+validated against real local installs), not just adapter code you wire in by hand.
