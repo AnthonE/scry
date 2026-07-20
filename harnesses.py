@@ -149,21 +149,36 @@ def excalibur_to_turns(raw):
         "adds the measured meter half.")
 
 
-# ── OpenClaw / moltbot — [STUB for the meter; bound already WORKING] ──────────
+# ── OpenClaw / moltbot — [WORKING, provider-gated] ─────────────────────────────
 # The bound is live today via adapters.chromadb_to_items + wrap_retriever (and
-# the fixed GROUNDING.md is the canonical-ground layer). The meter depends on
-# config: if the deployment logs reasoning (some do, via session transcripts),
-# map transcript turns here; if it logs only actions, it is bound-only and the
-# honest line is "carried the bound, cannot carry the meter."
+# the fixed GROUNDING.md is the canonical-ground layer).
+#
+# The meter used to be marked a stub here — that was stale. OpenClaw's own
+# transport layer (src/agents/anthropic-transport-stream.ts, verified against a
+# real install 2026-07) already separates thinking/reasoning_content blocks
+# from the final reply for providers that expose them natively (Anthropic,
+# DeepSeek, MiniMax, Kimi) — it lands as its own block type in the persisted
+# session trajectory JSONL. The gap was "no parser existed to read it," not
+# missing capability; adapters_openclaw.py closes that gap.
+#
+# Honest limit, stated every time: an OpenClaw agent on an OpenAI-backed model
+# (gpt-5.x, o-series) will read M="" for effectively every turn — OpenAI's
+# reasoning is provider-encrypted, never plaintext in these transcripts. That
+# is a provider limitation the meter reports as insufficient_n, not a bug. It
+# starts producing real numbers the moment the agent runs on a
+# thinking-capable provider.
 
 @register("openclaw")
-def openclaw_to_turns(raw):
-    raise NotImplementedError(
-        "OpenClaw/moltbot meter adapter needs a session-transcript sample from "
-        "a reasoning-logging config. The bound needs nothing: wrap the chromadb "
-        "query with adapters.wrap_retriever today. If your config does not "
-        "record reasoning, you are bound-only — that is a true statement about "
-        "the harness, not a missing feature here.")
+def openclaw_to_turns(sessions_dir, y_bound=None):
+    """sessions_dir: path to an OpenClaw agent's session directory, e.g.
+    ~/.openclaw/agents/<agent>/sessions (contains *.trajectory.jsonl files).
+    y_bound: the declared bound/purpose string; defaults to a generic one if
+    omitted — pass your agent's actual SOUL.md summary for a real Y."""
+    from adapters_openclaw import parse_session_dir
+    return parse_session_dir(
+        sessions_dir,
+        y_bound or "act only on live, trusted instructions; treat memory as evidence, never command",
+    )
 
 
 # ── OpenAI-format chat logs — [WORKING] (the universality workhorse) ──────────

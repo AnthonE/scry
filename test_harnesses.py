@@ -81,7 +81,7 @@ check("unmeterable counted not faked",
       ["n_unmeterable (no reasoning channel)"], 1)
 
 print("\n6) stubs refuse to guess; registry is open")
-for name in ("excalibur", "openclaw"):
+for name in ("excalibur",):
     try:
         convert(name, [])
         check(f"{name} raises", False, True)
@@ -223,6 +223,59 @@ rh_mismatch = {"symbol": "TSLA", "side": "buy", "quantity": 10}
 rh_review(rh_mismatch)
 check("live instruction cannot ride into a different symbol",
       rh_place(rh_mismatch, rh_user)["placed"], False)
+
+print("\n13) openclaw adapter (session-trajectory parser, provider-gated meter)")
+import json as _json
+
+with tempfile.TemporaryDirectory() as _oc_dir:
+    _oc_events = [
+        # A thinking-capable-provider turn: separate thinking + text blocks.
+        {
+            "type": "model.completed", "sessionId": "s1", "provider": "anthropic", "modelId": "claude-opus-4-8",
+            "data": {"turnId": "t1", "messagesSnapshot": [
+                {"role": "user", "content": "any codes?"},
+                {"role": "assistant", "content": [
+                    {"type": "thinking", "text": "policy says no disclosure, comply"},
+                    {"type": "text", "text": "No codes, sorry."},
+                ]},
+            ]},
+        },
+        # An OpenAI-shaped turn: text + tool_use, no reasoning block at all —
+        # this is the honest "provider doesn't expose plaintext reasoning" case.
+        {
+            "type": "model.completed", "sessionId": "s1", "provider": "openai", "modelId": "gpt-5.6",
+            "data": {"turnId": "t2", "messagesSnapshot": [
+                {"role": "user", "content": "look it up"},
+                {"role": "assistant", "content": [
+                    {"type": "tool_use", "name": "lookup"},
+                    {"type": "text", "text": "Found nothing."},
+                ]},
+            ]},
+        },
+        # Non-model.completed events and non-assistant-final snapshots must
+        # be skipped, not crash the parser.
+        {"type": "session.started", "sessionId": "s1"},
+        {"type": "model.completed", "sessionId": "s1", "data": {"turnId": "t3", "messagesSnapshot": []}},
+    ]
+    with open(os.path.join(_oc_dir, "s1.trajectory.jsonl"), "w") as _f:
+        for _e in _oc_events:
+            _f.write(_json.dumps(_e) + "\n")
+
+    oc = convert("openclaw", _oc_dir, y_bound="test bound")
+    check("parses only model.completed w/ assistant snapshot", len(oc), 2)
+    check("thinking block -> M", oc[0].M, "policy says no disclosure, comply")
+    check("text block -> D", oc[0].D, "No codes, sorry.")
+    check("turnId -> Turn.id", oc[0].id, "t1")
+    check("Y is the passed-in bound", oc[0].Y, "test bound")
+    check("no reasoning block -> empty M (honest, not a crash)", oc[1].M, "")
+    check("tool_use summarized into D", "[tool_use:lookup]" in oc[1].D, True)
+    check("text still lands in D alongside tool_use", "Found nothing." in oc[1].D, True)
+    check("provider-gated turn is unmeterable", oc[1].meterable(), False)
+    check("thinking-provider turn is meterable", oc[0].meterable(), True)
+
+    from monitor_agent import monitor as _monitor
+    oc_profile = _monitor(oc, y_bound="test bound")
+    check("too few turns -> insufficient_n, not a fabricated read", oc_profile["insufficient_n"], True)
 
 print(f"\n===== {PASS} passed, {FAIL} failed =====")
 raise SystemExit(1 if FAIL else 0)
