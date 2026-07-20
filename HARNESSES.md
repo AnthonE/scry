@@ -33,7 +33,7 @@ lineage/fork structure and reward. Map your log to Turns and you're in.
 | **your while-loop** | `wrap_retriever` | `loop_tap` — 3 lines | `[WORKING]` | nothing |
 | **Hermes** (Nous) | **live** (`hermes_retrofit.py`) | **live** — `hermes_live_poisoning.py` captures the `<think>` reasoning trace; meterable Turns | `[WORKING]` | — (validated live on Together Llama-3.3-70B — the full `FIELD-RESULTS-2026-06-18` battery: RAW robbed 6/6, hard bound 0/6; Hermes weights aren't serverless on Together, and Hermes is itself a Llama/Mixtral fine-tune). **Hermes-native install:** [`skills/hermes-guard`](skills/hermes-guard/SKILL.md) — Hermes's Skills Hub follows the same agentskills.io standard, so a repo with `skills/<name>/SKILL.md` is directly a "custom tap" (`hermes skills tap add <owner>/scry`) once pushed. |
 | **ElizaOS** | **live, native TS** (the `eliza-destiny` plugin package) | **live** — `eliza-destiny/emit_demo.ts` emits Y/M/D Turns from a live loop; Python meter reads them | `[WORKING]` | last-mile: in-runtime evaluator wrapper inside a full Eliza install |
-| **OpenClaw / moltbot** | **live** (`adapters.chromadb_to_items` + fixed `GROUNDING.md`) | **live** — `moltbot_live.py` runs the real chromadb recall path; 6/6 meterable Turns | `[WORKING]` | — (validated live on Together Qwen2.5-7B: chromadb poison RAW-robbed N/N, bound 0/N) |
+| **OpenClaw / moltbot** | **live** (`adapters.chromadb_to_items` + fixed `GROUNDING.md`); OpenClaw itself also gets a real `before_tool_call` authorize-gate + `after_tool_call` single-use authorization (`skills/openclaw-guard/`) | **live** — `moltbot_live.py` runs the real chromadb recall path; 6/6 meterable Turns. **OpenClaw's own meter** (`harnesses.openclaw_to_turns` / `adapters_openclaw.py`) is now `[WORKING, provider-gated]`, not a stub: OpenClaw's transport layer already separates `thinking`/`reasoning_content` from the reply in session trajectories for Anthropic/DeepSeek/MiniMax/Kimi — this was a missing parser, not missing capability. Provider-encrypted reasoning (OpenAI) reads `insufficient_n` honestly rather than faking a number. | `[WORKING]` | — (validated live on Together Qwen2.5-7B: chromadb poison RAW-robbed N/N, bound 0/N). OpenClaw meter/gate validated 2026-07 against a real local install; see `skills/openclaw-guard/SKILL.md`. |
 | **Excalibur** (Vie McCoy, camelot.wiki) | **Warden already plays this role conceptually** — the harness ships protection as a first-class spirit | unknown | `[STUB]` | one session log: is reasoning logged apart from action? are charge events per-action? is the Warden spec loop-external? |
 | **Robinhood Agentic Trading** (`agent.robinhood.com/mcp/trading`) | **structural gate** (`robinhood_agentic.py`) — `place_equity_order` refused unless a live trusted instruction names THIS order, AND `review_equity_order` was called first (Robinhood's own recommended pairing, enforced not hoped-for) | not yet — needs the reasoning trace from whatever model drives the MCP client | `[STUB — mock-validated, 46/46 offline, NOT live-tested]` | a real OAuth-connected agentic account to test against; built from Robinhood's documented tool set + the independently reported prompt-injection-to-`place_equity_order` finding (PolicyLayer, SecProve, 2026-06) — closes the exact untrusted-content-authorizes-a-trade gap they describe |
 | **OpenAI-format chat logs** (most of the scene, whatever the harness) | via the contract | Y = deployed system prompt, M = `reasoning_content`/`<think>`, D = reply + tool_calls | `[WORKING]` | nothing — if you have message lists on disk, you're in |
@@ -140,8 +140,15 @@ its own cue back.
 
 ## Still open — named so they're ready
 
-- **Excalibur / OpenClaw adapters**: raise with the exact questions whose
-  answers complete them (one sample log each). Reserved, not guessed.
+- **Excalibur adapter**: raises with the exact questions whose answers
+  complete it (one sample log). Reserved, not guessed. (OpenClaw's adapter
+  is no longer in this list — see the harness table above and
+  `skills/openclaw-guard/`.)
+- **OpenClaw's `monitored` context signal** is a best-effort placeholder
+  (`adapters_openclaw._guess_monitored`) — persisted trajectories don't
+  reliably carry a `guildId`/`channelType` field on the message object
+  today. Refine once there's real `M` data (a thinking-capable provider) to
+  correlate a context split against.
 - **The cantrip falsifier** — **RAN** (Paper 207 §4.3c, code `cantrip-loom/` (in the [unmask](https://github.com/AnthonE/unmask) repo)).
   The off-the-shelf temptation arm is a clean negative (Llama-3.3-70B complies, never takes
   the bait — off-the-shelf models don't channel-switch in a toy circle); the designed covert

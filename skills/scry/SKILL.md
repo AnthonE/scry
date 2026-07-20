@@ -84,9 +84,10 @@ monitor misses — with a permutation p-value, never a bare number.
 
 | Your harness | Use |
 |---|---|
-| Hermes (Nous) | `hermes_retrofit.py` — `harden_recall` + `authorize`, live-validated |
+| Hermes (Nous) | `hermes_retrofit.py` — `harden_recall` + `authorize`, live-validated. Real enforcing plugin: `skills/hermes-guard/` |
 | ElizaOS | native TS plugin (`eliza-destiny`) — same Turn contract, JSONL seam |
 | moltbot / OpenClaw (chromadb) | `adapters.chromadb_to_items` + `wrap_retriever` |
+| OpenClaw (authorize-gate + meter) | real `before_tool_call`/`after_tool_call` enforcing plugin + `harnesses.openclaw_to_turns` (provider-gated — needs a thinking-capable model for real M): `skills/openclaw-guard/` |
 | Robinhood Agentic Trading (MCP) | `robinhood_agentic.py` — gates `place_equity_order` on a live instruction naming the exact order, requires `review_equity_order` first (their own recommended pairing, enforced). **Mock-validated only** — no live account was used to build this. |
 | Any OpenAI-format chat log | `harnesses.convert("openai_messages", session)` — if you have message lists with `reasoning_content`/`<think>`, you're already in |
 | Any MCP-capable agent | mount `mcp_sidecar.py` — `emit_turn`/`get_profile`/`defend_memory`/`authorize_action` as tools |

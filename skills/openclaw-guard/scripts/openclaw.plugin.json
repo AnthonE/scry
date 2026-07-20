@@ -1,0 +1,23 @@
+{
+  "id": "scry-guard",
+  "name": "scry guard",
+  "description": "Requires a passing, single-use scry-sidecar__authorize_action call before any gated tool call goes through.",
+  "version": "1.0.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "gatedTools": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Tool names that require a passing scry-sidecar__authorize_action call, single-use, immediately before they run. Empty by default.",
+        "default": []
+      },
+      "authMaxAgeSeconds": {
+        "type": "number",
+        "description": "Staleness cap on an unconsumed authorize_action pass, in seconds. Single-use consumption is the real guard; this just bounds how long a never-used authorization can sit around.",
+        "default": 120
+      }
+    }
+  }
+}

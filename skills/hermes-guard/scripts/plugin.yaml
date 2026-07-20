@@ -1,0 +1,23 @@
+name: scry-guard
+version: "1.0.0"
+description: "scry's bound (memory-poisoning defense) + meter (Y/M/D drift capture), wired for Hermes Agent. See https://github.com/AnthonE/scry."
+author: scry
+hooks:
+  - pre_llm_call
+  - post_api_request
+  - post_llm_call
+  - pre_tool_call
+
+# Config is freeform YAML this plugin reads itself (Hermes plugins have no
+# formal configSchema) from plugins.entries.scry-guard.config in
+# ~/.hermes/config.yaml:
+#
+#   plugins:
+#     entries:
+#       scry-guard:
+#         config:
+#           trusted_sources: ["user"]        # default if omitted
+#           gated_tools:                     # default {} (nothing gated)
+#             send_payment: "transfer"       # keyword required in the live
+#                                             # message text (case-insensitive)
+#             delete_everything: null        # any non-empty live message
