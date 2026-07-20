@@ -110,6 +110,17 @@ config. The decision logic lives in `scry-guard-logic.ts` as pure functions (no
 `Date.now()`/module state baked in) specifically so it's unit-testable without a
 live OpenClaw host; `scry-guard.ts` is the thin wiring that calls it with real state.
 
+**Getting the tool name right (live-verified, not guessed):** `event.toolName` in
+`before_tool_call` is the *host's* internal tool identifier, not necessarily what the
+model sees in its own tool list. Live-tested against a Codex-runtime agent (`tools.profile:
+"coding"`): the model calls `functions.exec`, but `event.toolName` arrives as the bare
+`"exec"` — no `functions.` prefix. Putting `"functions.exec"` in `gatedTools` silently
+gates nothing (the tool name never matches, so `before_tool_call` always returns
+`undefined`/allow — no error, no warning, it just doesn't gate). If a configured gate
+isn't firing, add a one-line `console.error(event.toolName)` at the top of
+`before_tool_call`, trigger the real tool call once, and read the actual string back
+from the gateway log before assuming the logic is wrong.
+
 ## The meter
 
 scry's own `harnesses.py` used to mark OpenClaw's meter an unbuilt stub — that's out
