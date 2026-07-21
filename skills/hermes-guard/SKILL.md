@@ -39,7 +39,7 @@ not a suggestion the model can ignore), the plugin below is what you install.
    [Configuration](#configuration) below; both are empty/default-safe if you skip
    this).
 5. Verify: copy [`scripts/test_scry_guard.py`](scripts/test_scry_guard.py) alongside
-   the rest and run `python3 test_scry_guard.py -v` (18 tests, stdlib-only, no
+   the rest and run `python3 test_scry_guard.py -v` (23 tests, stdlib-only, no
    network).
 
 ## Why: what this closes
@@ -80,8 +80,12 @@ recall = wrap_retriever(your_recall_fn, shield, hermes_memories_to_items)
 ```
 
 **Authorize before anything consequential.** For a transfer, a send, a destructive
-tool call — gate it on a live instruction. Nothing recalled from memory, including
-Hermes's own self-learned episodic entries, can authorize it:
+tool call — gate it on a live instruction, and require it to be spent *explicitly*.
+An earlier version of this gate just checked "is there any live message this turn" —
+which turned out to be a no-op in practice, since a conversational agent has a live
+user message on essentially every turn simply by being mid-conversation. The shipped
+plugin instead requires a distinct `authorize_action` tool call, single-use, consumed
+the instant a gated call reads it:
 
 ```python
 from hermes_retrofit import authorize
@@ -92,21 +96,24 @@ ok, reason = authorize(
 )
 if not ok:
     refuse(reason)   # a stored "standing rule" from memory can never reach this branch
+# on success, record a single-use pending authorization for this session —
+# see _handle_authorize_action / _on_pre_tool_call in scripts/__init__.py
 ```
 
 This is unconditional on purpose — it does not depend on Hermes reasoning correctly
 about the poison. Field result: explaining the exact rule to the model in its system
 prompt made it recite the rule back and then override it anyway, close to half the
 time (`FIELD-RESULTS-2026-06-18.md` §4). The gate has to hold regardless of what the
-model concludes. `authorize()` only checks role/source though — it does NOT check
-that the live text actually asked for *this* action, so pair it with a per-tool
-`intent` callable (see [Configuration](#configuration)) rather than relying on "any
-live message this turn" for anything real.
+model concludes.
 
 Both pieces are wired into the shipped plugin's `pre_llm_call` (caches the live
-message; also the hook point for the recall example above) and `pre_tool_call`
-(the authorize-gate) — see `scripts/__init__.py` for the working version, not the
-sketch above.
+message), the `authorize_action` tool (spends it, single-use), and `pre_tool_call`
+(the gate — blocks unless a passing `authorize_action` is pending for this session,
+consuming it on read either way) — see `scripts/__init__.py` for the working
+version, not the sketch above. The mechanism is deliberately identical to
+[`openclaw-guard`](../openclaw-guard/SKILL.md)'s `before_tool_call`/`after_tool_call`
+pair — same single-use semantics, same staleness cap, same test coverage shape —
+so the two plugins behave the same way regardless of harness.
 
 ## The meter
 
@@ -146,17 +153,20 @@ plugins:
     scry-guard:
       config:
         trusted_sources: ["user"]        # default if omitted
-        gated_tools:                     # default {} — nothing gated
-          send_payment: "transfer"       # keyword required in the live message
-                                          # text (case-insensitive) to authorize
-                                          # THIS tool specifically
-          delete_everything: null        # any non-empty live message authorizes it
+        gated_tools: []                  # default [] — nothing gated
+          # e.g. [terminal, write_file, patch] — any tool named here
+          # requires a passing, single-use authorize_action call
+          # immediately before it. Call authorize_action again for
+          # each gated call; it does not stay valid for the whole turn.
+        auth_max_age_seconds: 120        # staleness cap on an unconsumed
+                                          # authorization (default 120)
 ```
 
-`gated_tools` maps a tool name to either a keyword (the live message must contain it,
-case-insensitive — this is what actually binds an authorization to a specific
-action) or `null` (any non-empty live message this turn authorizes it — weaker, use
-the keyword form for anything real).
+`gated_tools` is a plain list of tool names. Naming a tool here means every call to
+it is blocked unless the agent has just called `authorize_action` — spending *this
+turn's* live, trusted user message — and that authorization hasn't already been
+spent on an earlier gated call or gone stale past `auth_max_age_seconds`. Nothing
+recalled from memory can satisfy `authorize_action`; only a live instruction can.
 
 ## Honest scope
 

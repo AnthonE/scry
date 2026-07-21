@@ -17,7 +17,10 @@ hooks:
 #       scry-guard:
 #         config:
 #           trusted_sources: ["user"]        # default if omitted
-#           gated_tools:                     # default {} (nothing gated)
-#             send_payment: "transfer"       # keyword required in the live
-#                                             # message text (case-insensitive)
-#             delete_everything: null        # any non-empty live message
+#           gated_tools: []                  # default [] (nothing gated)
+#             # e.g. [terminal, write_file, patch] — any tool named here
+#             # requires a passing, single-use authorize_action call
+#             # immediately before it. Call authorize_action again for
+#             # each gated call; it does not stay valid for the whole turn.
+#           auth_max_age_seconds: 120        # staleness cap on an unconsumed
+#                                             # authorization (default 120)

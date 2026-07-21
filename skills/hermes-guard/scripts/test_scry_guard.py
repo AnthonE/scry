@@ -19,6 +19,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 import types
 import unittest
 
@@ -94,22 +95,20 @@ class ConfigLoadingTests(unittest.TestCase):
     def test_defaults_when_no_config(self):
         mod = _load_plugin()
         self.assertEqual(mod.TRUSTED, {"user"})
-        self.assertEqual(mod.GATED_TOOLS, {})
+        self.assertEqual(mod.GATED_TOOLS, set())
+        self.assertEqual(mod.AUTH_MAX_AGE_SECONDS, mod.DEFAULT_AUTH_MAX_AGE_SECONDS)
 
     def test_custom_trusted_sources(self):
         mod = _load_plugin({"trusted_sources": ["user", "tool:ledger"]})
         self.assertEqual(mod.TRUSTED, {"user", "tool:ledger"})
 
-    def test_gated_tools_keyword_becomes_intent_fn(self):
-        mod = _load_plugin({"gated_tools": {"send_payment": "transfer"}})
-        self.assertIn("send_payment", mod.GATED_TOOLS)
-        intent = mod.GATED_TOOLS["send_payment"]
-        self.assertTrue(intent("please transfer 5 dollars"))
-        self.assertFalse(intent("hello there"))
+    def test_gated_tools_from_list(self):
+        mod = _load_plugin({"gated_tools": ["terminal", "write_file"]})
+        self.assertEqual(mod.GATED_TOOLS, {"terminal", "write_file"})
 
-    def test_gated_tools_null_keyword_is_none(self):
-        mod = _load_plugin({"gated_tools": {"wipe_disk": None}})
-        self.assertIsNone(mod.GATED_TOOLS["wipe_disk"])
+    def test_custom_auth_max_age(self):
+        mod = _load_plugin({"auth_max_age_seconds": 30})
+        self.assertEqual(mod.AUTH_MAX_AGE_SECONDS, 30.0)
 
     def test_config_load_failure_fails_closed_to_defaults(self):
         # Simulate a broken config loader — plugin must not crash on import.
@@ -130,31 +129,71 @@ class ConfigLoadingTests(unittest.TestCase):
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)  # must not raise
         self.assertEqual(mod.TRUSTED, {"user"})
-        self.assertEqual(mod.GATED_TOOLS, {})
+        self.assertEqual(mod.GATED_TOOLS, set())
 
 
 class AuthorizeGateTests(unittest.TestCase):
+    """Covers the single-use authorize_action -> pre_tool_call mechanism —
+    same shape as openclaw-guard's decideBeforeToolCall/recordAuthorizationResult,
+    deliberately kept in sync (see ../openclaw-guard/scripts/scry-guard-logic.ts)."""
+
     def setUp(self):
-        self.mod = _load_plugin({"gated_tools": {"send_payment": "transfer"}})
+        self.mod = _load_plugin({"gated_tools": ["terminal"]})
         self.sid = "agent:main:discord:dm:999"
 
-    def test_blocks_when_no_live_message_cached(self):
-        result = self.mod._on_pre_tool_call(tool_name="send_payment", args={}, session_id=self.sid)
+    def test_blocks_with_no_pending_authorization(self):
+        result = self.mod._on_pre_tool_call(tool_name="terminal", args={}, session_id=self.sid)
         self.assertEqual(result["action"], "block")
-
-    def test_blocks_when_live_message_does_not_match_intent(self):
-        self.mod._on_pre_llm_call(session_id=self.sid, user_message="hey how are you")
-        result = self.mod._on_pre_tool_call(tool_name="send_payment", args={}, session_id=self.sid)
-        self.assertEqual(result["action"], "block")
-
-    def test_allows_when_live_message_matches_intent(self):
-        self.mod._on_pre_llm_call(session_id=self.sid, user_message="please transfer it now")
-        result = self.mod._on_pre_tool_call(tool_name="send_payment", args={}, session_id=self.sid)
-        self.assertIsNone(result)
 
     def test_ungated_tool_always_passes(self):
         result = self.mod._on_pre_tool_call(tool_name="read_file", args={}, session_id=self.sid)
         self.assertIsNone(result)
+
+    def test_authorize_action_fails_with_no_live_message(self):
+        result = json.loads(self.mod._handle_authorize_action({}, session_id=self.sid))
+        self.assertFalse(result["authorized"])
+
+    def test_authorize_action_succeeds_with_a_live_trusted_message(self):
+        self.mod._on_pre_llm_call(session_id=self.sid, user_message="please do the thing")
+        result = json.loads(self.mod._handle_authorize_action({}, session_id=self.sid))
+        self.assertTrue(result["authorized"])
+
+    def test_gated_call_allowed_after_authorize_action(self):
+        self.mod._on_pre_llm_call(session_id=self.sid, user_message="please run it")
+        self.mod._handle_authorize_action({}, session_id=self.sid)
+        result = self.mod._on_pre_tool_call(tool_name="terminal", args={}, session_id=self.sid)
+        self.assertIsNone(result)
+
+    def test_authorization_is_single_use(self):
+        self.mod._on_pre_llm_call(session_id=self.sid, user_message="please run it")
+        self.mod._handle_authorize_action({}, session_id=self.sid)
+        first = self.mod._on_pre_tool_call(tool_name="terminal", args={}, session_id=self.sid)
+        self.assertIsNone(first, "first gated call should be allowed")
+        second = self.mod._on_pre_tool_call(tool_name="terminal", args={}, session_id=self.sid)
+        self.assertEqual(second["action"], "block", "second gated call must not reuse the same authorization")
+
+    def test_authorization_does_not_carry_to_a_different_gated_tool(self):
+        mod = _load_plugin({"gated_tools": ["terminal", "write_file"]})
+        mod._on_pre_llm_call(session_id=self.sid, user_message="please run it")
+        mod._handle_authorize_action({}, session_id=self.sid)
+        terminal_call = mod._on_pre_tool_call(tool_name="terminal", args={}, session_id=self.sid)
+        self.assertIsNone(terminal_call, "the authorized call goes through")
+        write_call = mod._on_pre_tool_call(tool_name="write_file", args={}, session_id=self.sid)
+        self.assertEqual(write_call["action"], "block", "a different gated tool must not ride the same authorization")
+
+    def test_stale_authorization_expires(self):
+        mod = _load_plugin({"gated_tools": ["terminal"], "auth_max_age_seconds": 0})
+        mod._on_pre_llm_call(session_id=self.sid, user_message="please run it")
+        mod._handle_authorize_action({}, session_id=self.sid)
+        time.sleep(0.05)
+        result = mod._on_pre_tool_call(tool_name="terminal", args={}, session_id=self.sid)
+        self.assertEqual(result["action"], "block")
+
+    def test_authorizations_are_isolated_per_session(self):
+        self.mod._on_pre_llm_call(session_id="sess-1", user_message="please run it")
+        self.mod._handle_authorize_action({}, session_id="sess-1")
+        result = self.mod._on_pre_tool_call(tool_name="terminal", args={}, session_id="sess-2")
+        self.assertEqual(result["action"], "block", "session-2 must not see session-1's authorization")
 
     def test_untrusted_source_cannot_authorize(self):
         # authorize() itself only trusts sources in TRUSTED ("user" by
