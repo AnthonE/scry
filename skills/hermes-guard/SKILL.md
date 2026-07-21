@@ -168,6 +168,35 @@ turn's* live, trusted user message — and that authorization hasn't already bee
 spent on an earlier gated call or gone stale past `auth_max_age_seconds`. Nothing
 recalled from memory can satisfy `authorize_action`; only a live instruction can.
 
+### Robinhood trade gate (e.g. a connected `agent.robinhood.com/mcp/trading`)
+
+```yaml
+        robinhood_place_tools: []        # default [] — nothing gated
+          # e.g. [place_equity_order] — STRICTER than gated_tools: also
+          # needs a matching prior robinhood_review_tools call this
+          # session, and the live instruction must actually NAME this
+          # order's symbol/side, not just exist.
+        robinhood_review_tools: []       # default [] — nothing recorded
+          # e.g. [review_equity_order] — a successful call here is
+          # recorded so the matching robinhood_place_tools call can
+          # require it. A failed/errored review is never recorded.
+```
+
+`gated_tools` alone only asks "did *some* live trusted instruction exist this
+turn" — for an order-placing tool that's close to a no-op, since a live user
+message exists on essentially every turn of a live conversation. A tool named in
+`robinhood_place_tools` instead gets `robinhood_agentic.py`'s `ReviewLedger` +
+`authorize_trade` (vendored alongside this plugin), ported onto Hermes's real
+`pre_tool_call`/`post_tool_call` hooks: the order must have been reviewed first
+(a successful call to a `robinhood_review_tools` tool, same symbol/side/quantity),
+and the authorized live text must name *this exact order* — an attacker who gets
+a real live, trusted instruction through for one order still cannot ride it into
+a different symbol, side, or a bigger quantity. Fails **closed** (blocks) if
+`robinhood_agentic.py` didn't import, unlike the rest of this plugin, which fails
+open — this path touches real money. `robinhood_place_tools`/`_review_tools` are
+independent of `gated_tools`; do not also list a Robinhood tool in `gated_tools`,
+the stricter path always wins for tools named in `robinhood_place_tools`.
+
 ## Honest scope
 
 - Raises the cost of an attack; does not make Hermes unbreakable. An attacker who

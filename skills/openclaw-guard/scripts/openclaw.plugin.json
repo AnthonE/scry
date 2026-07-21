@@ -17,6 +17,18 @@
         "type": "number",
         "description": "Staleness cap on an unconsumed authorize_action pass, in seconds. Single-use consumption is the real guard; this just bounds how long a never-used authorization can sit around.",
         "default": 120
+      },
+      "robinhoodPlaceTools": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Order-placing tool names (e.g. a connected agent.robinhood.com/mcp/trading server's place_equity_order) that get the STRICTER robinhood-guard-logic.ts gate instead of the plain gatedTools check: a matching prior robinhoodReviewTools call in this session, AND the live instruction spent on authorize_action must actually name this order's symbol/side. Empty by default.",
+        "default": []
+      },
+      "robinhoodReviewTools": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Order-preview tool names (e.g. review_equity_order) whose successful calls are recorded so a matching robinhoodPlaceTools call can require one first. A failed/errored review call is never recorded. Empty by default.",
+        "default": []
       }
     }
   }
