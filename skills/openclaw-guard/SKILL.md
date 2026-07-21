@@ -45,6 +45,7 @@ otherwise add `scry-sidecar__*` to the target agent's `tools.allow`. Verify with
 ### 2. Install the enforcement plugin
 
 Copy [`scripts/scry-guard-logic.ts`](scripts/scry-guard-logic.ts),
+[`scripts/robinhood-guard-logic.ts`](scripts/robinhood-guard-logic.ts),
 [`scripts/scry-guard.ts`](scripts/scry-guard.ts), and
 [`scripts/openclaw.plugin.json`](scripts/openclaw.plugin.json) into a directory of
 your choice (e.g. `~/.openclaw/policies/`), then register it:
@@ -55,7 +56,12 @@ your choice (e.g. `~/.openclaw/policies/`), then register it:
     load: { paths: ["~/.openclaw/policies/scry-guard.ts"] },
     entries: {
       "scry-guard": {
-        config: { gatedTools: [], authMaxAgeSeconds: 120 },
+        config: {
+          gatedTools: [],
+          authMaxAgeSeconds: 120,
+          robinhoodPlaceTools: [],   // e.g. ["place_equity_order"] — see below
+          robinhoodReviewTools: [],  // e.g. ["review_equity_order"]
+        },
       },
     },
   },
@@ -75,7 +81,8 @@ plugin package; use a plain directory like `~/.openclaw/policies/` instead.
 ### 3. Verify
 
 ```bash
-node --test scripts/scry-guard.test.ts   # 16 tests, zero dependencies (Node 22.6+)
+node --test scripts/scry-guard.test.ts scripts/robinhood-guard-logic.test.ts
+# 41 tests total (17 scry-guard + 24 robinhood-guard-logic), zero dependencies (Node 22.6+)
 ```
 
 ## Why: what this closes
@@ -109,6 +116,36 @@ covers exactly this.
 config. The decision logic lives in `scry-guard-logic.ts` as pure functions (no
 `Date.now()`/module state baked in) specifically so it's unit-testable without a
 live OpenClaw host; `scry-guard.ts` is the thin wiring that calls it with real state.
+
+### Robinhood trade gate (e.g. a connected `agent.robinhood.com/mcp/trading`)
+
+`gatedTools` alone only asks "did *some* live trusted instruction pass
+`authorize_action` this turn" — for an order-placing tool that's close to a no-op,
+since a live user message exists on essentially every turn of a live conversation.
+A tool named in `robinhoodPlaceTools` instead gets the stricter gate in
+`robinhood-guard-logic.ts`, a port of scry's `robinhood_agentic.py`
+(`ReviewLedger` + `authorize_trade`):
+
+- **Reviewed first.** The exact order (symbol/side/quantity, matched as a
+  signature) must have gone through a successful call to a tool named in
+  `robinhoodReviewTools` (e.g. `review_equity_order`) in the same session. A
+  failed/errored review is never recorded — `recordReviewResult` checks
+  `event.error` before recording.
+- **The live text must name THIS order.** Passing `authorize_action` alone isn't
+  enough — `authorizeTrade` checks the live instruction's text actually contains
+  the order's symbol and side. An attacker who gets one real live, trusted
+  instruction through for one order still cannot ride it into a different
+  symbol, side, or quantity (`recordAuthorizationResult` now captures
+  `live.text` off the `authorize_action` call's own params, not just the
+  pass/fail result, so this check has something to compare against).
+- **Still single-use.** The same pending authorization is consumed on read
+  regardless of outcome, same discipline as `decideBeforeToolCall`.
+
+`robinhoodPlaceTools`/`robinhoodReviewTools` are independent of `gatedTools` — do
+not also list a Robinhood tool in `gatedTools`; the stricter path always wins for
+tools named in `robinhoodPlaceTools` (see `scry-guard.ts`'s `before_tool_call`
+handler). Both are empty by default — nothing Robinhood-specific is gated until
+you name tools here.
 
 ## The meter
 

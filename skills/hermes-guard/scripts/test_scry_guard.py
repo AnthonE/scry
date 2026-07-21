@@ -19,6 +19,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 import types
 import unittest
 
@@ -94,22 +95,33 @@ class ConfigLoadingTests(unittest.TestCase):
     def test_defaults_when_no_config(self):
         mod = _load_plugin()
         self.assertEqual(mod.TRUSTED, {"user"})
-        self.assertEqual(mod.GATED_TOOLS, {})
+        self.assertEqual(mod.GATED_TOOLS, set())
+        self.assertEqual(mod.AUTH_MAX_AGE_SECONDS, mod.DEFAULT_AUTH_MAX_AGE_SECONDS)
 
     def test_custom_trusted_sources(self):
         mod = _load_plugin({"trusted_sources": ["user", "tool:ledger"]})
         self.assertEqual(mod.TRUSTED, {"user", "tool:ledger"})
 
-    def test_gated_tools_keyword_becomes_intent_fn(self):
-        mod = _load_plugin({"gated_tools": {"send_payment": "transfer"}})
-        self.assertIn("send_payment", mod.GATED_TOOLS)
-        intent = mod.GATED_TOOLS["send_payment"]
-        self.assertTrue(intent("please transfer 5 dollars"))
-        self.assertFalse(intent("hello there"))
+    def test_gated_tools_from_list(self):
+        mod = _load_plugin({"gated_tools": ["terminal", "write_file"]})
+        self.assertEqual(mod.GATED_TOOLS, {"terminal", "write_file"})
 
-    def test_gated_tools_null_keyword_is_none(self):
-        mod = _load_plugin({"gated_tools": {"wipe_disk": None}})
-        self.assertIsNone(mod.GATED_TOOLS["wipe_disk"])
+    def test_robinhood_tools_default_empty(self):
+        mod = _load_plugin()
+        self.assertEqual(mod.ROBINHOOD_PLACE_TOOLS, set())
+        self.assertEqual(mod.ROBINHOOD_REVIEW_TOOLS, set())
+
+    def test_robinhood_tools_from_list(self):
+        mod = _load_plugin({
+            "robinhood_place_tools": ["place_equity_order"],
+            "robinhood_review_tools": ["review_equity_order"],
+        })
+        self.assertEqual(mod.ROBINHOOD_PLACE_TOOLS, {"place_equity_order"})
+        self.assertEqual(mod.ROBINHOOD_REVIEW_TOOLS, {"review_equity_order"})
+
+    def test_custom_auth_max_age(self):
+        mod = _load_plugin({"auth_max_age_seconds": 30})
+        self.assertEqual(mod.AUTH_MAX_AGE_SECONDS, 30.0)
 
     def test_config_load_failure_fails_closed_to_defaults(self):
         # Simulate a broken config loader — plugin must not crash on import.
@@ -130,31 +142,71 @@ class ConfigLoadingTests(unittest.TestCase):
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)  # must not raise
         self.assertEqual(mod.TRUSTED, {"user"})
-        self.assertEqual(mod.GATED_TOOLS, {})
+        self.assertEqual(mod.GATED_TOOLS, set())
 
 
 class AuthorizeGateTests(unittest.TestCase):
+    """Covers the single-use authorize_action -> pre_tool_call mechanism —
+    same shape as openclaw-guard's decideBeforeToolCall/recordAuthorizationResult,
+    deliberately kept in sync (see ../openclaw-guard/scripts/scry-guard-logic.ts)."""
+
     def setUp(self):
-        self.mod = _load_plugin({"gated_tools": {"send_payment": "transfer"}})
+        self.mod = _load_plugin({"gated_tools": ["terminal"]})
         self.sid = "agent:main:discord:dm:999"
 
-    def test_blocks_when_no_live_message_cached(self):
-        result = self.mod._on_pre_tool_call(tool_name="send_payment", args={}, session_id=self.sid)
+    def test_blocks_with_no_pending_authorization(self):
+        result = self.mod._on_pre_tool_call(tool_name="terminal", args={}, session_id=self.sid)
         self.assertEqual(result["action"], "block")
-
-    def test_blocks_when_live_message_does_not_match_intent(self):
-        self.mod._on_pre_llm_call(session_id=self.sid, user_message="hey how are you")
-        result = self.mod._on_pre_tool_call(tool_name="send_payment", args={}, session_id=self.sid)
-        self.assertEqual(result["action"], "block")
-
-    def test_allows_when_live_message_matches_intent(self):
-        self.mod._on_pre_llm_call(session_id=self.sid, user_message="please transfer it now")
-        result = self.mod._on_pre_tool_call(tool_name="send_payment", args={}, session_id=self.sid)
-        self.assertIsNone(result)
 
     def test_ungated_tool_always_passes(self):
         result = self.mod._on_pre_tool_call(tool_name="read_file", args={}, session_id=self.sid)
         self.assertIsNone(result)
+
+    def test_authorize_action_fails_with_no_live_message(self):
+        result = json.loads(self.mod._handle_authorize_action({}, session_id=self.sid))
+        self.assertFalse(result["authorized"])
+
+    def test_authorize_action_succeeds_with_a_live_trusted_message(self):
+        self.mod._on_pre_llm_call(session_id=self.sid, user_message="please do the thing")
+        result = json.loads(self.mod._handle_authorize_action({}, session_id=self.sid))
+        self.assertTrue(result["authorized"])
+
+    def test_gated_call_allowed_after_authorize_action(self):
+        self.mod._on_pre_llm_call(session_id=self.sid, user_message="please run it")
+        self.mod._handle_authorize_action({}, session_id=self.sid)
+        result = self.mod._on_pre_tool_call(tool_name="terminal", args={}, session_id=self.sid)
+        self.assertIsNone(result)
+
+    def test_authorization_is_single_use(self):
+        self.mod._on_pre_llm_call(session_id=self.sid, user_message="please run it")
+        self.mod._handle_authorize_action({}, session_id=self.sid)
+        first = self.mod._on_pre_tool_call(tool_name="terminal", args={}, session_id=self.sid)
+        self.assertIsNone(first, "first gated call should be allowed")
+        second = self.mod._on_pre_tool_call(tool_name="terminal", args={}, session_id=self.sid)
+        self.assertEqual(second["action"], "block", "second gated call must not reuse the same authorization")
+
+    def test_authorization_does_not_carry_to_a_different_gated_tool(self):
+        mod = _load_plugin({"gated_tools": ["terminal", "write_file"]})
+        mod._on_pre_llm_call(session_id=self.sid, user_message="please run it")
+        mod._handle_authorize_action({}, session_id=self.sid)
+        terminal_call = mod._on_pre_tool_call(tool_name="terminal", args={}, session_id=self.sid)
+        self.assertIsNone(terminal_call, "the authorized call goes through")
+        write_call = mod._on_pre_tool_call(tool_name="write_file", args={}, session_id=self.sid)
+        self.assertEqual(write_call["action"], "block", "a different gated tool must not ride the same authorization")
+
+    def test_stale_authorization_expires(self):
+        mod = _load_plugin({"gated_tools": ["terminal"], "auth_max_age_seconds": 0})
+        mod._on_pre_llm_call(session_id=self.sid, user_message="please run it")
+        mod._handle_authorize_action({}, session_id=self.sid)
+        time.sleep(0.05)
+        result = mod._on_pre_tool_call(tool_name="terminal", args={}, session_id=self.sid)
+        self.assertEqual(result["action"], "block")
+
+    def test_authorizations_are_isolated_per_session(self):
+        self.mod._on_pre_llm_call(session_id="sess-1", user_message="please run it")
+        self.mod._handle_authorize_action({}, session_id="sess-1")
+        result = self.mod._on_pre_tool_call(tool_name="terminal", args={}, session_id="sess-2")
+        self.assertEqual(result["action"], "block", "session-2 must not see session-1's authorization")
 
     def test_untrusted_source_cannot_authorize(self):
         # authorize() itself only trusts sources in TRUSTED ("user" by
@@ -167,6 +219,120 @@ class AuthorizeGateTests(unittest.TestCase):
         )
         self.assertFalse(ok)
         self.assertIn("trusted", reason)
+
+
+class RobinhoodTradeGateTests(unittest.TestCase):
+    """Covers the STRICTER gate on robinhood_place_tools: reviewed first, then
+    a live trusted instruction that actually names this order's symbol/side —
+    not just "some live instruction existed this turn" (that weaker check is
+    AuthorizeGateTests above). Ported from robinhood_agentic.py's own
+    ReviewLedger + authorize_trade onto Hermes's real hook system."""
+
+    def setUp(self):
+        self.mod = _load_plugin({
+            "robinhood_place_tools": ["place_equity_order"],
+            "robinhood_review_tools": ["review_equity_order"],
+        })
+        self.sid = "agent:main:discord:dm:777"
+        self.order = {"symbol": "NVDA", "side": "buy", "quantity": "1"}
+
+    def _review(self, mod=None, sid=None, order=None):
+        mod = mod or self.mod
+        (mod._on_post_tool_call)(
+            tool_name="review_equity_order", args=order or self.order, session_id=sid or self.sid
+        )
+
+    def _authorize(self, text, mod=None, sid=None):
+        mod = mod or self.mod
+        sid = sid or self.sid
+        mod._on_pre_llm_call(session_id=sid, user_message=text)
+        return json.loads(mod._handle_authorize_action({}, session_id=sid))
+
+    def test_place_blocked_without_review(self):
+        result = self.mod._on_pre_tool_call(tool_name="place_equity_order", args=self.order, session_id=self.sid)
+        self.assertEqual(result["action"], "block")
+        self.assertIn("reviewed", result["message"])
+
+    def test_place_blocked_after_review_with_no_authorization(self):
+        self._review()
+        result = self.mod._on_pre_tool_call(tool_name="place_equity_order", args=self.order, session_id=self.sid)
+        self.assertEqual(result["action"], "block")
+        self.assertIn("authorize_action", result["message"])
+
+    def test_place_blocked_when_live_instruction_names_a_different_symbol(self):
+        self._review()
+        self._authorize("go ahead and buy some AAPL")
+        result = self.mod._on_pre_tool_call(tool_name="place_equity_order", args=self.order, session_id=self.sid)
+        self.assertEqual(result["action"], "block")
+        self.assertIn("NVDA", result["message"])
+
+    def test_place_authorized_end_to_end(self):
+        self._review()
+        auth = self._authorize("buy 1 share of NVDA")
+        self.assertTrue(auth["authorized"])
+        result = self.mod._on_pre_tool_call(tool_name="place_equity_order", args=self.order, session_id=self.sid)
+        self.assertIsNone(result)
+
+    def test_authorization_for_a_trade_is_single_use(self):
+        self._review()
+        self._authorize("buy 1 share of NVDA")
+        first = self.mod._on_pre_tool_call(tool_name="place_equity_order", args=self.order, session_id=self.sid)
+        self.assertIsNone(first, "first authorized+reviewed call should be allowed")
+        second = self.mod._on_pre_tool_call(tool_name="place_equity_order", args=self.order, session_id=self.sid)
+        self.assertEqual(second["action"], "block", "a second placement must not ride the same authorization")
+        self.assertIn("authorize_action", second["message"])
+
+    def test_failed_review_call_is_not_recorded(self):
+        self.mod._on_post_tool_call(
+            tool_name="review_equity_order", args=self.order, session_id=self.sid, error_message="rejected by broker"
+        )
+        self._authorize("buy 1 share of NVDA")
+        result = self.mod._on_pre_tool_call(tool_name="place_equity_order", args=self.order, session_id=self.sid)
+        self.assertEqual(result["action"], "block")
+        self.assertIn("reviewed", result["message"])
+
+    def test_review_of_an_unconfigured_tool_name_is_ignored(self):
+        self.mod._on_post_tool_call(tool_name="some_other_review_tool", args=self.order, session_id=self.sid)
+        self._authorize("buy 1 share of NVDA")
+        result = self.mod._on_pre_tool_call(tool_name="place_equity_order", args=self.order, session_id=self.sid)
+        self.assertEqual(result["action"], "block")
+        self.assertIn("reviewed", result["message"])
+
+    def test_review_ledger_is_isolated_per_session(self):
+        self._review(sid="sess-a")
+        self._authorize("buy 1 share of NVDA", sid="sess-b")
+        result = self.mod._on_pre_tool_call(tool_name="place_equity_order", args=self.order, session_id="sess-b")
+        self.assertEqual(result["action"], "block")
+        self.assertIn("reviewed", result["message"])
+
+    def test_fails_closed_if_robinhood_agentic_did_not_import(self):
+        self.mod.ReviewLedger = None
+        self.mod.authorize_trade = None
+        result = self.mod._on_pre_tool_call(tool_name="place_equity_order", args=self.order, session_id=self.sid)
+        self.assertEqual(result["action"], "block")
+        self.assertIn("not importable", result["message"])
+
+    def test_a_reviewed_and_matching_dollar_amount_order_is_authorized(self):
+        order = {"symbol": "NVDA", "side": "buy", "dollar_amount": "50"}
+        self._review(order=order)
+        self._authorize("buy 50 dollars of NVDA")
+        result = self.mod._on_pre_tool_call(tool_name="place_equity_order", args=order, session_id=self.sid)
+        self.assertIsNone(result)
+
+    def test_robinhood_place_tools_do_not_fall_through_to_generic_gated_tools_path(self):
+        # A place-order tool is governed ONLY by the stricter Robinhood path,
+        # even if it's also (redundantly/mistakenly) listed in gated_tools.
+        mod = _load_plugin({
+            "gated_tools": ["place_equity_order"],
+            "robinhood_place_tools": ["place_equity_order"],
+            "robinhood_review_tools": ["review_equity_order"],
+        })
+        mod._on_pre_llm_call(session_id=self.sid, user_message="buy 1 share of NVDA")
+        mod._handle_authorize_action({}, session_id=self.sid)
+        # Generic authorize_action alone (no review) must NOT be enough to pass.
+        result = mod._on_pre_tool_call(tool_name="place_equity_order", args=self.order, session_id=self.sid)
+        self.assertEqual(result["action"], "block")
+        self.assertIn("reviewed", result["message"])
 
 
 class TurnCaptureTests(unittest.TestCase):

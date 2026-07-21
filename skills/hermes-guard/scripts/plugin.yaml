@@ -7,6 +7,7 @@ hooks:
   - post_api_request
   - post_llm_call
   - pre_tool_call
+  - post_tool_call
 
 # Config is freeform YAML this plugin reads itself (Hermes plugins have no
 # formal configSchema) from plugins.entries.scry-guard.config in
@@ -17,7 +18,25 @@ hooks:
 #       scry-guard:
 #         config:
 #           trusted_sources: ["user"]        # default if omitted
-#           gated_tools:                     # default {} (nothing gated)
-#             send_payment: "transfer"       # keyword required in the live
-#                                             # message text (case-insensitive)
-#             delete_everything: null        # any non-empty live message
+#           gated_tools: []                  # default [] (nothing gated)
+#             # e.g. [terminal, write_file, patch] — any tool named here
+#             # requires a passing, single-use authorize_action call
+#             # immediately before it. Call authorize_action again for
+#             # each gated call; it does not stay valid for the whole turn.
+#           auth_max_age_seconds: 120        # staleness cap on an unconsumed
+#                                             # authorization (default 120)
+#           robinhood_place_tools: []        # default [] (nothing gated)
+#             # e.g. [place_equity_order] — a tool named here needs the
+#             # STRICTER robinhood_agentic gate on top of authorize_action:
+#             # (a) a matching prior call to a robinhood_review_tools tool
+#             # in the same session, for the same symbol/side/quantity, and
+#             # (b) the live instruction spent on authorize_action must
+#             # actually NAME this order's symbol/side, not just exist.
+#             # Mismatched or unreviewed orders are refused even with a
+#             # passing authorize_action. Fails CLOSED if robinhood_agentic.py
+#             # (vendored alongside this file) didn't import.
+#           robinhood_review_tools: []       # default [] (nothing recorded)
+#             # e.g. [review_equity_order] — a successful call to a tool
+#             # named here is recorded into this session's ReviewLedger so
+#             # the matching robinhood_place_tools call can require it.
+#             # A failed/errored review call is never recorded.

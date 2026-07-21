@@ -50,28 +50,36 @@ describe("extractToolResultText", () => {
 describe("recordAuthorizationResult", () => {
   test("ignores calls to tools other than the authorize tool", () => {
     const pending: PendingAuthMap = new Map();
-    recordAuthorizationResult(pending, "sess-1", "some_other_tool", { authorized: true }, 1000);
+    recordAuthorizationResult(pending, "sess-1", "some_other_tool", {}, { authorized: true }, 1000);
     assert.equal(pending.size, 0);
   });
 
   test("records a pending authorization on a passing authorize_action result", () => {
     const pending: PendingAuthMap = new Map();
     const result = { content: [{ type: "text", text: '{"authorized":true,"reason":"ok"}' }] };
-    recordAuthorizationResult(pending, "sess-1", AUTHORIZE_TOOL, result, 1000);
-    assert.deepEqual(pending.get("sess-1"), { authorizedAt: 1000 });
+    recordAuthorizationResult(pending, "sess-1", AUTHORIZE_TOOL, {}, result, 1000);
+    assert.deepEqual(pending.get("sess-1"), { authorizedAt: 1000, liveText: "" });
+  });
+
+  test("captures live.text from the authorize_action call's own params", () => {
+    const pending: PendingAuthMap = new Map();
+    const params = { live: { text: "buy 1 share of NVDA", source: "user", role: "live_instruction" }, trusted: ["user"] };
+    const result = { content: [{ type: "text", text: '{"authorized":true,"reason":"ok"}' }] };
+    recordAuthorizationResult(pending, "sess-1", AUTHORIZE_TOOL, params, result, 1000);
+    assert.equal(pending.get("sess-1")?.liveText, "buy 1 share of NVDA");
   });
 
   test("clears any pending authorization on a failing authorize_action result", () => {
     const pending: PendingAuthMap = new Map();
     pending.set("sess-1", { authorizedAt: 500 });
     const result = { content: [{ type: "text", text: '{"authorized":false,"reason":"nope"}' }] };
-    recordAuthorizationResult(pending, "sess-1", AUTHORIZE_TOOL, result, 1000);
+    recordAuthorizationResult(pending, "sess-1", AUTHORIZE_TOOL, {}, result, 1000);
     assert.equal(pending.has("sess-1"), false);
   });
 
   test("treats unparseable results as a failed authorization", () => {
     const pending: PendingAuthMap = new Map();
-    recordAuthorizationResult(pending, "sess-1", AUTHORIZE_TOOL, "not json", 1000);
+    recordAuthorizationResult(pending, "sess-1", AUTHORIZE_TOOL, {}, "not json", 1000);
     assert.equal(pending.has("sess-1"), false);
   });
 });
