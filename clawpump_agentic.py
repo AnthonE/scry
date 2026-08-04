@@ -31,14 +31,30 @@ enforcement is `mandate.py` and `memory_shield.py` unchanged.
    exists behind whatever hex it becomes, so the earnings are unclaimable
    forever. Gated hardest of all, because a launch cannot be patched.
 
-1. **SECRETS.** `intelligence_*` take `privateKey` as a tool ARGUMENT (their
-   docs, twice: the auth table row "x402 USDC | `privateKey` param" and the
-   worked example `intelligence_market({ privateKey: "base58_wallet_key" })`).
-   A tool argument is model context: it lands in the prompt, the transcript,
-   the client's logs, and any exporter downstream. That is a wallet key in a
-   log file to save an x402 round trip. `scan_args_for_secrets` refuses the
-   call outright — this is the one gate here that is not a judgement call, and
-   it is checked FIRST because nothing else matters if the key has left.
+1. **SECRETS.** A tool argument is model context: it lands in the prompt, the
+   transcript, the client's logs, and any exporter downstream. So a tool that
+   takes key material as a parameter puts a wallet key in a log file to save a
+   round trip. `scan_args_for_secrets` refuses any such call outright — checked
+   FIRST, because nothing else matters once the key has left.
+
+   ⚠ **RETRACTED 2026-08-04, and the retraction is the useful part.** This
+   paragraph used to assert that ClawPump's `intelligence_*` tools take
+   `privateKey` as an argument, citing "their docs, twice." **The shipped
+   package contradicts it.** In `@clawpump/agents@0.1.23` the intelligence
+   tools are `intelligence_market({token})` and `intelligence_signals({})` /
+   `_macro({})` / `_perps({})`, every one `readOnlyHint: true`, and the strings
+   `privateKey`, `private_key`, `secretKey` and `mnemonic` appear **zero times
+   anywhere in the package** — dist, README, all files.
+
+   The claim came from a session that recorded the origin as *unreachable* and
+   still quoted an auth table and a worked example verbatim. Those two facts
+   cannot both be true, and the verifiable artifact wins. `clawpump.tech/docs`
+   is 403 from this box too, so the docs claim is not disproven — it is
+   **unsourced**, which for a published accusation against a named third party
+   is the same thing as wrong.
+
+   The screen stays, because it costs nothing and defends against *any* tool on
+   *any* server doing this. It is no longer evidence about ClawPump.
 
 2. **AUTHORITY.** Tools that change what the agent may do, or where its money
    lands. `add_to_whitelist` widens the destination allowlist; `update_agent`
@@ -594,8 +610,11 @@ if __name__ == "__main__":
         mark = "ALLOWED" if res.get("called") else "REFUSED"
         print(f"  {mark}  {label}\n           {res.get('reason', res.get('tier'))}")
 
-    print("--- 1. the key in the tool argument (their documented call shape) ---")
-    show("intelligence_market(privateKey=...)",
+    # NOT a call shape ClawPump documents -- see the retraction at the top of
+    # this file. It is a synthetic argument, shown because the screen runs on
+    # every tier and any server's schema can ask for a field like this.
+    print("--- 1. key material in a tool argument (synthetic, any server) ---")
+    show("intelligence_market(privateKey=...)  # synthetic",
          call("intelligence_market", {"privateKey": "4wBqpZM9x" + "k" * 78,
                                       "endpoint": "market_snapshot_v2"}))
 

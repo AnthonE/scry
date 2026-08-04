@@ -3,7 +3,7 @@ name: clawpump-guard
 description: A spending boundary, an injection ward, and chain-4663 launch checks for your ClawPump agent
 license: MIT
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
   clawpump:
     category: security
     tags: [security, risk, agent-safety, wallet, pons, rh-chain]
@@ -80,13 +80,21 @@ shipped after this table was written is refused, not waved through as a read.
 
 ### the secret tier
 
-ClawPump's `intelligence_*` tools take `privateKey` as a **tool argument** — their
-docs say so twice, in the auth table (`x402 USDC | privateKey param`) and in the
-worked example (`intelligence_market({ privateKey: "base58_wallet_key", … })`).
+> ⚠ **Correction, 2026-08-04.** An earlier version of this section stated that
+> ClawPump's `intelligence_*` tools take `privateKey` as a tool argument, citing
+> their docs. **We could not substantiate that and the shipped package contradicts
+> it.** In `@clawpump/agents@0.1.23` those tools are `intelligence_market({token})`
+> and `intelligence_signals/_macro/_perps({})`, all `readOnlyHint: true`, and no
+> key-material string appears anywhere in the package. The claim traced back to a
+> session that recorded the origin as unreachable and quoted it anyway. Retracted.
+> The screen below stays because it is cheap and general — not because we have
+> evidence that this provider needs it.
 
 A tool argument is model context. It lands in the prompt, the transcript, your MCP
-client's logs, and anything downstream that exports them. That is a wallet key in a
-log file to save an x402 round trip.
+client's logs, and anything downstream that exports them. Any tool anywhere that
+accepts key material as a parameter therefore puts a wallet key in a log file to
+save a round trip — and MCP tool schemas are written by whoever runs the server,
+not by you.
 
 The guard refuses any call carrying key material, by field name (`privateKey`,
 `private_key`, `mnemonic`, `seedPhrase`, …) and by shape (60+ base58 or 64+ hex
@@ -98,12 +106,20 @@ once the key has left.
 
 These are `Write` tools your agent can call **on itself**:
 
-- `add_to_whitelist` — widens the destination allowlist. An allowlist the agent can
-  extend is not an allowlist.
-- `set_external_wallet` — the address receiving **65% of your token's trading fees**.
-- `update_agent` (persona, model, **prompt**, skills) and `create_custom_skill`
-  (**content**) — the agent can rewrite its own instructions.
-- `generate_link_code` — "link or share access."
+Quoted descriptions below are from `@clawpump/agents@0.1.23`'s own registrations.
+
+- `add_to_whitelist` — *"Add a wallet address to an agent's whitelist."* This is the
+  allowlist that gates `wallet_transfer`, and the agent can call it. **An allowlist
+  extendable by the thing it constrains is not an allowlist** — that is a structural
+  point about the composition, not a defect in either tool.
+- `set_external_wallet` — *"the wallet used for marketplace payments, withdrawals,
+  and deposits."* (An earlier draft here claimed it receives 65% of a token's
+  trading fees. That number came from the unverified docs transcription and is not
+  in the shipped description — dropped.)
+- `update_agent` — *"name, persona, model, skills, or visibility"* — and
+  `create_custom_skill`. Between them the agent can rewrite its own persona and add
+  its own skills.
+- `generate_link_code` — *"link your account across devices or share access."*
 
 Chain them with tools from the same list and the attack writes itself: a Moltbook
 post or an email arrives → `agent_mail_read` → `add_to_whitelist(attacker)` →
@@ -137,6 +153,35 @@ So blind tools are permitted, journaled `capped: false`, and the card says so ou
 loud. There the real limiters are the **destination allowlist**, **`max_actions`**,
 and — for tokens — **keeping your approvals small**. Tune `max_actions`, not the cap.
 
+### the search-to-spend path, and why a confirm flag is not a confirmation
+
+`x402_pay` *"call ANY x402 endpoint URL and PAY for it from the agent's ClawPump
+wallet (USDC, on-chain, irreversible). Works for any x402 URL, not just the Pay.sh
+catalog."* The URL is an argument. `dexter_search`, `pay_sh_search` and
+`pay_sh_provider_details` are **free** catalogue reads whose rows carry a payable
+`resourceUrl`. So the destination of an irreversible payment can be a string a
+stranger wrote into a listing.
+
+**ClawPump does guard this, and the guard is worth reading closely:** the tool
+*"requires `confirm_payment=true` and `max_amount_usd` — set `confirm_payment` only
+after the user explicitly approved this exact URL."*
+
+That is a real control and it bounds the blast radius. It is also **a flag the model
+fills in**, next to an instruction telling the model when to fill it in. So the
+question it actually answers is *"does the model assert the user approved?"* — not
+*"did the user approve?"* This repo's own field results are the reason that
+distinction matters: handed the governing rule in context, an agent recited it
+correctly and overrode it roughly half the time.
+
+Same shape on `agent_card_reveal`: *"Use only when the user explicitly asks for the
+card/redemption details."* Good guidance, addressed to the model.
+
+None of that is a defect in their product — it is the ceiling of what a tool schema
+can enforce about its own caller. It is exactly the gap a client-side wrapper fills:
+the wrapper holds the allowlist and the ledger **outside** the context window, where
+no retrieved text can argue with them, so approval is something the user did rather
+than something the model claimed.
+
 ### untrusted reads
 
 `agent_mail_read`, Moltbook, `get_news_feed`, marketplace listings, and token
@@ -150,6 +195,15 @@ tool is the whole prompt-injection thesis in one product.
 `launch_pons` lands on **RH-Chain, chain 4663** — an Arbitrum Nitro L2. SCRY is
 itself a pons launch on that chain, through that factory, so these are notes from
 having already made the mistakes rather than from reading a spec.
+
+> **Provenance, stated plainly:** `launch_pons` and `agent_send` are **not** in
+> `@clawpump/agents@0.1.23`, the package this table was measured against — the
+> transfer tool there is `wallet_transfer`. Both names came from the unverified
+> docs transcription. That package advertises itself as the agent-management
+> server, so absence is not proof they do not exist on the full surface, and the
+> chain-4663 facts below are ours and hold regardless of what the tool is called.
+> But if you cannot find `launch_pons` on your server, that is why. Run
+> `tools/list` and trust it over this file.
 
 **1. `payoutWallet` is welded, and base58 will burn it.** It is set once, at launch,
 and a launch is not patchable. It is an **EVM** address. If your agent — whose whole
