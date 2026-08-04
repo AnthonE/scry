@@ -69,6 +69,7 @@ fact that it is one import away.
 | **OpenClaw / moltbot** | [`skills/openclaw-guard`](skills/openclaw-guard/SKILL.md) | `before_tool_call` authorize-gate + single-use authorization, and a **working** session-trajectory meter |
 | **ClawPump** | [`skills/clawpump-guard`](skills/clawpump-guard/SKILL.md) | a spending boundary, an injection ward, and the chain-4663 launch checks |
 | **Robinhood Agentic Trading** | [`robinhood_agentic.py`](robinhood_agentic.py) · [`robinhood_gate_cli.py`](robinhood_gate_cli.py) | two gates: instruction-bound, or mandate-bound autonomy — plus a pre-flight CLI for hosts that can't intercept a remote MCP call |
+| **Anything paying over x402** (Cloudflare Agents SDK · ClawPump · a raw x402 client) | [`x402_gate.py`](x402_gate.py) | provenance + a payee pin in front of the pay-any-URL call |
 | **An agent that already holds a key** | [`skills/scry-wallet`](skills/scry-wallet/SKILL.md) | identity actions signed **locally** — no key is ever shared |
 | **Anything you want to watch** | [`skills/scry-watch`](skills/scry-watch/SKILL.md) | six cron watchdogs that cost **zero LLM tokens** |
 
@@ -253,6 +254,111 @@ its own uid and a root-owned policy; on Solana that is not built.
 by its own README — so [`hermes-guard`](skills/hermes-guard/SKILL.md) applies to it
 too, and is the more thoroughly exercised of the two.*
 
+### x402 — the pay-any-URL call — `[MEASURED AGAINST THE PUBLISHED SPEC PACKAGE, NOT A LIVE ENDPOINT]`
+
+The ClawPump finding above is not about ClawPump. It is the shape of the protocol, and
+you can read it out of the reference implementation rather than out of any vendor's
+tools: in `x402==2.15.0`, `x402.extensions.bazaar.facilitator.DiscoveredResource` carries
+a `resource_url` next to a seller-authored `description`, `service_name` and `tags`, and
+`SearchDiscoveryResourcesParams(query=...)` is a free-text search over them. **Search
+returns text; text names a URL; the URL takes money.** The stated direction of the whole
+agentic-commerce push is to make that loop cheaper — explore hundreds of services, pay
+per call, no account, no human.
+
+[`x402_gate.py`](x402_gate.py) is the part that says no. One seam in front of any x402
+payer, checked in this order, refusing rather than normalising at every step:
+
+1. **the URL, canonicalised the way the client will actually resolve it** — userinfo
+   (`https://api.trusted.com@evil.example/`) refused outright, backslash-in-authority
+   refused as ambiguous, embedded tab/CR/LF refused because `urllib` deletes them and
+   then the checker and the fetcher disagree about the host. IDN labels punycoded,
+   trailing dot dropped, default port folded.
+2. **provenance** — a host whose only appearance was inside an untrusted read is
+   `discovered`, and discovered hosts are **refused by default.** This is the
+   `memory_shield` bound applied to the destination argument: retrieved content is
+   evidence *about* a service, never authority to pay it.
+3. **the price, from the operator's asset book** — an unknown asset is refused, never
+   assumed to be a dollar. `maxAmountRequired: "1000"` means nothing without decimals,
+   and guessing six because USDC has six is how a cap gets silently multiplied by 1000.
+4. **the payee, pinned per host on first payment.** The URL is the agent's choice; the
+   payee is the *server's*, arrives fresh on every request, and can change between the
+   call that earned your trust and the call that spends it. A silent change is refused;
+   `repin()` is a separate, deliberate act.
+5. **the amount, through [`mandate.py`](mandate.py)** — per-payment cap, rolling window,
+   rate limit, expiry, revocation, refund-on-failure.
+
+Budgeted exploration is supported and made *checkable* rather than assumed:
+`discovery="probe"` lets the agent pay hosts it found, but only under a probe cap, only
+for so many distinct hosts per window, and only if the operator put `X402:PROBE` in the
+mandate's scope — so *"this agent may try things it found"* is a line on the granted
+boundary that shows up on `Mandate.card()`, charged to a named target in the journal.
+
+Two things the gate reports that nothing else on the payment path does. **The 402
+challenge is itself an untrusted read**: `ResourceInfo.description` / `serviceName` /
+`tags` are seller-authored strings that ride in with the terms, so attacker text arrives
+on the *payment* path and is handed back as `seller_text` for `Shield` rather than into
+the prompt. And **the gate journals its own refusals**, merged with the mandate's — a
+gate that reported only the ledger would show a clean sheet on exactly the run where a
+poisoned listing was turned away.
+
+```bash
+python3 x402_gate.py              # the three cases, with the journal
+python3 x402_gate.py --self-test  # 40 checks, offline, no key, no network
+```
+
+**Honest scope.** v1 and v2 challenge shapes are parsed against the field names in the
+shipped `x402==2.15.0` package (`PaymentRequirementsV1.maxAmountRequired` and a string
+`resource`; `PaymentRequirements.amount` and a `ResourceInfo` object) — **not** against a
+live 402 from a real seller, which is the test this has not had. And the same ceiling as
+everything else here: in the agent's own process it is a lint pass with a journal, not a
+wall. Put the cap somewhere the agent cannot reach — see below.
+
+### Hosted wallets, and the half a hosted cap cannot cover
+
+Cloudflare announced **Wallets** on 2026-08-04 (Account Wallets holding the policy;
+Virtual Wallets for agents, keyed by API key, bounded by *allowance*, *allow list* and
+*maximum transaction size*), alongside a `cloudflare.pay` handle that puts a
+human-readable name on a Web Bot Auth keypair. Nearly all of it is announced in the
+future tense; only handle-claiming appears live. **Nothing in this repo tests it, and
+nothing below is a measurement.** The reason it is worth naming here anyway is that the
+guardrail list is `mandate.py`'s field list —
+
+| Virtual Wallet | [`mandate.py`](mandate.py) |
+|---|---|
+| allowance | `window_cap` |
+| maximum transaction size | `per_action_cap` |
+| allow list | `scope` |
+| the Account Wallet holds the policy | `grant_from_offer()` — offers in a file the agent cannot write |
+
+— and it is enforced **in another process, under another uid, where the agent cannot
+reach it.** That is the exact property this repo says is the difference between a
+boundary and a lint pass, and we do not get to claim it for a cap that runs in the
+agent's own loop. **On the cap itself, a hosted wallet is strictly better than
+`mandate.py`.** Use it.
+
+What it does not do is see *why*. A cap reads an amount and a payee; it never reads the
+provenance of the sentence that chose them, so a $10 allowance still pays `0xMALLORY`
+$10 when a poisoned listing said to, and again next window. That is the bound's job, not
+the cap's, and the two compose rather than compete:
+
+    x402_gate  — may this destination be paid at all, given where it came from
+    the wallet — and how much, enforced where the agent cannot reach
+
+Three gaps survive a hosted cap intact, and they are the same three this repo already
+names: **non-x402 exits** (a cap on one rail is not a cap on the wallet — see the
+ClawPump tier table), **`blind_scope`** (a swap router moves unbounded value at zero
+notional, and a stablecoin-denominated allowance has the same blind spot), and **the
+meter** (nothing in a spending policy reads whether the agent behaves differently when
+it thinks nobody is watching). One correction we owe them, though: the
+`confirm_payment` critique above **does not land on a hosted wallet.** That cap is
+server-side and the model cannot set it, which is precisely the fix.
+
+The identity half is an opening rather than a threat. A handle says *who*; it does not
+say *how that agent has behaved*, and Cloudflare says outright they are not defining a
+schema or verification system. That slot — a signed, hash-chained public trajectory
+hanging off a stable identifier, list-never-rank — is the vow and the badge. Same
+relationship as a domain and its CI badge.
+
 ### Your own key — the autonomy ladder
 
 | rung | who holds the key | status |
@@ -260,7 +366,13 @@ too, and is the more thoroughly exercised of the two.*
 | 0 · a human signs each action | the human | live |
 | 1 · [`mandate.py`](mandate.py) — bounded standing authority | you | **built** |
 | 2 · a real key under the same bounds | you | **built** |
-| 3 · hosting that for a stranger | nobody | reserved |
+| 3 · hosting that for a stranger | nobody *here* | reserved — and now occupied by others |
+
+Rung 3 said "nobody" when it was written. Hosted agent wallets are that rung, and they
+run it in the posture rung 2 cannot reach (separate uid, policy the agent can't write).
+**scry stays at custody cap 0 on purpose** — we hold no key, so the ladder above is
+about the key *you* hold. If someone else will hold it under a real boundary, that is
+better than us holding it, and [`x402_gate.py`](x402_gate.py) is what we put in front.
 
 **Bound the exit, not the trading.** Inside its own wallet, let an agent swap freely — a
 per-trade cap on something that can swap A→B can always swap *all* of A, so it is
