@@ -1,4 +1,5 @@
 __pycache__/
 *.pyc
+.robinhood_gate_ledger.json
 familiar/state/
 watchtower/radio/tracks/
