@@ -227,5 +227,26 @@ check("payoutWallet is a destination (launch_pons, chain 4663)",
 check("a destination-less exit prices with no address",
       price_exit("agent_card_create", {"amount": 2})[1], None)
 
+print("\n13) the tools MEASURED off @clawpump/agents@0.1.23, which the docs page missed")
+# Every name here was parsed out of the published package's own .tool()
+# registrations, not read off a docs page. Before this pass all 15 were absent
+# from every tier and therefore refused — safe, but a user hit that refusal on
+# `wallet_transfer`, which is a first-class documented feature.
+for t in ("wallet_transfer", "x402_pay", "pay_sh_execute_approved",
+          "usepod_deposit", "usepod_provision"):
+    check(f"{t} is an exit", classify(t), "exit")
+for t in ("jup_lend_deposit", "jup_lend_withdraw"):
+    check(f"{t} is blind", classify(t), "blind")
+for t in ("x402_pay_check", "pay_sh_prepare_call", "jup_lend_positions"):
+    check(f"{t} pays nothing -> read", classify(t), "read")
+
+# The search-to-spend path: x402_pay takes a URL, and these catalogues are where
+# an agent finds one. Their rows are third-party text, so they are shielded
+# reads rather than plain ones — otherwise the destination of an irreversible
+# USDC payment is a string an attacker put in a marketplace listing.
+for t in ("dexter_search", "pay_sh_search", "pay_sh_provider_details"):
+    check(f"{t} is an untrusted read (it names where money can go)",
+          classify(t), "untrusted_read")
+
 print(f"\n===== {PASS} passed, {FAIL} failed =====")
 raise SystemExit(1 if FAIL else 0)

@@ -3,7 +3,7 @@ name: clawpump-guard
 description: A spending boundary, an injection ward, and chain-4663 launch checks for your ClawPump agent
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   clawpump:
     category: security
     tags: [security, risk, agent-safety, wallet, pons, rh-chain]
@@ -11,7 +11,7 @@ metadata:
 
 # clawpump-guard — a boundary around your ClawPump agent's wallet
 
-Your agent has a Solana wallet, ~122 MCP tools, an inbox anyone can write to, and
+Your agent has a Solana wallet, 130+ MCP tools, an inbox anyone can write to, and
 runs while you sleep. This puts one gate in front of all of it, plus three checks
 for the `launch_pons` leg on RH-Chain 4663.
 
@@ -30,7 +30,7 @@ tell you.
 ```bash
 git clone https://github.com/AnthonE/scry && cd scry
 python3 clawpump_agentic.py        # offline demo, no account, no network
-python3 test_clawpump_agentic.py   # 59 offline checks, stdlib only
+python3 test_clawpump_agentic.py   # the offline suite, stdlib only
 ```
 
 Then wrap whatever your client uses to call ClawPump tools:
@@ -209,10 +209,24 @@ So, honestly:
 
 **A cap enforced by the caller is not a cap.** This file is the caller.
 
-One more limit: the tool table was transcribed from the published docs, not probed
-against a running server. Run `tools/list` and diff it before trusting the
-classification. Unknown tools fail closed, which is the safe direction — but a
-*misclassified* one is not, and only a probe finds those.
+One more limit, and it improved on 2026-08-04 without closing. The tool table was
+originally transcribed from the published docs. It has since been **measured
+against the published `@clawpump/agents@0.1.23` package** — its 136 `.tool()`
+registrations parsed straight out of the shipped `dist/server.js` — which is a
+real artifact rather than a docs page, but still not the live server.
+
+That comparison paid for itself: **15 real tools were missing from this table
+entirely**, including `wallet_transfer`, `x402_pay`, `pay_sh_execute_approved` and
+both `usepod_*` funders. They were failing closed, which is the safe direction and
+also means anyone using this guard was refused on `wallet_transfer`. They are
+classified now.
+
+The reverse gap is still open: 47 transcribed names — `launch_pons` among them —
+do not appear in that package. It advertises itself as the *agent-management*
+server, so absence there is not absence from the full surface, and they are left in
+place rather than deleted. **Run `tools/list` against your own server and trust
+that over both.** Unknown tools fail closed, which is safe; a *misclassified* one
+is not, and only a probe finds those.
 
 ## Why scry ships this
 

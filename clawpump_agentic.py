@@ -110,9 +110,27 @@ from memory_shield import Shield
 
 
 # ── the tool table ──────────────────────────────────────────────────────────
-# Transcribed from clawpump.tech/docs, 2026-08-03. NOT probed. `classify()`
-# refuses anything absent from every set, so a tool added after this date fails
-# closed rather than sailing through unrecognised.
+# Two provenances, and they are not equally good — keep them labelled.
+#
+#   (a) transcribed from clawpump.tech/docs, 2026-08-03, NOT probed;
+#   (b) MEASURED 2026-08-04 against the published `@clawpump/agents@0.1.23`
+#       npm package, by parsing the `.tool(...)` registrations out of its
+#       bundled `dist/server.js` — 136 tools. That is a real artifact rather
+#       than a docs page, but it is still not the live server: `mcp.clawpump.
+#       tech` was unreachable from the authoring box (egress policy, 403 on
+#       CONNECT), which is the same reason (a) was never probed.
+#
+# Reading the measured list against the transcribed one found 15 real tools
+# this table did not carry at all — every one of them below is marked
+# `# v0.1.23`. They were failing closed, which is the correct default and also
+# means a user hit a refusal on `wallet_transfer`. 47 transcribed names did not
+# appear in that package (`launch_pons` among them); they are LEFT IN PLACE
+# rather than deleted, because this package advertises itself as the agent-
+# management server and absence from it is not evidence of absence from the
+# full surface. Probe with `tools/list` and trust that over both.
+#
+# `classify()` refuses anything absent from every set, so a tool added after
+# this date fails closed rather than sailing through unrecognised.
 
 #: Native value leaves to an address the owner may not control. Hard-capped.
 EXITS = frozenset({
@@ -123,6 +141,18 @@ EXITS = frozenset({
     "agent_mail_create",           # ~$2 USDC x402 from the wallet
     # the fiat off-ramp — a native-send cap does not see any of these
     "agent_card_create", "agent_card_withdraw",
+    # v0.1.23 — "Send SOL or an SPL token ... Irreversible on-chain transfer."
+    # ClawPump gates this on its own whitelist; the cap here is the second half
+    # (how much, how often), which a destination allowlist does not bound.
+    "wallet_transfer",
+    # v0.1.23 — the widest exit on the surface: x402_pay pays *any* URL from the
+    # wallet, so the destination is a string the agent chose. When that string
+    # came out of dexter_search or pay_sh_search, an attacker chose it. This is
+    # the search-to-spend path and it is why those two are UNTRUSTED_READS.
+    "x402_pay",
+    "pay_sh_execute_approved",     # v0.1.23 — executes the prepared paid call
+    "usepod_deposit",              # v0.1.23 — USDC out of the wallet into a pod
+    "usepod_provision",            # v0.1.23 — creates a pod AND funds it
 })
 
 #: Unbounded token exposure at zero native notional. -> mandate blind_scope.
@@ -135,6 +165,9 @@ BLIND = frozenset({
     "launch_token", "launch_token_gasless", "launch_token_self_funded",
     "launch_metaplex_genesis_token",
     "sniper_activate", "sniper_subscribe",
+    # v0.1.23 — value moves into/out of a Jupiter Earn vault. Recoverable, so
+    # not an exit; unbounded in notional, so not a read.
+    "jup_lend_deposit", "jup_lend_withdraw",
 })
 
 #: Welds a payout address on chain 4663 and cannot be undone. Its own tier
@@ -186,10 +219,20 @@ UNTRUSTED_READS = frozenset({
     "duel_details", "duel_markets", "predictions_events",
     "service_offers_list", "leaderboard",
     "get_agent", "list_agents",                 # persona/prompt text, incl. on a bought agent
+    # v0.1.23 — third-party catalogues whose rows carry a payable `resourceUrl`.
+    # All three are free and none moves money, which is exactly what makes them
+    # dangerous: their OUTPUT is the destination argument to `x402_pay`. A
+    # catalogue entry is attacker-authored text that names where the money goes.
+    "dexter_search", "pay_sh_search", "pay_sh_provider_details",
 })
 
 #: Plain reads. Not gated, not shielded — no text an attacker chooses.
 READS = frozenset({
+    # v0.1.23 — priced previews and position reads. Each states it pays nothing;
+    # `pay_sh_prepare_call` only mints a 10-minute approval code, and the spend
+    # it authorizes is gated at `pay_sh_execute_approved` in EXITS.
+    "x402_pay_check", "pay_sh_prepare_call",
+    "jup_lend_positions", "jup_lend_tokens", "link_google_account",
     "get_balance", "get_usage", "get_usage_history", "get_transactions",
     "get_wallet_summaries", "get_wallet_history", "get_balance_history",
     "get_budget", "get_private_wallet_balance", "get_free_tier_status",

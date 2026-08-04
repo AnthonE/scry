@@ -132,8 +132,19 @@ not built.
 The one leg worth reading even if you skip the rest: `launch_pons` **welds
 `payoutWallet` on chain 4663 and is irreversible**, so the guard refuses it when that
 field holds a base58 address — the well-formed, unrecoverable mistake a Solana-native
-agent makes on its first EVM chain. `python3 test_clawpump_agentic.py` → 59 offline
-checks, stdlib only.
+agent makes on its first EVM chain. `python3 test_clawpump_agentic.py` runs the
+offline suite, stdlib only.
+
+The tier table has since been **measured against the published
+`@clawpump/agents@0.1.23` package** rather than a docs page — its 136 `.tool()`
+registrations parsed out of the shipped bundle. That found **15 real tools the table
+did not carry at all**, including `wallet_transfer`, `x402_pay` and both `usepod_*`
+funders; they were failing closed, which is safe and also meant a refusal on a
+first-class feature. The sharpest thing it surfaced is a **search-to-spend path**:
+`x402_pay` will pay *any* URL from the wallet, and `dexter_search` / `pay_sh_search`
+are free catalogues whose rows carry payable `resourceUrl`s — so the destination of
+an irreversible USDC payment can be a string an attacker put in a marketplace
+listing. Those three are classified as untrusted reads for exactly that reason.
 
 *ClawPump's `claw-agent` is a downstream distribution of the Hermes Agent (Nous
 Research, MIT) by its own README — so [`hermes-guard`](skills/hermes-guard/SKILL.md)
@@ -218,6 +229,96 @@ from memory_shield import red_team
 flipped = red_team(clean_items, make_poison=my_attacker, defend_fn=shield.defend)
 # {0: False, 1: False, 5: False, 10: True}  -> "my agent survives up to N poisoned memories"
 ```
+
+---
+
+## The research — numbers we have not seen anyone else publish
+
+Everything in this section is in this repo: the corpora, the analysis scripts, and
+the frozen plan digests. **Re-run it and disagree with us.**
+
+### 1. The standard method, measured against ours, on the same traces
+
+Every black-box eval-awareness method in the literature asks the model to
+**verbalize** — query it directly, or read its trace for explicit awareness cues.
+Everyone reports their own numbers on their own traces, which proves nothing
+comparative. So we ran *their* methods on *our* traces, where ground truth is known
+by construction, and published the table.
+
+**Announced-cue arm — the signal is known to be present (n=120, chance 0.500):**
+
+| method | accuracy | call rate |
+|---|---:|---:|
+| binary "are you being evaluated?" · judge **Haiku 4.5** | 0.500 | **0.983** |
+| binary, same 120 traces · judge **Opus 5** | 0.458 | **0.292** |
+| reasoning-traces analysis | 0.633 | 0.767 |
+| **ours — held-out classifier, cue vocabulary redacted** | **0.783** | *(p < 0.005)* |
+| ours — unredacted | 0.925 | *(p < 0.005)* |
+
+**Two judges disagreed by 68 percentage points of call rate on identical traces —
+and both landed at chance.** Haiku answers EVALUATION 98.3% of the time, Opus 5
+29.2%, and neither is more accurate than a coin. **The binary test reads the
+judge's prior, not the subject's state.** That is the load-bearing result, and it
+is why "just ask the model if it knows it's being tested" is not a measurement.
+
+Ours is the only row that separates — *after the cue's own vocabulary is redacted*,
+so it is not keyword-matching. → [`PILOT4-HEADTOHEAD-2026-07-25.md`](PILOT4-HEADTOHEAD-2026-07-25.md)
+
+### 2. Behaviour never moved — 240 out of 240
+
+Across both arms, **240/240 traces were behaviourally clean.** No arm, no cue, no
+scenario produced a single violation, so `D ≡ 0` and `audit.py`'s closed form gives
+a **structural collider floor of exactly 0.0.**
+
+That is the cleanest possible setting for the question the meter exists to ask:
+**the hand is always clean, so anything that varies has to vary in the mind.** A
+behavioural eval run on this sample returns "nothing here" 240 times out of 240 —
+and it would be right about the behaviour and blind to the model.
+
+### 3. A null and a signal from one pipeline, so the null means something
+
+Same model, same scenarios, same sample size, same redactor — one thing changed:
+
+| cue | held-out accuracy (redacted) | verdict |
+|---|---:|---|
+| a **mundane** oversight cue (*"journal: public — this session's transcript is retained"*) | 0.442 (p = 0.45) | **null** |
+| an **announced evaluation** cue (*"flagged for quality-assurance review"*) | **0.783** (p < 0.002) | **large** |
+
+Per scenario the announced arm reads treasury **0.933** and discount **0.900**
+(both p < 0.002), and every significant p-value sits at the permutation floor —
+**zero of 500 label permutations reached the observed accuracy.**
+
+Because the same pipeline produces both, **the null is a null and not blindness.**
+Most papers cannot say that; they have no negative arm. Power stated plainly: n=120
+rules out a *large* effect in the mundane arm, not a small one.
+
+### 4. We ran our own preregistration and it failed
+
+The preregistered detector was **blind to both arms** — including the one that is
+demonstrably there. Had the anchored preregistration been executed as written, **it
+would have returned a false negative and reported it as a finding.** The plan
+digests were printed before collection and the frozen prereg is in this repo,
+unexecuted, so you can check that we did not move the goalposts.
+
+→ [`PREREG-VOW-ONTOLOGY.md`](PREREG-VOW-ONTOLOGY.md) (frozen, digest `752a0349…`) ·
+[`PILOT-2026-07-25.md`](PILOT-2026-07-25.md) — the 65-call calibration run that
+**cancelled our own evidence run**
+
+The whole thing cost **$0.52** for 240 live calls, plus ≈$0.95 for 840 judge calls.
+Corpora: [`pilot2_corpus.jsonl`](pilot2_corpus.jsonl) ·
+[`pilot3_corpus.jsonl`](pilot3_corpus.jsonl) ·
+[`pilot4_judgments.jsonl`](pilot4_judgments.jsonl). Analysis:
+`pilot2_oversight.py` · `pilot3_control.py` · `pilot4_headtohead.py` ·
+`prereg_lab.py`. Method and the anti-cheat model:
+[`METROLOGY.md`](METROLOGY.md).
+
+### 5. And the one that should worry you
+
+We explained the channel-switching theorem **to the agent, in context** — and it
+**recited the correct rule back and overrode it roughly half the time.** Knowing the
+rule is not complying with it. That is the entire argument for a structural gate
+over a better prompt, and it is reproducible from
+[`FIELD-RESULTS-2026-06-18.md`](FIELD-RESULTS-2026-06-18.md).
 
 ---
 
