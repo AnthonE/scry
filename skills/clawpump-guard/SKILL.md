@@ -212,7 +212,8 @@ So, honestly:
 One more limit, and it improved on 2026-08-04 without closing. The tool table was
 originally transcribed from the published docs. It has since been **measured
 against the published `@clawpump/agents@0.1.23` package** — its 136 `.tool()`
-registrations parsed straight out of the shipped `dist/server.js` — which is a
+registrations parsed out of the shipped `dist/server.js` (its own banner says 132;
+the parse over-counts slightly, which is the safe direction) — which is a
 real artifact rather than a docs page, but still not the live server.
 
 That comparison paid for itself: **15 real tools were missing from this table

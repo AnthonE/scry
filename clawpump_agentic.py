@@ -115,7 +115,12 @@ from memory_shield import Shield
 #   (a) transcribed from clawpump.tech/docs, 2026-08-03, NOT probed;
 #   (b) MEASURED 2026-08-04 against the published `@clawpump/agents@0.1.23`
 #       npm package, by parsing the `.tool(...)` registrations out of its
-#       bundled `dist/server.js` — 136 tools. That is a real artifact rather
+#       bundled `dist/server.js` — 136 of them. The server's own startup banner
+#       says `132 tools`, so treat 136 as a slight over-count from the parse
+#       (a few registrations are not user-facing tools) and 132 as its own
+#       figure. Over-counting is the safe direction for a classifier: every
+#       extra name is one more thing that cannot arrive unrecognised.
+#       That is a real artifact rather
 #       than a docs page, but it is still not the live server: `mcp.clawpump.
 #       tech` was unreachable from the authoring box (egress policy, 403 on
 #       CONNECT), which is the same reason (a) was never probed.
