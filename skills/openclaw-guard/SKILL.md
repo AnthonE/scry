@@ -117,6 +117,23 @@ config. The decision logic lives in `scry-guard-logic.ts` as pure functions (no
 `Date.now()`/module state baked in) specifically so it's unit-testable without a
 live OpenClaw host; `scry-guard.ts` is the thin wiring that calls it with real state.
 
+**Getting the tool name right (live-verified, not guessed):** `event.toolName` in
+`before_tool_call` is the *host's* internal tool identifier, not necessarily what the
+model sees in its own tool list. Live-tested against a Codex-runtime agent (`tools.profile:
+"coding"`): the model calls `functions.exec`, but `event.toolName` arrives as the bare
+`"exec"` — no `functions.` prefix. Putting `"functions.exec"` in `gatedTools` silently
+gates nothing (the tool name never matches, so `before_tool_call` always returns
+`undefined`/allow — no error, no warning, it just doesn't gate). If a configured gate
+isn't firing, add a one-line `console.error(event.toolName)` at the top of
+`before_tool_call`, trigger the real tool call once, and read the actual string back
+from the gateway log before assuming the logic is wrong.
+
+This cuts both ways, and the same check applies to `robinhoodPlaceTools` /
+`robinhoodReviewTools` below: a name that never matches reads exactly like a tool that
+was never gated. Confirm each configured name against a real call before treating the
+gate as live — `scry-guard-logic.ts`'s `if (!gatedTools.has(toolName)) return undefined`
+is an allow, so a typo fails **open**.
+
 ### Robinhood trade gate (e.g. a connected `agent.robinhood.com/mcp/trading`)
 
 `gatedTools` alone only asks "did *some* live trusted instruction pass
