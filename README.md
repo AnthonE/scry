@@ -68,7 +68,7 @@ fact that it is one import away.
 | **Hermes Agent** (Nous Research) *— and its downstream distributions* | [`skills/hermes-guard`](skills/hermes-guard/SKILL.md) · `hermes skills tap add AnthonE/scry` | Hermes-native ward + meter, wired to the hooks Hermes actually fires |
 | **OpenClaw / moltbot** | [`skills/openclaw-guard`](skills/openclaw-guard/SKILL.md) | `before_tool_call` authorize-gate + single-use authorization, and a **working** session-trajectory meter |
 | **ClawPump** | [`skills/clawpump-guard`](skills/clawpump-guard/SKILL.md) | a spending boundary, an injection ward, and the chain-4663 launch checks |
-| **Robinhood Agentic Trading** | [`robinhood_agentic.py`](robinhood_agentic.py) | two gates: instruction-bound, or mandate-bound autonomy |
+| **Robinhood Agentic Trading** | [`robinhood_agentic.py`](robinhood_agentic.py) · [`robinhood_gate_cli.py`](robinhood_gate_cli.py) | two gates: instruction-bound, or mandate-bound autonomy — plus a pre-flight CLI for hosts that can't intercept a remote MCP call |
 | **An agent that already holds a key** | [`skills/scry-wallet`](skills/scry-wallet/SKILL.md) | identity actions signed **locally** — no key is ever shared |
 | **Anything you want to watch** | [`skills/scry-watch`](skills/scry-watch/SKILL.md) | six cron watchdogs that cost **zero LLM tokens** |
 
@@ -81,6 +81,60 @@ skills, auto-discovered. Or copy [`skills/scry`](skills/scry/SKILL.md) into
 → **Mount it by hand:** [`HARNESSES.md`](HARNESSES.md) · **watch your agent drift:**
 [`MONITOR-YOUR-AGENT.md`](MONITOR-YOUR-AGENT.md) · **the measurement it implements:**
 [AnthonE/unmask](https://github.com/AnthonE/unmask)
+
+---
+
+## Quickstart — five minutes, Hermes or OpenClaw
+
+Both are real, tested **plugins** — host-side hooks that can veto a tool call, not
+code samples you wire in by hand and not a suggestion in a system prompt. Full config
+reference and honest scope for each: [`skills/hermes-guard/SKILL.md`](skills/hermes-guard/SKILL.md)
+· [`skills/openclaw-guard/SKILL.md`](skills/openclaw-guard/SKILL.md).
+
+**Hermes Agent** (needs Hermes ≥ 0.18.2 for subdirectory installs; `hermes update` if older):
+
+```bash
+hermes plugins install AnthonE/scry/skills/hermes-guard/scripts --enable
+hermes gateway restart
+hermes scry doctor     # verify the wiring, and the issuer pubkey pin
+```
+
+That's the bound (recalled memory is evidence, never a command) plus a `pre_tool_call`
+authorize-gate, live — every dependency vendored, no separate scry clone. It also starts
+capturing Y/M/D turns for the meter automatically.
+
+**OpenClaw:**
+
+```bash
+git clone https://github.com/AnthonE/scry && cd scry
+openclaw mcp add scry-sidecar --command python3 \
+  --arg "$(pwd)/mcp_sidecar.py" \
+  --arg --trace --arg ~/.openclaw/scry/turns.jsonl --cwd "$(pwd)"
+mkdir -p ~/.openclaw/policies && cp skills/openclaw-guard/scripts/* ~/.openclaw/policies/
+```
+
+Then register the plugin in `openclaw.json` and restart:
+
+```json5
+{ plugins: { load: { paths: ["~/.openclaw/policies/scry-guard.ts"] } } }
+```
+
+```bash
+openclaw config validate && openclaw gateway restart
+```
+
+This mounts `defend_memory` / `authorize_action` / `emit_turn` / `get_profile` as tools
+the agent can call, plus a real `before_tool_call` gate — single-use, so an
+`authorize_action` pass unlocks exactly the next gated call rather than a time window.
+
+**Then gate something — nothing is gated by default.** Both plugins ship with an empty
+gate list, so a fresh install enforces nothing until you name tools:
+`gated_tools: [terminal, write_file, patch]` in `~/.hermes/config.yaml`, or `gatedTools`
+under `plugins.entries.scry-guard.config` for OpenClaw. Verify the name you configured
+matches what the host actually reports — a name that never matches fails **open**, and
+looks exactly like a tool that was never gated. (See the tool-naming note in
+[`openclaw-guard/SKILL.md`](skills/openclaw-guard/SKILL.md#how-the-enforcement-plugin-works):
+a Codex-runtime agent calls `functions.exec`, but the hook receives the bare `exec`.)
 
 ---
 
@@ -111,6 +165,33 @@ Threat model, unchanged and not ours: review is optional broker-side, there is n
 broker-side cap on size or frequency, and the broker does not supervise connected
 agents. The independently reported prompt-injection→`place_equity_order` finding
 (PolicyLayer / SecProve, 2026-06) is the exact hole the instruction-bound gate closes.
+
+**When the host can't intercept the call —** `[POLICY GATE, NOT A NETWORK GATE]`
+
+Both gates above wrap a callable, which assumes your harness lets you wrap it. A Claude
+Code session talking straight to `agent.robinhood.com/mcp/trading` has no such seam:
+there is no supported way to transparently proxy a *connected remote* MCP server, so
+there is nothing to wrap and the gate has no place to stand.
+[`robinhood_gate_cli.py`](robinhood_gate_cli.py) is the honest fallback — the same
+`authorize_trade` + `ReviewLedger` contract as `robinhood_agentic.py`, persisted to a
+local ledger so review-before-place survives across separate invocations:
+
+```bash
+python3 robinhood_gate_cli.py review --symbol NVDA --side buy --quantity 3
+python3 robinhood_gate_cli.py place  --symbol NVDA --side buy --quantity 3 \
+    --live "buy 3 shares of NVDA" --source user
+# -> {"authorized": true, ...}, exit 0.  Refusal is exit 1, with the reason.
+```
+
+**Be clear-eyed about what this is.** It enforces the contract only if the operating
+rule — *never call `place_equity_order` directly; run this first and proceed only on
+`authorized: true`* — is actually followed. That rule lives in the agent's instructions,
+which makes it exactly the "vibes, not structure" thing the rest of this repo exists to
+replace. It is strictly better than nothing (it makes the unreviewed order and the
+unnamed symbol *visible and refusable*, and the refusal is a process exit code rather
+than a model's judgment call), and strictly worse than the plugin gates above, which
+can't be skipped because the host enforces them. Prefer a harness with a real
+`before_tool_call` hook. Use this when you don't have one.
 
 ### ClawPump — `[MEASURED AGAINST THE PUBLISHED PACKAGE, NOT THE LIVE SERVER]`
 
