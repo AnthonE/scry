@@ -225,7 +225,8 @@ not a product claim: **nobody has bought a signed read yet.** We publish our zer
 
 - Repo: <https://github.com/AnthonE/scry>
 - The ward, harness-agnostic: `memory_shield.py`, `hermes_retrofit.py`
-- The spending boundary: `mandate.py`, and `arca.py` for the separated-signer version
+- The spending boundary: `mandate.py`. (`arca.py`, the separated-signer version, is
+  not in this repo — don't go looking for it here.)
 - Other harnesses: `skills/hermes-guard`, `skills/openclaw-guard`, `robinhood_agentic.py`
 
 Corrections welcome, including to this file. If the tool table is wrong, open an
