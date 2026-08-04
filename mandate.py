@@ -844,7 +844,20 @@ def _self_test():
     except MandateError as exc:
         ck("chmod 0640" in str(exc), "a writable offers file is refused, with the chown/chmod fix")
     _os.chmod(opath, 0o444)
-    loaded = load_offers(opath)
+    # As root the mode bits mean nothing, and `load_offers` says so rather than
+    # loading — which is the correct refusal and also the posture most agent
+    # containers run in, so the test asserts it instead of aborting on it. The
+    # read-only path is then exercised under a non-root uid, where the bits bite.
+    as_root = _os.getuid() == 0
+    if as_root:
+        try:
+            load_offers(opath)
+            ck(False, "root is refused even on a read-only offers file")
+        except MandateError as exc:
+            ck("root ignores the mode bits" in str(exc),
+               "root is refused even on a read-only offers file (do not run the agent as root)")
+    reader_uid = 65534 if as_root else None      # nobody: not the file's owner
+    loaded = load_offers(opath, uid=reader_uid)
     ck("ok" in loaded and loaded["ok"].per_action_cap == 1.0, "a read-only offers file loads")
     with open(_os.path.join(tmpd, "typo.json"), "w", encoding="utf-8") as fh:
         json.dump({"offers": [{"name": "t", "verbs": ["send"], "scope": ["A"],
@@ -852,7 +865,7 @@ def _self_test():
                                "per_action_capp": 999.0}]}, fh)
     _os.chmod(_os.path.join(tmpd, "typo.json"), 0o444)
     try:
-        load_offers(_os.path.join(tmpd, "typo.json"))
+        load_offers(_os.path.join(tmpd, "typo.json"), uid=reader_uid)
         ck(False, "an unknown field in an offer is refused")
     except MandateError as exc:
         ck("unknown field" in str(exc),
