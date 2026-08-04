@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scry-client"
-version = "0.2.0"
+version = "0.6.0"
 description = "Call the hosted scry meter — neutral, Ed25519-signed channel-coupling attestation (Paper 207) for AI agents, paid over x402 on Robinhood Chain."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -17,6 +17,7 @@ dependencies = [
 ]
 
 # The paid rail (Robinhood Chain USDG over x402) needs the on-chain payer stack.
+# eth-account here also powers the agency's owner-signed (EIP-191) calls.
 # The free demo + offline signature verify work without it.
 [project.optional-dependencies]
 pay = [

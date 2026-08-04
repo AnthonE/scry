@@ -3,7 +3,7 @@ name: scry
 description: Use when building, wiring, or hardening an AI agent that has tool-calling, persistent memory or RAG, or the ability to take real-world or financial actions. Adds two drop-in defenses to any agent loop — a memory-integrity bound (retrieved or stored content can never authorize an action; only a live, trusted instruction can) and a channel-coupling meter (detects when an agent's private reasoning conditions on whether it believes it's being observed, the covert-drift signal a behavior-only check can't see). Trace-native, dependency-free stdlib, works on any harness: Hermes, ElizaOS, moltbot/OpenClaw, OpenAI-format chat logs, MCP-capable agents, hand-rolled loops.
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.0.1"
   hermes:
     category: security
     tags: [security, memory, agent-safety, drift-detection, monitoring]
@@ -84,11 +84,10 @@ monitor misses — with a permutation p-value, never a bare number.
 
 | Your harness | Use |
 |---|---|
-| Hermes (Nous) | `hermes_retrofit.py` — `harden_recall` + `authorize`, live-validated. Real enforcing plugin: `skills/hermes-guard/` |
-| ElizaOS | native TS plugin (`eliza-destiny`) — same Turn contract, JSONL seam |
+| Hermes (Nous) | `hermes_retrofit.py` — `harden_recall` + `authorize`, live-validated |
+| ElizaOS | external TS plugin (`eliza-destiny`, neighbouring tree, not vendored here) — same Turn contract, JSONL seam |
 | moltbot / OpenClaw (chromadb) | `adapters.chromadb_to_items` + `wrap_retriever` |
-| OpenClaw (authorize-gate + meter) | real `before_tool_call`/`after_tool_call` enforcing plugin + `harnesses.openclaw_to_turns` (provider-gated — needs a thinking-capable model for real M): `skills/openclaw-guard/` |
-| Robinhood Agentic Trading (MCP) | `robinhood_agentic.py` — gates `place_equity_order` on a live instruction naming the exact order, requires `review_equity_order` first (their own recommended pairing, enforced). **Mock-validated only** — no live account was used to build this. |
+| Robinhood Agentic Trading (MCP) | `robinhood_agentic.py` — gates `place_equity_order` on a live instruction naming the exact order, requires `review_equity_order` first (their own recommended pairing, enforced); or `wrap_place_order_under_mandate` for autonomous runs inside a standing `mandate.py` boundary. **Live-exercised 2026-07-25** against the real OAuth-gated endpoint on the operator's own account. |
 | Any OpenAI-format chat log | `harnesses.convert("openai_messages", session)` — if you have message lists with `reasoning_content`/`<think>`, you're already in |
 | Any MCP-capable agent | mount `mcp_sidecar.py` — `emit_turn`/`get_profile`/`defend_memory`/`authorize_action` as tools |
 | Something else | `wrap_retriever(your_retrieve, shield, your_mapper)` for the bound; `register("yours", to_turns)` for the meter — ~10 lines each |

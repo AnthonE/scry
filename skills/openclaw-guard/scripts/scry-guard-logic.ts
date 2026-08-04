@@ -13,7 +13,12 @@ export type PluginConfig = {
   authMaxAgeSeconds?: number;
 };
 
-export type PendingAuth = { authorizedAt: number };
+// liveText is the text that earned this authorization — kept (not just the
+// timestamp) so robinhood-guard-logic.ts's decideBeforeRobinhoodPlaceCall can
+// check the instruction actually names a specific order's symbol/side, not
+// just that some live instruction existed this turn. Empty string if the
+// authorize_action call's params didn't carry a recognizable live.text.
+export type PendingAuth = { authorizedAt: number; liveText?: string };
 
 // sessionKey -> pending auth. Presence means "one unconsumed
 // authorize_action pass is waiting"; decideBeforeToolCall deletes the entry
@@ -39,11 +44,29 @@ export function extractToolResultText(result: unknown): string {
   }
 }
 
-/** after_tool_call logic: record or clear a pending authorization for `key`. */
+/** Pulls live.text back out of the params an authorize_action call was made
+ * with (not its result — the caller supplies {live: {text, source, role}}).
+ * Kept here (not robinhood-guard-logic.ts) to avoid a circular import: that
+ * module imports PendingAuthMap/AUTHORIZE_TOOL from this one. */
+function _extractLiveText(authorizeActionParams: unknown): string {
+  if (authorizeActionParams && typeof authorizeActionParams === "object") {
+    const live = (authorizeActionParams as { live?: unknown }).live;
+    if (live && typeof live === "object" && typeof (live as { text?: unknown }).text === "string") {
+      return (live as { text: string }).text;
+    }
+  }
+  return "";
+}
+
+/** after_tool_call logic: record or clear a pending authorization for `key`.
+ * `params` is the authorize_action call's own arguments (needed to recover
+ * live.text for robinhood-guard-logic.ts's order-matching; unused by the
+ * plain gated_tools path, which only ever needed the pass/fail result). */
 export function recordAuthorizationResult(
   pendingAuth: PendingAuthMap,
   key: string,
   toolName: string,
+  params: unknown,
   result: unknown,
   now: number,
 ): void {
@@ -56,7 +79,7 @@ export function recordAuthorizationResult(
     ok = false;
   }
   if (ok) {
-    pendingAuth.set(key, { authorizedAt: now });
+    pendingAuth.set(key, { authorizedAt: now, liveText: _extractLiveText(params) });
   } else {
     pendingAuth.delete(key);
   }

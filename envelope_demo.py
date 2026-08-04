@@ -52,7 +52,7 @@ try:
         print("  ✓ a re-signed forgery is rejected because the pinned key doesn't match.")
     print("\n  Honest scope: signature = Ed25519 (real). seal = SHA-256 CTR + HMAC (real, stdlib).")
     print("  Confidentiality here is symmetric — key exchange is your standard KEM (X25519 / ML-KEM);")
-    print("  the FSR post-quantum KEM is research-grade and deliberately NOT the default (see envelope.py).")
+    print("  the FSR post-quantum KEM was research-grade, never the default, and is gone (see envelope.py).")
 except E.EnvelopeError as e:
     print(f"  [sign step skipped] {e}")
     print("  The seal step above is dependency-free and ran. Install `cryptography` for the signature.")

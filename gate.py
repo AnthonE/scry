@@ -114,8 +114,12 @@ class Receipt:
         return self
 
     def as_dict(self) -> dict:
-        return {k: v for k, v in asdict(self).items() if v not in ("", {}, 0.0) or k in
-                ("drift_ema", "band_static", "band_effective")}
+        # LOSSLESS on purpose: sign()/finalize() hash and sign over the full field
+        # set, so an exported receipt must carry every field or a verifier
+        # re-canonicalizing it computes different bytes and the signature (and the
+        # chained sha256) fail on an untampered receipt. Pruning "empty-looking"
+        # values (via == , which also drops False and 0.0) silently broke that.
+        return asdict(self)
 
 
 # ── the gate: drift controller + bands + kill switch + receipt log ────────────

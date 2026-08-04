@@ -17,6 +17,7 @@ import httpx
 from .play import ScryPlay, ScryPlayError
 
 SCRY_HOME = Path(os.getenv("SCRY_HOME", str(Path.home() / ".scry")))
+AUGURY_Q_MAX = int(os.getenv("SCRY_AUGURY_Q_MAX", "2000"))   # remote text, bounded
 
 
 def _cfg() -> dict:
@@ -34,7 +35,14 @@ def beat() -> None:
 
     # 1. the augury (once/day — a 409 just means already answered)
     if cfg.get("answer_cmd"):
-        q = p.augury().get("question", "")
+        # The question comes from cfg["base"] — a REMOTE server — and answer_cmd
+        # is usually an LLM CLI, so this is untrusted text entering your agent's
+        # prompt. It is piped on STDIN (never interpolated into the command, so
+        # there is no shell injection), bounded, and stripped of control
+        # characters so it cannot fake structure in whatever reads it. If you
+        # point `base` at a meter you do not run, you are trusting its questions.
+        q = str(p.augury().get("question", ""))
+        q = "".join(c for c in q if c.isprintable())[:AUGURY_Q_MAX]
         try:
             ans = subprocess.run(cfg["answer_cmd"], shell=True, input=q.encode(),
                                  capture_output=True, timeout=120).stdout.decode().strip()

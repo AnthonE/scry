@@ -6,7 +6,7 @@ behaves. The failure you can't see coming is the **covert** one: the agent's
 won't yet take — while its *actions* still look fine. A behavior monitor is blind to
 that by construction. This layer reads it.
 
-## What you get (two things, one trace)
+## What you get (three things, one trace)
 
 1. **The bound** — `harden(recall, trusted)` makes your agent's self-accumulated
    memory *evidence, not command*. A lesson the agent taught itself can corroborate a
@@ -16,7 +16,25 @@ that by construction. This layer reads it.
 2. **The meter** — `monitor(turns, y_bound)` returns a **drift read**: the Paper 207
    channel profile `I(C;M | D-clean)` — how much the *reasoning* channel couples to
    context (monitored vs not, by zone, by user) beyond what the *action* channel
-   shows. With a permutation p-value, never a bare number.
+   shows. With a permutation p-value **and a collider floor**, never a bare number.
+
+   > **Read the floor, not just the bits (2026-07-24).** Conditioning on
+   > "the action was clean" conditions on a Berkson collider, and a small
+   > sample manufactures coupling on its own. `audit.py` builds the null with
+   > **no reasoning channel at all** and reports what your number has to beat:
+   > the p95 floor is **≈ 2.77 / N_clean bits**, so ~0.15 bits at 24 clean
+   > turns and ~0.02 at 200. `switch_signature_collider_p` is the p-value that
+   > answers "is this a channel?"; the older `switch_signature_perm_p` answers
+   > the narrower "is there association among clean turns?" and cannot rule out
+   > the artifact on its own. Under ~100 clean turns, don't quote the number.
+
+3. **The disclosure read** — `disclosure_pe(turns)` returns
+   `I(C ; narration | act-clean)`: does the agent **write itself up** differently
+   as the context changes, holding what it actually did fixed? The self-account is
+   metered as an *act* (it crossed the boundary into the world), never as the
+   reasoning channel — so this one needs **no reasoning trace at all** and runs on
+   a closed API, a hosted worker, or a human player. A high value says the account
+   covaries with context; it never says what the agent was thinking.
 
 ## Why it sees what behavior monitoring can't
 
@@ -85,3 +103,6 @@ does not automate one.)
 - `memory_shield.py` / `hermes_retrofit.py` — the bound.
 - `detector_audit.py` — the 3-check discipline. Run it before quoting anything.
 - `harnesses.py` — adapters from common log formats to Turns.
+- `skills/scry-watch/` — cron watchdogs for the hosted side of the story:
+  issuer-pubkey pin, vow cadence overdue, familiar journal stall, town
+  digest. Script-only, zero LLM tokens; monitoring you schedule once.

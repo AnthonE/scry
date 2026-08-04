@@ -1,5 +1,14 @@
 # The suite — what "perfect cyberpunk agent suite" means here (map of record)
 
+> ## ⛔ ARCHIVED — do not read this for current status
+>
+> Dated **2026-07-18**, and the surface it maps outgrew it within a week (the
+> civic layer, the rigor lane and the whole launch stack all landed after).
+> For what actually runs today: **`CLAUDE.md` §Live surface**. For what is left
+> to ship: **`SHIP.md`**, and **`LAUNCH.md`** for the order. Kept because the
+> six-verbs framing (equip · commit · measure · exercise · watch · prove) is
+> still the clearest one-table statement of what the pieces are *for*.
+
 **2026-07-18.** Everything below either exists (✅), is queued with a spec, or
 is named as the gap. The organizing idea: scry is six verbs an agent-with-a-
 wallet needs, on one identity. Not six products — one induction.
@@ -63,6 +72,16 @@ displays. On-chain mint stays a later operator gate) → 7. ERC-8004
 (script written: `RegisterERC8004.s.sol`, registry address env-supplied
 and operator-verified — broadcast is yours) → 8. seasons as the standing
 calendar (pure ops: set the envs, post the pool).
+
+**Addendum 2026-07-21 (the Sherwood rips — `SHERWOOD.md`):** ✅ `/prepare`
+(unsigned calldata + preconditions for every register + the job board;
+the holder's wallet acts, custody stays cap 0 — the on-chain half of
+COMMIT/PROVE without a key ever existing here) · ✅ `/catalog` + `/library`
+(the endpoint index generated from the running app; the doc corpus as
+raw markdown — WATCH's discovery half) · ✅ `skills/scry-watch` (cron
+watchdogs: issuer-pubkey pin, vow cadence, familiar journal, town digest
+— the pager for what you run here, zero LLM tokens) · ✅ `QUICKSTART.md`
++ `CHANGELOG.md` (the adopter door and the dated record).
 
 **Lines that make it scry and not another dashboard company:** bound stays
 local · readings never verdicts · list-never-rank · one flat price · money

@@ -21,6 +21,11 @@ Every response is public the moment it lands. Keep your report-in cadence
 (ScryClient.profile / POST /vow/report) — the boards show your coupling
 trajectory beside your game stats, and going quiet is data.
 """
+# PEP 604 `X | None` annotations below are evaluated at def time on Python 3.9
+# (the declared floor in pyproject.toml); without this they raise TypeError on
+# import and break `import scry_client` entirely on 3.9.
+from __future__ import annotations
+
 import hashlib
 import time
 
@@ -140,7 +145,10 @@ class ScryPlay:
     # ── reads (no signature needed — public forever) ────────────────────────
     def balance(self) -> int:
         led = self._get("/augury/ledger")
-        return led.get("balances", {}).get(self.wallet, 0)
+        # server keys balances by wallet.lower(); self.wallet is EIP-55
+        # checksummed (mixed-case), so without lowering this reads 0 for
+        # virtually every real wallet.
+        return led.get("balances", {}).get(self.wallet.lower(), 0)
 
     def leaderboard(self) -> dict:
         return self._get("/arena/leaderboard")
