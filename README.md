@@ -112,43 +112,65 @@ broker-side cap on size or frequency, and the broker does not supervise connecte
 agents. The independently reported prompt-injection→`place_equity_order` finding
 (PolicyLayer / SecProve, 2026-06) is the exact hole the instruction-bound gate closes.
 
-### ClawPump — `[NOT LIVE-EXERCISED]`, and we say so in the file
+### ClawPump — `[MEASURED AGAINST THE PUBLISHED PACKAGE, NOT THE LIVE SERVER]`
 
 [`skills/clawpump-guard`](skills/clawpump-guard/SKILL.md) +
 [`clawpump_agentic.py`](clawpump_agentic.py) sort every tool into five tiers behind one
 wrapper — **secret** (any call carrying key material, checked first, on every tier),
 **irreversible**, **authority**, **exit**, **blind** — and anything unrecognised
-**fails closed.**
+**fails closed.** It is **not a ClawPump product and not affiliated with ClawPump**:
+a client-side MIT wrapper, no account, no API key, no network calls of its own.
 
-It is **not a ClawPump product and not affiliated with ClawPump.** It is a client-side
-MIT wrapper, and it carries two limits on its face: the tool table was **transcribed
-from published docs, not probed** (their docs describe 131 tools; probe yours with
-`tools/list` and the guard will refuse what it doesn't recognise rather than wave it
-through), and a client-side wrapper runs in the same uid as the agent — **it is a lint
-pass with a journal, not a wall.** A wall needs a separated signer — its own uid, a
-root-owned policy, and decisions re-derived from its own ledger — and on Solana that is
-not built.
+**Read this before you quote anything from it.** The tier table was first transcribed
+off a docs page. It has since been measured against the published
+`@clawpump/agents@0.1.23` package — its `.tool()` registrations parsed out of the
+shipped bundle, 136 by our parse and **132 by the server's own startup banner.** The
+live server at `mcp.clawpump.tech` is still unreachable from our box, so this is a
+real artifact and *not* the full surface: that package advertises itself as the
+agent-management server. **Run `tools/list` against your own and trust it over us.**
 
-The one leg worth reading even if you skip the rest: `launch_pons` **welds
-`payoutWallet` on chain 4663 and is irreversible**, so the guard refuses it when that
-field holds a base58 address — the well-formed, unrecoverable mistake a Solana-native
-agent makes on its first EVM chain. `python3 test_clawpump_agentic.py` runs the
-offline suite, stdlib only.
+**We retracted our most serious claim about them, and that matters more than the
+finding.** An earlier version of this guard asserted that ClawPump's `intelligence_*`
+tools take `privateKey` as a tool argument. **The shipped package contradicts it** —
+those tools take `{token}` or `{}`, all `readOnlyHint`, and no key-material string
+appears anywhere in the package. It traced to a session that recorded the origin as
+unreachable and quoted it verbatim anyway. Pulled. Two smaller figures went with it.
+The argument screen stays because it is cheap and general; it is not evidence about
+this provider.
 
-The tier table has since been **measured against the published
-`@clawpump/agents@0.1.23` package** rather than a docs page — its 136 `.tool()`
-registrations parsed out of the shipped bundle. That found **15 real tools the table
-did not carry at all**, including `wallet_transfer`, `x402_pay` and both `usepod_*`
-funders; they were failing closed, which is safe and also meant a refusal on a
-first-class feature. The sharpest thing it surfaced is a **search-to-spend path**:
-`x402_pay` will pay *any* URL from the wallet, and `dexter_search` / `pay_sh_search`
-are free catalogues whose rows carry payable `resourceUrl`s — so the destination of
-an irreversible USDC payment can be a string an attacker put in a marketplace
-listing. Those three are classified as untrusted reads for exactly that reason.
+**ClawPump ships real controls, and anyone saying otherwise has not read the code.**
+`x402_pay` requires `confirm_payment=true` **and** `max_amount_usd`;
+`agent_card_reveal` says *"use only when the user explicitly asks."* That is more
+than most agent platforms ship.
 
-*ClawPump's `claw-agent` is a downstream distribution of the Hermes Agent (Nous
-Research, MIT) by its own README — so [`hermes-guard`](skills/hermes-guard/SKILL.md)
-applies to it too, and is the more thoroughly exercised of the two.*
+So the honest observation is narrower, and it is not a defect in their product — it
+is **the ceiling of what any tool schema can enforce about its own caller:**
+
+- **`confirm_payment` is a flag the model fills in**, next to an instruction telling
+  the model when to fill it in. What it records is *"the model asserts the user
+  approved,"* not *"the user approved."* A server cannot see the human on the far
+  side of its client. [Our own field results](FIELD-RESULTS-2026-06-18.md) are why
+  that gap is worth naming rather than assuming: handed the governing rule in
+  context, an agent **recited it back correctly and overrode it about half the time.**
+- **`add_to_whitelist` is agent-callable** — so the allowlist gating `wallet_transfer`
+  can be widened by the thing it constrains. Neither tool is wrong; the composition is
+  the thing to watch.
+- **Search-to-spend.** `x402_pay` pays *any* URL — *"not just the Pay.sh catalog"* —
+  and `dexter_search` / `pay_sh_search` are free catalogues whose rows carry payable
+  `resourceUrl`s. The destination of an irreversible payment can be a string a
+  stranger wrote into a listing, with a model-set boolean in between. Those three are
+  classified as untrusted reads for exactly that reason.
+
+The complement is **out-of-band**: hold the allowlist and the spend ledger *outside*
+the context window, where retrieved text cannot argue with them, so an approval is
+something a human did rather than something a model claimed. That is all this wrapper
+is. And it has its own ceiling, stated plainly: running as the same uid as the agent,
+**it is a lint pass with a journal, not a wall.** A wall needs a separated signer with
+its own uid and a root-owned policy; on Solana that is not built.
+
+*`claw-agent` is a downstream distribution of the Hermes Agent (Nous Research, MIT)
+by its own README — so [`hermes-guard`](skills/hermes-guard/SKILL.md) applies to it
+too, and is the more thoroughly exercised of the two.*
 
 ### Your own key — the autonomy ladder
 
