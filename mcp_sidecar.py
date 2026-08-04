@@ -109,8 +109,8 @@ def handle(req, sc):
             raise ValueError(f"unknown tool {p['name']!r}")
         out = fn(**(p.get("arguments") or {}))
         return {"content": [{"type": "text", "text": json.dumps(out)}]}
-    if m in ("notifications/initialized", "ping"):
-        return {}
+    if m == "ping" or m.startswith("notifications/"):
+        return {}      # notifications/* (cancelled, initialized, …) are no-ops
     raise ValueError(f"unsupported method {m!r}")
 
 
@@ -126,10 +126,12 @@ def main():
         rid = req.get("id")
         try:
             result = handle(req, sc)
-            if rid is None:           # notification — no response
+            if rid is None:           # notification — never respond (JSON-RPC 2.0)
                 continue
             resp = {"jsonrpc": "2.0", "id": rid, "result": result}
         except Exception as e:
+            if rid is None:           # a failed notification is still a notification:
+                continue              # an unsolicited id:null error breaks strict clients
             resp = {"jsonrpc": "2.0", "id": rid,
                     "error": {"code": -32000, "message": str(e)}}
         sys.stdout.write(json.dumps(resp) + "\n")

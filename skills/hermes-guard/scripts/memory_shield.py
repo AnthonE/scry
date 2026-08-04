@@ -47,9 +47,13 @@ class Shield:
             # re-verify at USE time (don't trust stored provenance — it decays)
             if self.verify is not None:
                 v = self.verify(claim)
+                # distinguish by IDENTITY, not ==: a corrected claim that happens to
+                # equal True/1/1.0 or 0/0.0 must not collide with the pass/reject
+                # sentinels. True → verified as-is; None → unknown, keep; False →
+                # reject; anything else → the verifier's corrected claim.
                 if v is False:
                     flags.append(f"rejected unverifiable/false claim from {src!r}"); continue
-                if v not in (True, None):
+                if v is not True and v is not None:
                     claim = v                                  # verifier corrected the claim
             if seen[src] >= self.cap:                          # per-source influence cap
                 flags.append(f"capped extra item from {src!r}"); continue

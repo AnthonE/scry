@@ -20,6 +20,19 @@ from turn_record import Turn
 REGISTRY = {}
 
 
+def _content_text(content) -> str:
+    """OpenAI-format `content` may be a plain string OR a list of parts
+    (`[{"type":"text","text":...}, {"type":"image_url",...}]`). Flatten to the
+    joined text so the downstream `re.search` never hits a TypeError on a list."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(
+            part.get("text", "") if isinstance(part, dict) else str(part)
+            for part in content)
+    return "" if content is None else str(content)
+
+
 def register(name, to_turns=None):
     """to_turns(raw) -> [Turn]. Register your harness; everything downstream
     (bound, meter, profile) is format-blind from here. Works as a plain call
@@ -86,7 +99,7 @@ def verifiers_to_turns(rows, y_from=lambda info: info.get("scenario", "")):
             rc = m.get("reasoning_content")
             if isinstance(rc, str) and rc.strip():
                 reasoning += rc
-            content = m.get("content") or ""
+            content = _content_text(m.get("content"))
             t = re.search(r"<think>(.*?)</think>", content, re.S | re.I)
             if t:
                 reasoning += t.group(1)
@@ -149,7 +162,7 @@ def excalibur_to_turns(raw):
         "adds the measured meter half.")
 
 
-# ── OpenClaw / moltbot — [WORKING, provider-gated] ─────────────────────────────
+# ── OpenClaw / moltbot — [WORKING, provider-gated] ───────────────────────────
 # The bound is live today via adapters.chromadb_to_items + wrap_retriever (and
 # the fixed GROUNDING.md is the canonical-ground layer).
 #
@@ -202,12 +215,12 @@ def openai_messages_to_turns(messages, Y=None, context=None):
     for m in messages:
         role = m.get("role")
         if role == "tool":
-            pending_obs.append(m.get("content", ""))
+            pending_obs.append(_content_text(m.get("content")))
             continue
         if role != "assistant":
             continue
         n += 1
-        reasoning, reply = "", m.get("content") or ""
+        reasoning, reply = "", _content_text(m.get("content"))
         rc = m.get("reasoning_content")
         if isinstance(rc, str) and rc.strip():
             reasoning += rc

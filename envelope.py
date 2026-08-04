@@ -17,13 +17,17 @@ Why these two and not the FSR post-quantum scheme. The seal construction is the
 *sound, standard* half of the FSR e2ee work (Paper 145): a hash-based stream
 cipher with encrypt-then-MAC, stdlib only, no novel hardness assumption — that
 part is fine to ship and reuse. It is deliberately NOT the FSR asymmetric
-KEM/PKE, which its own SECURITY_ANALYSIS.md marks "Research / proof-of-concept.
-NO production use" (the original dFSR distinguisher was broken). So:
+KEM/PKE, whose own security analysis marked it "Research / proof-of-concept.
+NO production use" once the original dFSR distinguisher was broken. That
+research tree was **removed from the repo on 2026-07-25** — it never shipped
+anything and keeping a broken construction next to working crypto is an
+invitation to reach for the wrong one. It is in git history if anyone wants
+the negative result; the salvaged half is the paragraph below. So:
 
   • signing here is REAL crypto (Ed25519).
   • sealing here is a REAL symmetric construction (stdlib), keyed by a secret
     you already share or exchange with a STANDARD KEM (X25519 today, ML-KEM for
-    post-quantum). This file does not ship the experimental FSR KEM as a default.
+    post-quantum). This file never shipped the experimental FSR KEM.
 
 A receipt is a message: sign it so it's trustworthy, seal it so the trace stays
 private. That's the whole utility.
@@ -189,8 +193,19 @@ def receipt_envelope(receipt, signing_key=None, seal_key: bytes = None) -> dict:
     additionally sealed if a seal_key is given. With neither, you get the plain
     hash-chained receipt dict (already tamper-evident on its own)."""
     payload = receipt.as_dict() if hasattr(receipt, "as_dict") else dict(receipt)
+    if signing_key and payload.get("sig"):
+        # the gate already signed this receipt; sign() would overwrite its
+        # attestation_pubkey_b64 + sig, silently destroying the original
+        # attestation. Refuse — seal it as-is (signing_key=None) to keep the
+        # gate's signature intact.
+        raise EnvelopeError(
+            f"receipt is already signed by {payload.get('attestation_pubkey_b64')!r} — "
+            "re-signing would overwrite the gate's attestation; pass signing_key=None "
+            "to seal the signed receipt as-is")
     if signing_key and seal_key:
         return sign_and_seal(payload, signing_key, seal_key)
     if signing_key:
         return sign(payload, signing_key)
+    if seal_key:  # seal an already-signed (or unsigned) receipt without re-signing
+        return {"sealed": seal(json.dumps(payload), seal_key), "alg": "sha256-ctr-hmac"}
     return payload

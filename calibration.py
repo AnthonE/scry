@@ -51,7 +51,7 @@ def calibrate(turns, c_of, d_detect, m_detect, stat_key=SIGNATURE_KEY,
     null.sort()
     below = sum(1 for v in null if v < obs)
     pct = below / len(null) if null else float("nan")
-    return {
+    out = {
         "profile": observed,
         "stat": stat_key,
         "observed bits": obs,
@@ -63,6 +63,32 @@ def calibrate(turns, c_of, d_detect, m_detect, stat_key=SIGNATURE_KEY,
         "scope": ("percentile is context-local; raw bits do NOT transfer across "
                   "contexts/prompts/zones — recalibrate per context, always"),
     }
+    if stat_key == SIGNATURE_KEY:
+        # ⚠ The label-permutation null above is the RIGHT null for the
+        # unstratified statistics (I(C;D), I(C;M)) and the WRONG one for the
+        # switch signature (corrected 2026-07-25, after audit.py). Shuffling C
+        # breaks C→M *and* C→D, and Berkson needs both arrows into D — so the
+        # collider term vanishes from the null and this floor comes back too
+        # LOW, the direction that lets an artifact through. It still carries
+        # the finite-sample half correctly, which is why it stays.
+        out["permutation_null_scope"] = (
+            "shuffling C removes C→D as well as C→M, so D stops being a "
+            "collider and this null cannot separate a real reasoning channel "
+            "from the stratification artifact. Correct for I(C;D) and I(C;M); "
+            "read `collider` below for the switch signature.")
+        try:
+            from audit import collider_pvalue
+            rows = [(c_of(t), d_detect(t), m_detect(t)) for t in meterable]
+            out["collider"] = {k: v for k, v in
+                               collider_pvalue(rows, trials=min(n_perm, 2000),
+                                               seed=seed).items()
+                               if not k.startswith("_")}
+        except ImportError:
+            out["collider"] = None
+            out["collider_note"] = (
+                "NOT COMPUTED — audit.py not importable. The permutation "
+                "percentile above CANNOT rule out a Berkson artifact on its own.")
+    return out
 
 
 def compare_contexts(turns_by_context, c_of, d_detect, m_detect,

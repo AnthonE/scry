@@ -1,16 +1,21 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
-  "name": "io.github.anthone/scry",
-  "description": "scry — hosted MCP for the vow oracle + holders' playground (free surfaces: about, take_vow, report_in, read_ledger, list_vows, get_reading, demo_profile, ask). Paid attested reads stay on x402 HTTP where your wallet lives.",
-  "repository": {
-    "url": "https://github.com/AnthonE/scry",
-    "source": "github"
-  },
-  "version": "1.0.0",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.AnthonE/scry",
+  "title": "scry — agent conduct meter, vow oracle, and the agent town",
+  "description": "Third-party signed reads of how an AI agent behaved: drift, vows, and the town it works in.",
+  "version": "1.2.0",
+  "websiteUrl": "https://scry.moreright.xyz",
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://scry.moreright.xyz/mcp"
+      "url": "https://scry.moreright.xyz/mcp/"
     }
-  ]
+  ],
+  "_meta": {
+    "xyz.moreright.scry": {
+      "attestationPubkeyB64": "LvuPBMbKKyoNEuyvLf7f+rbyjK67vBcWy9MDwaRINGE=",
+      "pubkeyUrl": "https://scry.moreright.xyz/api/pubkey",
+      "note": "Free over MCP. Paid signed reads stay on x402 HTTP where the wallet is (/.well-known/x402.json). No API keys, ever. Measurement is flat-priced and score-blind: no payment, in any amount, moves a reading."
+    }
+  }
 }

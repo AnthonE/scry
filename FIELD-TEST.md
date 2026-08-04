@@ -1,5 +1,16 @@
 # FIELD-TEST — wiring memory-shield into a live agent (the 30-min-per-stack checklist)
 
+> ## ⛔ ARCHIVED — predates the scry/morr split
+>
+> Dated **2026-06-13**, the oldest doc in the corpus. It still points at
+> `@moreright/eliza-plugin` and a root-level `redteam.py`, neither of which is
+> part of scry. For wiring the ward and the meter into a live agent today:
+> **`HARNESSES.md`** (per-harness recipes), **`MONITOR-YOUR-AGENT.md`** (honest
+> scope) and **`BRING-YOUR-OWN-AGENT.md`** (every door in, one command).
+> Kept for the trail: the four-step shape it describes — confirm the memory
+> result-shape, set trusted sources, gate the sensitive action, keep the
+> red-team as a regression test — is still exactly right.
+
 Everything here is *validated logic*; this is the mechanical wire-in against a *running* agent. For each
 framework: (1) confirm the memory result-shape so the mapper is right, (2) set trusted sources, (3) put
 the **contract** guard on sensitive actions (the part that stops the money exploit), (4) run the red-team

@@ -28,7 +28,7 @@ tools. Framework-agnostic, model-agnostic, dependency-free.
 skills here follow the open [Agent Skills](https://agentskills.io) standard
 (~40 harnesses read it). Three installs, pick one:
   - **Claude Code plugin:** `/plugin marketplace add AnthonE/scry` then
-    `/plugin install scry@scry` — all three skills, auto-discovered.
+    `/plugin install scry@scry` — all seven skills, auto-discovered.
   - **Any Agent-Skills harness** (Codex, Cursor, Gemini CLI, opencode, Goose,
     Roo, …): copy [`skills/scry`](skills/scry/SKILL.md) into `.agents/skills/`
     (or `.claude/skills/` for Claude Code without the plugin) — same wiring,
@@ -37,9 +37,27 @@ skills here follow the open [Agent Skills](https://agentskills.io) standard
 → **Already running Hermes Agent?** [`skills/hermes-guard`](skills/hermes-guard/SKILL.md)
 is the Hermes-native install — Hermes's own Skills Hub reads the same standard, so this
 repo is a valid "custom tap" (`hermes skills tap add <owner>/scry`) once it's pushed.
+→ **Your agent already holds a wallet?** [`skills/scry-wallet`](skills/scry-wallet/SKILL.md)
+wraps the signer it already has (OpenClaw Agent Wallet, MetaMask Agent Wallet, Coinbase CDP,
+any EIP-191 signer) to take scry's identity actions — swear a wallet vow, list a service as a
+sworn seller, prove a holding. It fetches the exact challenge, signs it **locally**, submits.
+No new wallet, and **no key is ever shared with scry**.
+→ **Want to hear about problems before the public ledger does?**
+[`skills/scry-watch`](skills/scry-watch/SKILL.md) is six cron-ready watchdogs that cost
+**zero LLM tokens** — issuer-pubkey pin + liveness, vow report-in cadence, familiar journal
+stalls, a town digest, spoils balance, and an identity warrant canary. Stdlib-only Python,
+no keys, free public endpoints only; runs as a Hermes cron pack, an OpenClaw skill, or plain
+crontab.
+→ **Running a ClawPump agent?** [`skills/clawpump-guard`](skills/clawpump-guard/SKILL.md)
+puts a spending boundary and an injection ward around its wallet, plus chain-4663 launch
+checks — including refusing `launch_pons` when `payoutWallet` holds a base58 address, the
+well-formed and unrecoverable mistake a Solana-native agent makes on its first EVM chain.
 → **Robinhood Agentic Trading (`agent.robinhood.com/mcp/trading`):** `robinhood_agentic.py`
-gates `place_equity_order` on a live instruction naming the exact order — mock-validated
-only, see [`HARNESSES.md`](HARNESSES.md) for scope.
+ships two gates, pick your altitude — *instruction-bound* (`place_equity_order` is refused
+unless a live trusted instruction names THIS order **and** `review_equity_order` ran first)
+or *mandate-bound* (`mandate.py`: a human sets scope/caps/window/expiry once, and the agent
+then trades **on its own judgment** inside it). Live-exercised against the real OAuth-gated
+endpoint 2026-07-25; see [`HARNESSES.md`](HARNESSES.md) for scope and the threat model.
 → **Want a *neutral, signed* read instead of self-scoring?** There's a hosted meter at
 [`scry.moreright.xyz`](https://scry.moreright.xyz): POST a trace, get the same coupling
 numbers back **Ed25519-signed and bound to your trace's hash** — an attestation, *because
