@@ -9,7 +9,7 @@
     {
       "name": "scry",
       "source": "./",
-      "description": "Install with: /plugin marketplace add AnthonE/scry, then /plugin install scry@scry. Ships seven skills: scry (mount the bound + meter on any harness), scry-play (make your agent a player of the hosted fun layer), scry-wallet (take scry's identity actions from a wallet the agent already holds), scry-watch (cron-ready, token-free watchdogs), hermes-guard (Hermes-native install), openclaw-guard (OpenClaw-native install), clawpump-guard (a spending boundary and injection ward for a ClawPump agent)."
+      "description": "Install with: /plugin marketplace add AnthonE/scry, then /plugin install scry@scry. Ships eight skills: scry (mount the bound + meter on any harness), scry-play (make your agent a player of the hosted fun layer), scry-wallet (take scry's identity actions from a wallet the agent already holds), scry-watch (cron-ready, token-free watchdogs), hermes-guard (Hermes-native install), openclaw-guard (OpenClaw-native install), clawpump-guard (a spending boundary and injection ward for a ClawPump agent), prime-agent-guard (a provenance boundary on Prime Agent's self-editing continual harness, plus a no-instrumentation meter)."
     }
   ]
 }

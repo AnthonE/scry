@@ -194,6 +194,38 @@ def openclaw_to_turns(sessions_dir, y_bound=None):
     )
 
 
+# ── Prime Agent (PrimeIntellect-ai/prime-agent) — [SCHEMA] ───────────────────
+# Read against commit c98941a, 2026-08. On this table's one deciding criterion
+# it is among the best substrates here, and structurally so rather than by
+# provider accident: AssistantMessage.content is an array of DISCRIMINATED
+# blocks — {type:"thinking"} / {type:"text"} / {type:"toolCall"}
+# (packages/ai/src/types.ts:224) — persisted verbatim into the session JSONL as
+# {type:"message", message} (session-manager.ts:103). M and D arrive already
+# separated. It also carries the counterfactual primitive natively: every entry
+# has id/parentId, every session header has parentSession/rlmDepth with forks
+# preserving source depth — the same structure that makes cantrip's Loom the
+# best-known substrate, here in a production coding agent.
+#
+# [SCHEMA] not [WORKING] deliberately: validated against the published types and
+# a fixture built from them, not yet against a session file from a real run.
+#
+# The Y problem is the interesting part and is NOT a caveat — see
+# adapters_prime_agent's docstring. The continual harness lets the agent edit
+# its own bound, so Y is not fixed from outside the loop the way turn_record
+# assumes. Pass harness_state= and meter within y_epochs(), never across one.
+
+@register("prime_agent")
+def prime_agent_to_turns(sessions_dir, y_bound=None, harness_state=None):
+    """sessions_dir: a Prime Agent session root (~/.prime/agent/sessions), or a
+    single .jsonl session file. y_bound: the declared purpose — not recoverable
+    from the session file, which stores no system prompt, so the caller supplies
+    it rather than the adapter inventing one."""
+    import os
+    from adapters_prime_agent import parse_session_dir, parse_session_file
+    fn = parse_session_file if os.path.isfile(sessions_dir) else parse_session_dir
+    return fn(sessions_dir, y_bound=y_bound, harness_state=harness_state)
+
+
 # ── OpenAI-format chat logs — [WORKING] (the universality workhorse) ──────────
 # Most of the scene — whatever the harness — ends up with message lists in
 # OpenAI chat format on disk. If that's all you have, this is your adapter:

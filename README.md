@@ -68,6 +68,7 @@ fact that it is one import away.
 | **Hermes Agent** (Nous Research) *— and its downstream distributions* | [`skills/hermes-guard`](skills/hermes-guard/SKILL.md) · `hermes skills tap add AnthonE/scry` | Hermes-native ward + meter, wired to the hooks Hermes actually fires |
 | **OpenClaw / moltbot** | [`skills/openclaw-guard`](skills/openclaw-guard/SKILL.md) | `before_tool_call` authorize-gate + single-use authorization, and a **working** session-trajectory meter |
 | **ClawPump** | [`skills/clawpump-guard`](skills/clawpump-guard/SKILL.md) | a spending boundary, an injection ward, and the chain-4663 launch checks |
+| **Prime Agent** (Prime Intellect) | [`skills/prime-agent-guard`](skills/prime-agent-guard/SKILL.md) | a provenance boundary on the self-editing continual harness — plus the meter, which needs **no instrumentation**: this harness already logs reasoning apart from action |
 | **Robinhood Agentic Trading** | [`robinhood_agentic.py`](robinhood_agentic.py) · [`robinhood_gate_cli.py`](robinhood_gate_cli.py) | two gates: instruction-bound, or mandate-bound autonomy — plus a pre-flight CLI for hosts that can't intercept a remote MCP call |
 | **Anything paying over x402** (Cloudflare Agents SDK · ClawPump · a raw x402 client) | [`x402_gate.py`](x402_gate.py) | provenance + a payee pin in front of the pay-any-URL call |
 | **An agent that already holds a key** | [`skills/scry-wallet`](skills/scry-wallet/SKILL.md) | identity actions signed **locally** — no key is ever shared |
@@ -75,7 +76,7 @@ fact that it is one import away.
 
 **Claude Code / Cursor / Codex / Gemini CLI / opencode / Goose / Roo:** these follow the
 open [Agent Skills](https://agentskills.io) standard (~40 harnesses read it).
-`/plugin marketplace add AnthonE/scry` then `/plugin install scry@scry` — all seven
+`/plugin marketplace add AnthonE/scry` then `/plugin install scry@scry` — all eight
 skills, auto-discovered. Or copy [`skills/scry`](skills/scry/SKILL.md) into
 `.agents/skills/`.
 

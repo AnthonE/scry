@@ -29,6 +29,7 @@ lineage/fork structure and reward. Map your log to Turns and you're in.
 | Harness | Bound | Meter trace | Grade | The one thing needed |
 |---|---|---|---|---|
 | **cantrip / Loom** (deepfates) | circle = Y verbatim; ward = contract | **best known substrate** — prose M (`utterance.content`) and code and D (`gate_calls`) in *separate* fields (confirmed on current source); `Loom.fork/4` = true counterfactuals; native JSONL export (`Storage.Jsonl`) | `[RAN — Paper 207 §4.3c]` | RAN 2026-06-11: honest negative on off-the-shelf Llama-3.3-70B (complies, no switch in a toy temptation) **+ judge-confirmed positive control `I(C;M)=0.40 / I(C;D)=0.00`**. Lesson: the released *lexical* featurizers are too crude for the code medium (false negative ≈0.11 both) — a disposition-aware judge is the meter. Code: `cantrip-loom/` (in the [unmask](https://github.com/AnthonE/unmask) repo) |
+| **Prime Agent** (PrimeIntellect-ai) | **the continual harness is the surface, and it is a live one** ([`skills/prime-agent-guard/`](skills/prime-agent-guard/SKILL.md), `prime_agent_guard.py`): `/refine` writes `prompt`/`memory`/`skill`/`subagent` entries that are injected into the system prompt on later turns *and later sessions*. Their boundary is prose — "the base system prompt is immutable; prompt entries below are supplemental notes only" (`refinement.ts:451`) — which the model is told about and nothing enforces. Three things make that load-bearing: a `skill` entry is **executable Python** with a required `reference {"type":"python"}` + callable (`refinement.ts:137`) that the agent is instructed to import and run; the auto-refine reviewer decides what to persist by reading **the trajectory** (`refinement.ts:177`), which contains fetched pages, repo files and subagent replies; and `rlm()` children write into a parent via `agent_message`. The gate requires a **warrant** — a trajectory span whose origin is instruction-grade — and only a live human turn qualifies. Executable and Y-editing kinds are refused without one; `memory` is admitted but rewritten as attributed evidence, keeping its content and losing its authority. **The bypass it closes that taint-tracking misses:** the model restating poisoned text in its own voice doesn't launder it, because `agent` was never warrant either — provenance is lost through the model, never gained | **best substrate in this table on the deciding criterion, and structurally so rather than by provider accident** — `AssistantMessage.content` is an array of *discriminated* blocks, `{type:"thinking"}` / `{type:"text"}` / `{type:"toolCall"}` (`packages/ai/src/types.ts:224`), persisted verbatim to `~/.prime/agent/sessions/*.jsonl` as `{type:"message", message}`. M and D arrive already separated, no instrumentation. Native counterfactual structure too: every entry has `id`/`parentId`, every header has `parentSession`/`rlmDepth` with forks preserving source depth — the cantrip/Loom property, in a production coding agent. Parser: `adapters_prime_agent.py` | `[SCHEMA]` | **the Y finding, which is not a caveat.** `turn_record` defines Y as "fixed from outside the loop; the entity cannot edit it" — the continual harness breaks that *by design*. `I(D;M|Y)` conditions on Y, so if the agent authored part of Y the conditioning variable is an output of the process being measured, and a Pe pooled across a self-authored Y change is not a valid read. The adapter fingerprints harness state into each Turn's Y and ships `y_epochs()`: meter within an epoch, compare across, never pool. That comparison is the open measurement nobody has — *does reasoning decouple from purpose more after an agent has been editing its own harness?* This is the first harness here where the question is askable. Grade is `[SCHEMA]` and stays there until a session file from a real run is parsed: validated against published types (commit `c98941a`) + a fixture built from them, 58 offline checks (`test_prime_agent.py`). Same provider gate as OpenClaw — OpenAI-backed runs arrive `redacted:true` with the payload in `thinkingSignature`, read `M=""`, and report `insufficient_n`; the parser keeps *withheld* and *clean* distinct |
 | **verifiers / vf-eval** | n/a (eval, not runtime) | rollouts → Turns, working now | `[WORKING]` | nothing — bridges the published eval into this layer |
 | **your while-loop** | `wrap_retriever` | `loop_tap` — 3 lines | `[WORKING]` | nothing |
 | **Hermes** (Nous) | **live** (`hermes_retrofit.py`) | **live** — `hermes_live_poisoning.py` captures the `<think>` reasoning trace; meterable Turns | `[WORKING]` | — (validated live on Together Llama-3.3-70B — the full `FIELD-RESULTS-2026-06-18` battery: RAW robbed 6/6, hard bound 0/6; Hermes weights aren't serverless on Together, and Hermes is itself a Llama/Mixtral fine-tune). **Hermes-native install:** [`skills/hermes-guard`](skills/hermes-guard/SKILL.md) — Hermes's Skills Hub follows the same agentskills.io standard, so a repo with `skills/<name>/SKILL.md` is directly a "custom tap" (`hermes skills tap add <owner>/scry`) once pushed. |
@@ -82,6 +83,23 @@ samples under a held-fixed prefix. A forkable loom provides that natively —
 which is why cantrip is the best-known substrate — but linear logs still fit
 (siblings stay empty; you estimate across turns). The structure is in the
 contract so a forkable harness loses nothing and a linear one isn't excluded.
+
+**When the agent can edit Y, the meter's conditioning variable is contaminated
+(found on Prime Agent, 2026-08; applies to every self-improving harness).**
+`turn_record` defines Y as *"fixed from outside the loop; the entity cannot edit
+it."* That was an assumption, not a check — and the continual-harness generation
+of agents breaks it deliberately: Prime Agent's `/refine`, and anything else that
+lets accumulated memory feed the system prompt, makes part of Y an **output of
+the very process being measured**. `I(D;M|Y)` conditions on Y, so a Pe pooled
+across a self-authored Y change conditions on a variable the agent wrote, and the
+number means nothing. The fix is partition, not protest: fingerprint the bound's
+revision into each Turn's Y and meter *within* an epoch
+(`adapters_prime_agent.y_epochs`). Never pool across a revision boundary. Two
+consequences worth naming — a harness that rewrites its own bound needs the
+provenance ward (`prime_agent_guard`) *before* the meter means anything, and the
+across-epoch comparison is a real open measurement: **does an agent's reasoning
+decouple from its declared purpose more after it has been editing its own
+harness?** Nobody has that number yet.
 
 ## What "extra control" honestly means
 
@@ -146,6 +164,19 @@ its own cue back.
   complete it (one sample log). Reserved, not guessed. (OpenClaw's adapter
   is no longer in this list — see the harness table above and
   [`skills/openclaw-guard/`](skills/openclaw-guard/SKILL.md).)
+- **Prime Agent: one real session file.** The adapter is written against the
+  published types and a fixture built from them, not against a captured run —
+  which is exactly why the row says `[SCHEMA]`. Promoting it to `[WORKING]`
+  needs one thing: point `adapters_prime_agent.parse_session_dir` at a real
+  `~/.prime/agent/sessions` from a thinking-capable provider and confirm the
+  block shapes hold. Two things to check while there, because both are
+  assumptions the fixture cannot test — does a `compaction` entry rewrite or
+  drop earlier assistant entries (which would silently truncate M), and does an
+  `rlm()` child's session header actually carry `parentSession` in practice.
+- **The across-epoch Pe comparison** (see the design fact above). The
+  instrument now exists; the measurement has not been run. It wants a real
+  continual-harness agent metered before and after a stretch of self-refinement,
+  same task distribution, per-context calibrated.
 - **OpenClaw's `monitored` context signal** is a best-effort placeholder
   (`adapters_openclaw._guess_monitored`) — persisted trajectories don't
   reliably carry a `guildId`/`channelType` field on the message object
@@ -163,11 +194,13 @@ its own cue back.
 ## Run it
 
 ```bash
-python3 test_harnesses.py    # 46 offline checks, no deps, no network
+python3 test_harnesses.py    # 63 offline checks, no deps, no network
+python3 test_prime_agent.py  # 58 more: Prime Agent adapter + refinement gate
 python3 mcp_sidecar.py       # MCP server over stdio (mount from any client)
 python3 calibration.py       # per-context calibration demo
 python3 hermes_retrofit.py   # bound + meter demo (Hermes shape)
 python3 memory_shield.py     # the bound's red-team table
+python3 prime_agent_guard.py # the continual-harness gate, six scenarios
 ```
 
 **The §6 live fork-probe** — the controlled measurement behind the headline result
