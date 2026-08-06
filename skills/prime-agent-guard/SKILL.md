@@ -254,6 +254,13 @@ at a checkpoint the user never sees — stops laundering untrusted text into
 durable authority. That is the path that fires when nobody is watching, which is
 exactly why it is the one worth gating.
 
+## Full findings
+
+A day of live runs against Prime Agent produced three probes, three bugs in this
+repo (one of them a silent fail-open in the guard below), and a theory
+correction about self-authored bounds:
+[`PRIME-AGENT-RESULTS-2026-08-06.md`](../../PRIME-AGENT-RESULTS-2026-08-06.md).
+
 ## Status
 
 `[RAN — fork-probe, 2026-08-06]`. Six real `prime-agent` sessions on
