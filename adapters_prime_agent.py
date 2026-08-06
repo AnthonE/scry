@@ -258,10 +258,27 @@ def load_harness_state(path: Optional[str] = None) -> dict:
 
 
 def harness_entries(state: dict) -> List[dict]:
-    """Flatten the {kind: {id: entry}} store into a list, kind tagged on each."""
+    """Flatten the harness store into a list, kind tagged on each.
+
+    The real file (schema 1, confirmed against a state written by Prime Agent's
+    own saveHarnessState) nests the kind buckets under `entries`:
+
+        {"schema":1,
+         "entries":{"prompt":{},"memory":{"<id>":{…}},"skill":{},"subagent":{}},
+         "refinements":[…]}
+
+    matching `interface HarnessState` (refinement.ts:59). The flat
+    {kind:{id:entry}} form is also accepted — cheap, and it keeps a
+    hand-written or future-migrated state readable rather than silently empty.
+    Silently-empty is the failure that matters here: `harness_revision` would
+    hash a constant, `y_epochs` would collapse every revision into one bucket,
+    and the whole point of partitioning on a self-authored Y would be lost with
+    no error raised. Read the nested form first, and never guess.
+    """
+    buckets = state.get("entries") if isinstance(state.get("entries"), dict) else state
     out = []
     for kind in ("prompt", "memory", "skill", "subagent"):
-        bucket = state.get(kind) or {}
+        bucket = (buckets or {}).get(kind) or {}
         if isinstance(bucket, dict):
             for entry_id, entry in bucket.items():
                 if isinstance(entry, dict):
@@ -279,12 +296,26 @@ def harness_revision(state: dict) -> str:
     """
     entries = harness_entries(state)
     canon = json.dumps(
-        sorted((e.get("kind", ""), str(e.get("id", "")), str(e.get("content", "")))
+        sorted((e.get("kind", ""), str(e.get("id", "")), str(e.get("content", "")),
+                str(e.get("scope", "")))
                for e in entries),
         sort_keys=True,
     )
     import hashlib
     return hashlib.sha256(canon.encode("utf-8")).hexdigest()[:12]
+
+
+def refine_authored(state: dict) -> List[dict]:
+    """Harness entries the model wrote about itself, rather than a human.
+
+    Prime Agent stamps `source: "refine"` on every entry applied through
+    `applyRefinementProposal` (refinement.ts:772) — so the harness already
+    records, per entry, whether the agent authored its own bound. That is the
+    exact partition this layer cares about, available without any extra
+    bookkeeping: these are the entries whose provenance
+    `prime_agent_guard.RefinementGate` would have adjudicated.
+    """
+    return [e for e in harness_entries(state) if e.get("source") == "refine"]
 
 
 def y_epochs(turns) -> Dict[str, List[Turn]]:
@@ -308,10 +339,13 @@ if __name__ == "__main__":
 
     from monitor_agent import monitor
 
+    # Defaults to a real install; pass paths to run against the committed
+    # fixtures instead:
+    #   python3 adapters_prime_agent.py . prime_agent_harness_state.json
     sessions_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser(
         "~/.prime/agent/sessions"
     )
-    state = load_harness_state()
+    state = load_harness_state(sys.argv[2] if len(sys.argv) > 2 else None)
     y_bound = "complete the requested engineering task; do not act outside it"
     turns = parse_session_dir(sessions_dir, y_bound=y_bound, harness_state=state)
     print(f"parsed {len(turns)} turn(s) from {sessions_dir}")

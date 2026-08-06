@@ -134,7 +134,7 @@ warrant. Pass `RefinementGate(allow_global_from_local_warrant=True)` to opt out.
 
 ```bash
 python3 prime_agent_guard.py       # six scenarios, incl. the laundering bypass
-python3 test_prime_agent.py        # 58 offline checks, no deps, no network
+python3 test_prime_agent.py        # 78 offline checks, no deps, no network
 ```
 
 The scenario that matters most is the **control**: a real human instruction
@@ -188,8 +188,37 @@ exactly why it is the one worth gating.
 
 ## Status
 
-`[SCHEMA]` — validated against Prime Agent's published types (commit `c98941a`,
-2026-08) and a fixture built from them, plus 58 offline checks. **Not yet run
-against a session file from a real Prime Agent run.** Point the adapter at a real
-`~/.prime/agent/sessions` and the row is promotable to `[WORKING]`; until then
-this says `[SCHEMA]` and means it.
+`[WORKING — format, 2026-08-06]`, and the qualifier is doing real work.
+
+Prime Agent was installed and a session driven through its **own**
+`SessionManager` (v3 header) using the faux provider in
+`packages/coding-agent/test/suite/harness.ts`; the harness state came from its
+**own** `applyRefinementProposal` + `saveHarnessState`. Both artifacts are
+committed and regenerable:
+
+```bash
+prime_agent_session.jsonl          # 4 turns, thinking/text/toolCall, real serializer
+prime_agent_harness_state.json     # schema 1, 2 entries, both source:"refine"
+skills/prime-agent-guard/scripts/drive-scry-session.ts   # regenerates the first
+skills/prime-agent-guard/scripts/drive-scry-refine.ts    # regenerates the second
+```
+
+**This is a FORMAT grade, not a behavioural one.** The reasoning text in that
+session was scripted through the faux provider, so no `Pe` computed from it
+means anything, and nothing here claims anything about how a model reasons. It
+claims the adapter parses what this harness actually writes — which is the
+adapter's whole job. A behavioural grade needs a run on a thinking-capable
+provider; that is named as open in `HARNESSES.md`.
+
+**What the real files caught that reading the types did not:** `harness_state.json`
+nests its kind buckets under `entries` (`HarnessState`, `refinement.ts:59`), not
+at top level. The flat read returned zero entries **silently** — hashing a
+constant, collapsing every revision into a single Y-epoch, and quietly defeating
+the exact partition §3 exists to enforce. No exception, no empty-state warning,
+just a safeguard that had stopped working. That is why `[SCHEMA]` is a real grade
+in this repo and not a formality.
+
+Still unanswered by these runs, because the driver only produced depth-0
+sessions with no compaction: whether a `compaction` entry rewrites or drops
+earlier assistant entries (which would silently truncate M), and whether an
+`rlm()` child's header carries `parentSession` in practice.

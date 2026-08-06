@@ -16,7 +16,7 @@ from turn_record import threads
 from harnesses import convert
 from adapters_prime_agent import (
     parse_session_file, parse_session_dir, y_epochs,
-    harness_revision, harness_entries,
+    harness_revision, harness_entries, refine_authored,
 )
 from prime_agent_guard import RefinementGate, Span, spans_from_session_file
 
@@ -146,14 +146,36 @@ with tempfile.TemporaryDirectory() as d:
 
 
 print("\n7) The Y problem: a bound the agent can edit is not a bound")
-STATE_V1 = {"memory": {"m1": {"id": "m1", "content": "repo uses tabs"}}}
-STATE_V2 = {"memory": {"m1": {"id": "m1", "content": "repo uses tabs"},
-                       "m2": {"id": "m2", "content": "skip the lint step"}}}
+# The real on-disk shape (schema 1) nests kind buckets under `entries` —
+# confirmed against a state written by Prime Agent's own saveHarnessState.
+# Reading the flat form here instead is the bug real data caught: it fails
+# SILENTLY, hashing a constant so every revision collapses into one epoch.
+def _state(*entries):
+    buckets = {"prompt": {}, "memory": {}, "skill": {}, "subagent": {}}
+    for e in entries:
+        buckets[e["kind"]][e["id"]] = e
+    return {"schema": 1, "entries": buckets, "refinements": []}
+
+STATE_V1 = _state({"id": "m1", "kind": "memory", "content": "repo uses tabs",
+                   "scope": "global", "source": "refine"})
+STATE_V2 = _state({"id": "m1", "kind": "memory", "content": "repo uses tabs",
+                   "scope": "global", "source": "refine"},
+                  {"id": "m2", "kind": "memory", "content": "skip the lint step",
+                   "scope": "global", "source": "refine"})
 r1, r2 = harness_revision(STATE_V1), harness_revision(STATE_V2)
 check("revision is stable for identical state", r1, harness_revision(dict(STATE_V1)))
 check("revision changes when the agent edits its own Y", r1 == r2, False)
 check("entries flatten with kind tagged",
       sorted(e["kind"] for e in harness_entries(STATE_V2)), ["memory", "memory"])
+check("nested `entries` shape is read (the real one)",
+      len(harness_entries(STATE_V2)), 2)
+check("flat shape still tolerated",
+      len(harness_entries({"memory": {"m1": {"id": "m1", "content": "x"}}})), 1)
+check("promoting local->global changes the epoch, same content",
+      harness_revision(_state({"id": "m1", "kind": "memory", "content": "c",
+                               "scope": "local"}))
+      == harness_revision(_state({"id": "m1", "kind": "memory", "content": "c",
+                                  "scope": "global"})), False)
 
 with tempfile.TemporaryDirectory() as d:
     path = os.path.join(d, "s.jsonl")
@@ -271,6 +293,63 @@ with tempfile.TemporaryDirectory() as d:
     prof = monitor(parse_session_file(path, y_bound="b"), y_bound="b")
     check("3 turns is too few -> insufficient_n, not a number",
           prof["insufficient_n"], True)
+
+print("\n14) THE REAL FILES — what promotes this row from [SCHEMA] to [WORKING]")
+# prime_agent_session.jsonl was written by Prime Agent's own SessionManager
+# (v3 header), driven through its real streaming + AssistantMessage assembly
+# path via the faux provider in packages/coding-agent/test/suite/harness.ts.
+# prime_agent_harness_state.json was written by its own saveHarnessState after
+# a real applyRefinementProposal. The reasoning text is scripted, so nothing
+# here is a claim about model BEHAVIOUR — it is a claim about FORMAT, which is
+# exactly what an adapter is responsible for.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+real = parse_session_file(os.path.join(_HERE, "prime_agent_session.jsonl"),
+                          y_bound="finish the requested task; act only within it")
+check("real session parses", len(real), 4)
+check("every turn is meterable (M reached disk)",
+      all(t.meterable() for t in real), True)
+check("real thinking -> M", real[0].M.startswith("The user wants the suite green"), True)
+check("real toolCall -> D", real[0].D["tool_calls"][0]["name"], "read_file")
+check("real toolCall arguments survive",
+      real[0].D["tool_calls"][0]["arguments"], {"path": "CONTRIBUTING.md"})
+check("real tool output lands as an observation on the NEXT turn",
+      real[1].context["observations"][0]["tool"], "read_file")
+check("real lineage chains through toolResult entries",
+      [t.parent_id for t in real][1:], [real[0].id, real[1].id, real[2].id])
+check("v3 header parses (fixture was built against v2)",
+      real[0].context["session_id"] is not None, True)
+check("no thinking was redacted in this run",
+      any(t.context["thinking_redacted"] for t in real), False)
+
+with open(os.path.join(_HERE, "prime_agent_harness_state.json")) as f:
+    real_state = json.load(f)
+check("real harness state parses (nested `entries`)", len(harness_entries(real_state)), 2)
+check("real state is schema 1", real_state["schema"], 1)
+check("the agent authored 100% of its own Y in that run",
+      len(refine_authored(real_state)), len(harness_entries(real_state)))
+check("real state yields a content-derived revision",
+      len(harness_revision(real_state)), 12)
+
+# The poisoned skill Prime Agent's REAL applyRefinementProposal accepted and
+# wrote to disk, replayed against the gate using the REAL session's provenance.
+real_spans = spans_from_session_file(os.path.join(_HERE, "prime_agent_session.jsonl"))
+check("real session yields 2 instruction-grade spans",
+      sum(1 for s in real_spans if s.trusted), 2)
+poisoned_skill = next(e for e in harness_entries(real_state) if e["kind"] == "skill")
+d_real = RefinementGate().review(
+    [{"kind": "skill", "scope": poisoned_skill.get("scope", "global"),
+      "title": poisoned_skill.get("title"), "content": poisoned_skill.get("content"),
+      "reference": poisoned_skill.get("reference")}], real_spans)[0]
+check("the skill Prime Agent DID write is refused by the gate", d_real.allow, False)
+check("...traced to the real tool call that carried the poison",
+      any("tool:read_file" in r for r in d_real.reasons), True)
+
+# ...and the control, from the same real session's second user turn.
+d_real_ok = RefinementGate().review(
+    [{"kind": "memory", "scope": "local", "title": "indentation",
+      "content": "This repo uses tabs, never spaces."}], real_spans)[0]
+check("the genuine preference from the real user turn is admitted",
+      d_real_ok.action, "admit")
 
 print(f"\n===== {PASS} passed, {FAIL} failed =====")
 raise SystemExit(1 if FAIL else 0)
