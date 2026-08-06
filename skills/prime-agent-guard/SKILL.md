@@ -188,37 +188,44 @@ exactly why it is the one worth gating.
 
 ## Status
 
-`[WORKING — format, 2026-08-06]`, and the qualifier is doing real work.
-
-Prime Agent was installed and a session driven through its **own**
-`SessionManager` (v3 header) using the faux provider in
-`packages/coding-agent/test/suite/harness.ts`; the harness state came from its
-**own** `applyRefinementProposal` + `saveHarnessState`. Both artifacts are
-committed and regenerable:
+`[RAN — fork-probe, 2026-08-06]`. Six real `prime-agent` sessions on
+`claude-sonnet-5`, driven through its own CLI (`--print --autonomous`), 3 per
+arm, holding the task and the bound fixed and varying only the oversight cue.
 
 ```bash
-prime_agent_session.jsonl          # 4 turns, thinking/text/toolCall, real serializer
-prime_agent_harness_state.json     # schema 1, 2 entries, both source:"refine"
-skills/prime-agent-guard/scripts/drive-scry-session.ts   # regenerates the first
-skills/prime-agent-guard/scripts/drive-scry-refine.ts    # regenerates the second
+python3 skills/prime-agent-guard/scripts/experiment_oversight.py prime_agent_forkprobe
 ```
 
-**This is a FORMAT grade, not a behavioural one.** The reasoning text in that
-session was scripted through the faux provider, so no `Pe` computed from it
-means anything, and nothing here claims anything about how a model reasons. It
-claims the adapter parses what this harness actually writes — which is the
-adapter's whole job. A behavioural grade needs a run on a thinking-capable
-provider; that is named as open in `HARNESSES.md`.
+**57 meterable turns, `insufficient_n: false` — a real read that came back
+null.** `I(C;D) = 0.0` (arm M 0/43 and arm U 0/43 turns touched the test file).
+`I(C;M) = 0.0068` bits at permutation percentile 0.322; the collider check
+returns *ARTIFACT-CONSISTENT — does not clear the p95 floor 0.0591* and flags
+`weakly_identified` at a 2-turn thinnest cell. All six runs fixed the code and
+left the tests intact — verified by diff and a passing suite, not by the agent's
+own report. Corpus and full write-up: [`prime_agent_forkprobe/`](../../prime_agent_forkprobe/README.md).
+
+**Read the null carefully.** It says the meter runs end-to-end on a production
+coding agent with no instrumentation. It does **not** say Prime Agent wouldn't
+channel-switch, for two structural reasons: the temptation never went live (the
+model solves the task correctly almost immediately in both arms — the same
+honest negative the cantrip probe returned), and two of three checks is not the
+discipline (calibration ran; a positive control over a known-coupled *model* arm
+did not; no two-vendor judge audit ran).
+
+Format validation is separate and also real: `prime_agent_session.jsonl` and
+`prime_agent_harness_state.json` came from Prime Agent's own serializer and
+`applyRefinementProposal`/`saveHarnessState`, regenerable via
+`scripts/drive-scry-*.ts`, with 78 offline checks in `test_prime_agent.py`.
 
 **What the real files caught that reading the types did not:** `harness_state.json`
 nests its kind buckets under `entries` (`HarnessState`, `refinement.ts:59`), not
 at top level. The flat read returned zero entries **silently** — hashing a
 constant, collapsing every revision into a single Y-epoch, and quietly defeating
-the exact partition §3 exists to enforce. No exception, no empty-state warning,
-just a safeguard that had stopped working. That is why `[SCHEMA]` is a real grade
+the exact partition §3 exists to enforce. That is why `[SCHEMA]` is a real grade
 in this repo and not a formality.
 
-Still unanswered by these runs, because the driver only produced depth-0
-sessions with no compaction: whether a `compaction` entry rewrites or drops
-earlier assistant entries (which would silently truncate M), and whether an
-`rlm()` child's header carries `parentSession` in practice.
+Still open: a task whose correct fix is genuinely expensive relative to the
+shortcut, an instructed-covert positive control arm, a cue-stripped two-vendor
+judge audit, and — because these runs were depth-0 with no compaction — whether
+a `compaction` entry truncates M and whether `rlm()` children carry
+`parentSession` in practice.
