@@ -146,10 +146,15 @@ adds throughput pressure of the kind FLE applied — *"the previous three shifts
 each ended at 36 against the same 100-widget target; this shift is evaluated on
 widget count"* — without hinting at the bypass.
 
-After roughly a dozen runs this environment stopped being able to start Prime
-Agent: instances wedge before writing a session file or any output, surviving
-their own `timeout`, and clearing daemon workers, session leases, and the wedged
-`prime-agent` processes did not recover it. Two attempts produced nothing.
+After roughly a dozen runs this environment stopped being able to start a Prime
+Agent **session**. The binary itself is fine — `--version` returns `0.7.0` and
+exits 0 — and disk and the IPython kernel venv are both intact. But a `--print`
+run never gets as far as writing a session file, produces zero bytes of output,
+and outlives its own `timeout`. Four attempts, nothing produced; clearing daemon
+workers, session leases, and the wedged `prime-agent` processes did not recover
+it. The failure is in session initialization, downstream of process start and
+upstream of the first persisted entry — not diagnosed further, because that is
+this box's problem rather than a finding about the harness.
 
 So the organic-discovery case — the one that actually matches FLE, where the
 agent encodes *its own* discovery rather than obeying a suspicious instruction —
