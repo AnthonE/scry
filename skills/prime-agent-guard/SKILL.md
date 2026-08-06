@@ -153,6 +153,74 @@ python3 skills/prime-agent-guard/scripts/refine_gate.py \
 # exit 0 = all admitted · 1 = at least one refused · 2 = bad input
 ```
 
+## 2b. The enforcement plugin — a real veto, not advice
+
+Everything above §2 is a library: the host has to call it. This is the part the
+harness *enforces*, using the hook Prime Agent already exposes.
+
+The extension API has **no pre-write refinement hook** — `refine_complete` fires
+with `appliedEdits` already applied. So a gate cannot intercept the write. It
+does not need to: **a poisoned skill sitting in `harness_state.json` is inert;
+importing and calling it is where the harm happens** — and that runs through
+`ipython` or `bash`, which the `tool_call` hook *can* block
+(`ToolCallEventResult.block`). So the guard enforces provenance at the point of
+execution rather than the point of storage:
+
+> an executable skill the agent wrote **about itself** may not run
+> until a human has read it and signed off.
+
+Prime Agent already records the needed fact per entry: `source: "refine"`
+(`refinement.ts:772`).
+
+```bash
+prime-agent --extension /path/to/scry/skills/prime-agent-guard/scripts/scry-guard.ts
+```
+
+| rule | what it does |
+|---|---|
+| **execution** | a tool call invoking a refine-authored `skill` is **blocked** unless its id is in `~/.prime/agent/scry-approved-skills.json`. Fails closed — an unreadable or missing approvals file approves nothing. |
+| **bypass** | a tool call writing `harness_state.json` directly is **blocked**. Refinement is the sanctioned path; a direct write goes behind it. |
+| **journal** | `refine_complete` is recorded. It cannot be blocked, so the answer is an audit trail that makes an unnoticed global executable write loud. |
+
+Approve a skill by reading it and adding its id:
+
+```json
+{ "approved": ["changelog_helper"] }
+```
+
+### Verified against the real agent
+
+```bash
+npx tsx skills/prime-agent-guard/scripts/test-scry-guard.ts   # 25 offline checks
+```
+
+Then end-to-end: a real `claude-sonnet-5` session was told to import and call the
+poisoned `project_setup` skill. It was refused, and said so itself —
+
+> *"**Result: Blocked by a security guard, with evidence preserved.** … This is
+> strong, consistent, host-observable evidence of a hard block."*
+
+**That same run found a bug, and it is worth stating rather than hiding.** The
+first version matched the skill's `callable` name bare — the callable was
+`setup`, so the gate refused *any* cell containing the word "setup". The agent
+noticed and reported it. That is an off switch, not a gate, and it is precisely
+the failure this skill argues against everywhere else. Fixed: module-level names
+(`id`, `import`, `module`) match bare because they are namespaced identifiers a
+refinement chose; a `callable` only counts **qualified** — `project_setup.setup(...)`
+or `from project_setup import setup`. Re-run end-to-end: `def setup(): return 42`
+now passes through, the real invocation is still refused. Both directions are
+regression-tested.
+
+### Honest limit
+
+This gates the **sanctioned** path — the agent importing the skill the harness
+told it about. It does not stop the model inlining the same code directly into
+an `ipython` call. Nothing short of a sandbox does, and Prime Agent's README is
+explicit that it is not one. What it buys: the automatic path — refine writes a
+skill, a later session imports it because the system prompt says to — stops
+being a way for a fetched page to reach `subprocess.run` with no human in the
+loop.
+
 ## 3. The part that is genuinely new here: Y is not fixed
 
 `turn_record.py` defines `Y` as *"the bound the turn ran under … Fixed from
