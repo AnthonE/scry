@@ -242,19 +242,57 @@ def parse_session_dir(sessions_dir: str, y_bound=None, harness_state=None) -> Li
 
 # ── the continual harness: Y that the agent can edit ──────────────────────────
 
-def default_harness_state_path() -> str:
-    return os.path.expanduser("~/.prime/agent/harness_state.json")
+def default_agent_dir() -> str:
+    return os.path.expanduser("~/.prime/agent")
+
+
+def default_harness_state_path(agent_dir: Optional[str] = None) -> str:
+    """The GLOBAL harness state.
+
+    Note the `harness/` component. `getGlobalHarnessStateDir` is
+    `join(agentDir, HARNESS_STATE_DIR_NAME)` with `HARNESS_STATE_DIR_NAME =
+    "harness"` (refinement.ts:24, 269), and the file sits inside that
+    directory (refinement.ts:277) — so the real path is
+    `~/.prime/agent/harness/harness_state.json`, NOT `~/.prime/agent/`.
+
+    This module read the shallower path until a live run proved otherwise, and
+    the failure mode was the dangerous one: no exception, just an empty state,
+    a constant revision hash, and every epoch collapsed into one. Anything
+    built on `load_harness_state` failed OPEN and silent.
+    """
+    return os.path.join(agent_dir or default_agent_dir(), "harness", "harness_state.json")
+
+
+def local_harness_state_paths(agent_dir: Optional[str] = None) -> List[str]:
+    """Per-session LOCAL harness states, one per session artifact directory
+    (`getLocalHarnessStateDir`, refinement.ts:273).
+
+    These matter more than the global file, not less: auto-refine "writes local
+    continual harness state by default" (refinement.ts:177), so the entries an
+    agent accumulated about itself without anyone asking land here first.
+    """
+    root = os.path.join(agent_dir or default_agent_dir(), "session-artifacts")
+    return sorted(glob.glob(os.path.join(root, "*", "harness", "harness_state.json")))
 
 
 def load_harness_state(path: Optional[str] = None) -> dict:
-    """Read harness_state.json (refinement.ts:277). Missing file is not an
-    error — a fresh install has no refinements yet, which is a real state."""
+    """Read one harness_state.json. A missing file is not an error — a fresh
+    install has no refinements yet, which is a real state."""
     path = path or default_harness_state_path()
     try:
         with open(path, encoding="utf-8") as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
+
+
+def load_all_harness_states(agent_dir: Optional[str] = None) -> List[dict]:
+    """Global state plus every local one. Use this rather than
+    `load_harness_state` when the question is "what has this agent written
+    about itself anywhere", which is the question a guard actually asks."""
+    states = [load_harness_state(default_harness_state_path(agent_dir))]
+    states += [load_harness_state(p) for p in local_harness_state_paths(agent_dir)]
+    return [s for s in states if s]
 
 
 def harness_entries(state: dict) -> List[dict]:

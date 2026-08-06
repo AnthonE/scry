@@ -17,6 +17,7 @@ from harnesses import convert
 from adapters_prime_agent import (
     parse_session_file, parse_session_dir, y_epochs,
     harness_revision, harness_entries, refine_authored,
+    default_harness_state_path, local_harness_state_paths, load_all_harness_states,
 )
 from prime_agent_guard import RefinementGate, Span, spans_from_session_file
 
@@ -350,6 +351,26 @@ d_real_ok = RefinementGate().review(
       "content": "This repo uses tabs, never spaces."}], real_spans)[0]
 check("the genuine preference from the real user turn is admitted",
       d_real_ok.action, "admit")
+
+print("\n15) Harness-state PATHS — the silent fail-open a live run caught")
+# getGlobalHarnessStateDir = join(agentDir, "harness") (refinement.ts:24,269) and
+# the file sits inside it (refinement.ts:277). Reading <agentDir>/harness_state.json
+# returns {} with no error: constant revision, one collapsed epoch, nothing gated.
+check("global path includes the harness/ component",
+      default_harness_state_path("/a").replace("\\", "/"), "/a/harness/harness_state.json")
+with tempfile.TemporaryDirectory() as d:
+    check("no local states in an empty agent dir", local_harness_state_paths(d), [])
+    loc = os.path.join(d, "session-artifacts", "sesn_1", "harness")
+    os.makedirs(loc)
+    with open(os.path.join(loc, "harness_state.json"), "w") as f:
+        json.dump(_state({"id": "s1", "kind": "skill", "content": "c",
+                          "scope": "local", "source": "refine"}), f)
+    check("session-local state is found (auto-refine's default target)",
+          len(local_harness_state_paths(d)), 1)
+    check("load_all_harness_states picks up local when global is absent",
+          len(load_all_harness_states(d)), 1)
+    check("...and its refine-authored skill is visible to a guard",
+          [e["id"] for e in refine_authored(load_all_harness_states(d)[0])], ["s1"])
 
 print(f"\n===== {PASS} passed, {FAIL} failed =====")
 raise SystemExit(1 if FAIL else 0)

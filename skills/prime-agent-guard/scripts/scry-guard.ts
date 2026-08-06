@@ -55,7 +55,7 @@
  *   { "approved": ["changelog_helper"], "note": "read each before adding" }
  */
 
-import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -91,7 +91,29 @@ type HarnessEntry = {
 };
 
 const AGENT_DIR = process.env.PRIME_AGENT_DIR ?? join(homedir(), ".prime", "agent");
-const HARNESS_STATE = join(AGENT_DIR, "harness_state.json");
+
+/**
+ * Note the `harness/` component. `getGlobalHarnessStateDir` is
+ * `join(agentDir, HARNESS_STATE_DIR_NAME)` with `HARNESS_STATE_DIR_NAME =
+ * "harness"` (refinement.ts:24, 269), and the state file lives inside it
+ * (refinement.ts:277).
+ *
+ * This guard read `<agentDir>/harness_state.json` until a live Prime Agent run
+ * proved otherwise. That bug had the worst possible shape for a security
+ * control: no error, no empty-state warning — just zero refine-authored skills
+ * found, so nothing to gate, so everything allowed. It **failed open, and
+ * silently.** Unit tests did not catch it because they wrote the fixture to
+ * whatever path the code asked for.
+ */
+const GLOBAL_HARNESS_STATE = join(AGENT_DIR, "harness", "harness_state.json");
+
+/**
+ * Per-session LOCAL harness states. These matter more, not less: auto-refine
+ * "writes local continual harness state by default" (refinement.ts:177), so
+ * entries the agent wrote about itself unprompted land here first.
+ */
+const SESSION_ARTIFACTS = join(AGENT_DIR, "session-artifacts");
+
 const APPROVALS = process.env.SCRY_APPROVALS ?? join(AGENT_DIR, "scry-approved-skills.json");
 const JOURNAL = process.env.SCRY_JOURNAL ?? join(AGENT_DIR, "scry-guard-journal.jsonl");
 
@@ -133,11 +155,35 @@ function harnessEntries(state: unknown): HarnessEntry[] {
 	return out;
 }
 
+/** Every harness state this agent has: the global one, plus each session-local one. */
+function allHarnessStates(): unknown[] {
+	const states: unknown[] = [readJson(GLOBAL_HARNESS_STATE)];
+	let sessions: string[] = [];
+	try {
+		sessions = readdirSync(SESSION_ARTIFACTS);
+	} catch {
+		sessions = [];
+	}
+	for (const s of sessions) {
+		states.push(readJson(join(SESSION_ARTIFACTS, s, "harness", "harness_state.json")));
+	}
+	return states.filter(Boolean);
+}
+
 /** Skills the model wrote about itself: executable, and `source: "refine"`. */
 function refineAuthoredSkills(): HarnessEntry[] {
-	return harnessEntries(readJson(HARNESS_STATE)).filter(
-		(e) => e.kind === "skill" && e.source === "refine",
-	);
+	const out: HarnessEntry[] = [];
+	const seen = new Set<string>();
+	for (const state of allHarnessStates()) {
+		for (const e of harnessEntries(state)) {
+			if (e.kind !== "skill" || e.source !== "refine") continue;
+			const key = `${e.id}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
+			out.push(e);
+		}
+	}
+	return out;
 }
 
 /** Fails closed: an unreadable or absent approvals file approves nothing. */

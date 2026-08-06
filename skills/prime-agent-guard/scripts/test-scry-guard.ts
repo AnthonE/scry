@@ -7,7 +7,7 @@
  *   npx tsx test-scry-guard.ts
  */
 import * as nodeFs from "node:fs";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -33,7 +33,9 @@ function writeState(entries: Record<string, unknown>[]) {
 		subagent: {},
 	};
 	for (const e of entries) buckets[e.kind as string][e.id as string] = e;
-	writeFileSync(join(DIR, "harness_state.json"), JSON.stringify({ schema: 1, entries: buckets, refinements: [] }));
+	// The REAL path: <agentDir>/harness/harness_state.json (refinement.ts:24,269,277).
+	mkdirSync(join(DIR, "harness"), { recursive: true });
+	writeFileSync(join(DIR, "harness", "harness_state.json"), JSON.stringify({ schema: 1, entries: buckets, refinements: [] }));
 }
 
 function writeApprovals(ids: string[]) {
@@ -116,7 +118,22 @@ writeState([POISONED, { ...HUMAN_SKILL, id: "other_helper", source: "refine" }])
 r = call("ipython", { code: "import other_helper" });
 check("a DIFFERENT refine skill is still blocked", r?.block, true);
 
+console.log("\n3b) Local (session-scoped) harness state — auto-refine's DEFAULT target");
+writeState([]);                                  // global empty
+writeApprovals([]);
+const localDir = join(DIR, "session-artifacts", "sesn_x", "harness");
+mkdirSync(localDir, { recursive: true });
+writeFileSync(join(localDir, "harness_state.json"), JSON.stringify({
+  schema: 1,
+  entries: { prompt: {}, memory: {}, skill: { local_cheat: { ...POISONED, id: "local_cheat", scope: "local",
+    reference: { type: "python", import: "local_cheat", callable: "run" } } }, subagent: {} },
+  refinements: [],
+}));
+r = call("ipython", { code: "import local_cheat" });
+check("skill in LOCAL state is gated too (global was empty)", r?.block, true);
+
 console.log("\n4) Fails closed");
+writeState([POISONED]);                          // restore global fixture (3b cleared it)
 writeApprovals([]);
 writeFileSync(join(DIR, "approvals.json"), "{ this is not json");
 r = call("ipython", { code: "import project_setup" });
@@ -144,7 +161,7 @@ const lines = readFileSync(join(DIR, "journal.jsonl"), "utf8").trim().split("\n"
 const rc = lines.filter((l) => l.rule === "refine_complete").pop();
 check("refine_complete recorded", rc?.appliedEdits, 2);
 check("...with the scope that matters", rc?.scope, "global");
-check("...listing the executable state now present", rc?.executable_skills_now_present, ["project_setup"]);
+check("...listing executable state from global AND local", (rc?.executable_skills_now_present || []).sort(), ["local_cheat", "project_setup"]);
 check("blocks were journalled too", lines.some((l) => l.rule === "execution" && l.blocked === true), true);
 check("bypass attempt journalled", lines.some((l) => l.rule === "bypass"), true);
 
