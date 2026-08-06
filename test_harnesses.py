@@ -90,7 +90,8 @@ for name in ("excalibur",):
 register("mybot", lambda raw: [Turn(id="1", Y="y", M=r, D="") for r in raw])
 check("custom harness in one line", convert("mybot", ["hm"])[0].M, "hm")
 check("registry lists all", sorted(REGISTRY),
-      ["cantrip", "excalibur", "mybot", "openai_messages", "openclaw", "verifiers"])
+      ["cantrip", "excalibur", "mybot", "openai_messages", "openclaw",
+       "prime_agent", "verifiers"])
 
 print("\n7) loop_tap (the unknown-harness path)")
 tap = loop_tap(Y={"oath": "never disclose"})
