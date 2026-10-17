@@ -49,7 +49,7 @@ Copy [`scripts/scry_wallet.py`](scripts/scry_wallet.py) next to your agent
 (pure stdlib HTTP; `eth_account` is touched only by `local_signer`). Verify:
 
 ```bash
-python3 scripts/test_scry_wallet.py     # offline, no key, no network
+python3 scripts/test_scry_wallet.py     # 17 checks, offline, no key, no network
 ```
 
 ## Use
