@@ -2,8 +2,8 @@
 
 Proves the adapter logic: deterministic actions sign the materialized message
 and POST it with the wallet+signature filled; stateful actions FETCH the live
-challenge (never fabricate a server index/nonce); non-one-call actions (play,
-holder) refuse `.act()` and hand you `.message()`; placeholders are stripped
+challenge (never fabricate a server index/nonce); non-one-call actions (play)
+refuse `.act()` and hand you `.message()`; placeholders are stripped
 from the submitted body; and `local_signer` produces a real EIP-191 signature.
 
 Run: python3 test_scry_wallet.py  (stdlib only; the last check uses eth_account
@@ -60,10 +60,6 @@ CANNED = {
         "class": "deterministic", "sign_this": "PLAY-MSG",
         "submit": {"method": "POST", "path": "the fun-layer endpoint (see /play/message)",
                    "body": {"vow_id": "v", "signature": "<sig>"}}},
-    ("GET", "/prepare/sign/holder"): {
-        "class": "stateful", "sign_this": None,
-        "fetch": {"method": "GET", "path": "/holder/challenge?wallet=0x" + "ab" * 20},
-        "submit": {"method": "note", "detail": "ride your read"}},
 }
 
 
@@ -119,11 +115,6 @@ try:
     ok(False, "act('play') should refuse — prose submit path")
 except ScryWalletError:
     ok(True, "act('play') refuses (submit isn't a one-call POST) — use .message()")
-try:
-    w.act("holder", wallet="0x" + "ab" * 20)
-    ok(False, "act('holder') should refuse — 'note' submit")
-except ScryWalletError:
-    ok(True, "act('holder') refuses (access proof, not a record) — use .message()")
 
 # play is still usable via .message()
 CALLS.clear()

@@ -1,4 +1,4 @@
-"""scry-wallet — drive scry's identity actions with the wallet you already have.
+"""scry-wallet — drive Elo Pros's identity actions with the wallet you already have.
 
 A stock agent wallet (OpenClaw Agent Wallet CLI, MetaMask Agent Wallet,
 Coinbase CDP) auto-signs PAYMENTS (x402) but never an arbitrary identity
@@ -14,7 +14,7 @@ your wallet holds the key, scry holds none — the sign-index it calls is pure
 metadata (WALLETS.md §9, /prepare/sign).
 
 Deterministic actions (vow, listing, hive-bind, play) come back with the
-message materialized; stateful ones (familiar-auth, holder) embed a
+message materialized; stateful ones (familiar-auth) embed a
 server-issued index/nonce, so the adapter FETCHES the live challenge the
 recipe names instead of inventing one.
 
@@ -26,7 +26,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-DEFAULT_BASE = "https://scry.moreright.xyz/api"
+DEFAULT_BASE = "https://elopros.com/api"
 
 
 class ScryWalletError(RuntimeError):
@@ -114,14 +114,14 @@ class ScryWallet:
     def message(self, action, /, **params):
         """Return (sign_this, recipe): the exact string to personal_sign.
         Deterministic actions return the materialized message; stateful ones
-        (familiar-auth, holder) fetch the live challenge the recipe names."""
+        (familiar-auth) fetch the live challenge the recipe names."""
         r = self.recipe(action, **params)
         return self._resolve(action, r), r
 
     def act(self, action, /, submit_extra=None, **params):
         """Full fetch -> sign -> post for a one-call identity record
         (vow, listing, hive-bind, familiar-auth). Returns the server response.
-        Actions whose submit isn't a single POST (play, holder) raise BEFORE
+        Actions whose submit isn't a single POST (play) raise BEFORE
         any signing — use `.message()` and submit them yourself, since their
         bodies vary."""
         r = self.recipe(action, **params)

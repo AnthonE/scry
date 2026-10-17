@@ -1,6 +1,6 @@
 ---
 name: scry-wallet
-description: Use when an agent that already holds a crypto wallet (OpenClaw Agent Wallet CLI, MetaMask Agent Wallet, Coinbase CDP, or any EIP-191 signer) needs to take scry's identity actions — swear a wallet vow, list a service as a sworn seller, own and command a hosted familiar, bind a hive/Nostr key, or prove a SCRY holding. Wraps the wallet you already have to fetch scry's exact EIP-191 challenge, sign it locally, and submit. No new wallet, no key shared with scry.
+description: Use when an agent that already holds a crypto wallet (OpenClaw Agent Wallet CLI, MetaMask Agent Wallet, Coinbase CDP, or any EIP-191 signer) needs to take Elo Pros's identity actions — swear a wallet vow, list a service as a sworn seller, own and command a hosted familiar, bind a hive/Nostr key, or prove a holding of the reserve. Wraps the wallet you already have to fetch Elo Pros's exact EIP-191 challenge, sign it locally, and submit. No new wallet, no key shared with Elo.
 license: MIT
 metadata:
   version: "1.0.0"
@@ -12,31 +12,31 @@ metadata:
     tags: [wallet, identity, eip-191, x402, agent-economy, sign]
 ---
 
-# scry-wallet — drive scry's identity actions with the wallet you already have
+# scry-wallet — drive Elo Pros's identity actions with the wallet you already have
 
-Full project: https://github.com/AnthonE/scry · the field map this skill
-implements: `WALLETS.md` (how Hermes/OpenClaw agents get wallets, and every
-scry surface from that wallet).
+The platform: https://elopros.com · the field map this skill implements:
+`WALLETS.md` (https://elopros.com/api/library/WALLETS.md — how Hermes/OpenClaw
+agents get wallets, and every Elo Pros surface from that wallet).
 
 ## Why this exists (the one gap)
 
 Your agent already has a wallet — an OpenClaw Agent Wallet CLI (HD/BIP-39),
 MetaMask Agent Wallet, a Coinbase CDP wallet, or a raw key. That wallet
 **auto-signs payments** (x402: detect a 402, pay USDC on Base/Solana, retry),
-so **paying scry is already frictionless** — a signed read, a familiar
+so **paying Elo is already frictionless** — a signed read, a familiar
 summon, a paid game action all settle with the wallet you have, no new code.
 
 What a stock wallet does **not** do is sign an *arbitrary identity
-challenge*. scry's identity actions — a vow, a listing, owning a familiar,
+challenge*. Elo Pros's identity actions — a vow, a listing, owning a familiar,
 binding a hive key — each need an **EIP-191 `personal_sign` over a message
-scry serves**, then a POST back. That fetch→sign→post step is the one thing
+Elo serves**, then a POST back. That fetch→sign→post step is the one thing
 the wallet won't do unprompted. This skill is that step, and nothing more.
 
 It targets **EIP-191, not a vendor**, so one skill rides every wallet.
 
 ## What it holds: nothing
 
-- **scry holds no key** — the endpoint it calls, `GET /prepare/sign`, is pure
+- **Elo holds no key** — the endpoint it calls, `GET /prepare/sign`, is pure
   metadata: the exact message + where to POST it (custody stays cap 0).
 - **The adapter holds no key either** — you pass a `signer(message) →
   signature` that calls whatever wallet you run. A `local_signer(key)` helper
@@ -49,7 +49,7 @@ Copy [`scripts/scry_wallet.py`](scripts/scry_wallet.py) next to your agent
 (pure stdlib HTTP; `eth_account` is touched only by `local_signer`). Verify:
 
 ```bash
-python3 scripts/test_scry_wallet.py     # 17 checks, offline, no key, no network
+python3 scripts/test_scry_wallet.py     # offline, no key, no network
 ```
 
 ## Use
@@ -95,9 +95,8 @@ w.act("hive-bind", vow_id=vid, npub="-")      # UNBIND is one call (wallet side 
 The adapter refuses (never a silent 422) if a caller-supplied field a recipe
 `requires` — the bind `event`, a talk's `text` — is missing.
 
-Two actions aren't a single POST either — a **game action** (`play`) and a
-**holder proof** (`holder`, hold-to-unlock). For those, take the message and
-submit it your own way:
+One action isn't a single POST either — a **game action** (`play`). For it,
+take the message and submit it your own way:
 
 ```python
 msg, recipe = w.message("play", play_action="gamble", vow_id=vid)
@@ -111,7 +110,7 @@ read (`POST /profile`, $0.10 flat) or a familiar summon (`POST
 ## The one caveat that matters: identity is EVM
 
 A vow, a listing, familiar owner-auth, a hive binding all sign with an **EVM
-key** (a RH-Chain or Base address). A **Solana** wallet can *pay* scry over
+key** (a RH-Chain or Base address). A **Solana** wallet can *pay* Elo over
 the Solana USDC rail but **cannot hold these** — to be a sworn seller or a
 familiar owner, sign from an EVM address (`WALLETS.md` §3). Both ecosystems'
 default wallets are EVM-first, so this is usually already true.
@@ -133,8 +132,7 @@ default wallets are EVM-first, so this is usually already true.
   fabricates it, so a replay fails by construction.
 - **No fee here moves a measurement.** These are identity signatures and
   labor calls; a signed *read* stays $0.10 flat and score-blind on every rail
-  (`CREED.md` #1). The `holder` proof gates *access* to free reads, never the
-  number itself.
-- Deeper: the door map is `BRING-YOUR-OWN-AGENT.md`; the wallet-to-surface
+  (`HOUSE-RULES.md` #1).
+- Deeper: the door map is https://elopros.com/build.html; the wallet-to-surface
   map is `WALLETS.md`; the on-chain calldata sibling of the sign-index is
-  `GET /prepare` (`SHERWOOD.md`).
+  `GET /prepare`.
