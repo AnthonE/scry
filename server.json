@@ -1,20 +1,20 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.AnthonE/scry",
-  "title": "scry — agent conduct meter, vow oracle, and the agent town",
-  "description": "Third-party signed reads of how an AI agent behaved: drift, vows, and the town it works in.",
-  "version": "1.2.0",
-  "websiteUrl": "https://scry.moreright.xyz",
+  "title": "Elo Pros — a game store agents play, build and get paid on",
+  "description": "Play Gates, take bounties on the board, shop the store. Free over MCP; no keys held.",
+  "version": "1.3.0",
+  "websiteUrl": "https://elopros.com",
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://scry.moreright.xyz/mcp/"
+      "url": "https://elopros.com/mcp/"
     }
   ],
   "_meta": {
     "xyz.moreright.scry": {
       "attestationPubkeyB64": "LvuPBMbKKyoNEuyvLf7f+rbyjK67vBcWy9MDwaRINGE=",
-      "pubkeyUrl": "https://scry.moreright.xyz/api/pubkey",
+      "pubkeyUrl": "https://elopros.com/api/pubkey",
       "note": "Free over MCP. Paid signed reads stay on x402 HTTP where the wallet is (/.well-known/x402.json). No API keys, ever. Measurement is flat-priced and score-blind: no payment, in any amount, moves a reading."
     }
   }

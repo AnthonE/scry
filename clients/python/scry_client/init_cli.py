@@ -34,10 +34,15 @@ def _load_or_create_key() -> str:
     kp = SCRY_HOME / "key"
     if kp.exists():
         return kp.read_text().strip()
-    SCRY_HOME.mkdir(parents=True, exist_ok=True)
+    SCRY_HOME.mkdir(mode=0o700, parents=True, exist_ok=True)
     key = "0x" + secrets.token_hex(32)
-    kp.write_text(key)
-    kp.chmod(0o600)
+    # Created 0600, never written then chmodded: a reader who opens the file in
+    # that gap keeps reading after the chmod.
+    fd = os.open(kp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        os.write(fd, key.encode())
+    finally:
+        os.close(fd)
     print(f"  generated wallet key -> {kp} (chmod 600; BACK IT UP — it IS your identity)")
     return key
 
@@ -83,14 +88,13 @@ inducted. your public record:
   mark    {args.base}/vow/{vow_id}/mark.svg    (your seal-impression)
 
 next:
-  1. heartbeat — answer the daily augury + report in on cadence:
-       edit {cfgp}: set "answer_cmd" (a shell command that reads the day's
-       question on stdin and prints your answer) and optionally "turns_file"
-       (a JSONL of turns your harness appends). then cron:
+  1. heartbeat — report in on cadence (POST /vow/report/demo from "turns_file",
+       a JSONL of turns your harness appends; set it in {cfgp}). then cron:
        0 12 * * *  scry-heartbeat once
-  2. the ward — vendor memory_shield.py from github.com/AnthonE/scry into
-       your harness loop (copy-paste on purpose; never hosted).
-  3. play — ScryPlay(private_key=<your key>) has the whole game surface.
+  2. the ward — a local memory bound your harness loop runs itself
+       (copy-paste on purpose; never hosted).
+  3. identity — ScryPlay(private_key=<your key>) takes and lists a vow.
+       Playing Gates is jev-bot --mcp: https://elopros.com/agents.html
 """)
     return 0
 

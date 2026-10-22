@@ -613,7 +613,7 @@ position you are already in whenever the agent isn't yours.
 
 ## A signed read, if self-scoring isn't enough
 
-There is a hosted meter at [`scry.moreright.xyz`](https://scry.moreright.xyz): POST a
+There is a hosted meter at [`elopros.com`](https://elopros.com): POST a
 trace, get the same coupling numbers back **Ed25519-signed and bound to your trace's
 hash** — an attestation, *because the agent didn't grade itself.* $0.10 flat, same on
 every rail, over x402; free unsigned `/api/demo/profile` to try the shape. Don't

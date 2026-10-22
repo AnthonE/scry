@@ -1,8 +1,11 @@
 {
   "name": "scry",
-  "description": "A memory-integrity bound + a channel-coupling drift meter for any AI agent, plus scry-play (the hosted vow oracle and holders' playground), scry-wallet (identity actions from a wallet the agent already holds), scry-watch (token-free watchdogs), and the Hermes-native (hermes-guard), OpenClaw-native (openclaw-guard) ClawPump-native (clawpump-guard) and Prime Agent-native (prime-agent-guard) installs. Skills auto-discovered from skills/.",
-  "version": "1.1.0",
-  "author": { "name": "scry", "url": "https://github.com/AnthonE/scry" },
-  "homepage": "https://scry.moreright.xyz",
+  "description": "Skills for the Elo Pros game platform: elo-store (the shelf, the buy, Gates, the listing standard, the board), elo-player (play Gates with any harness), elo-builder (paid pull requests to Gates, painted skins), elo-coins (the reserve, the game coins, the pools), elo-seat (the characters a wallet holds, and whether it may still mint), and scry-wallet (identity actions from a wallet the agent already holds). Skills auto-discovered from skills/.",
+  "version": "1.2.0",
+  "author": {
+    "name": "scry",
+    "url": "https://github.com/AnthonE/scry"
+  },
+  "homepage": "https://elopros.com",
   "license": "MIT"
 }

@@ -39,9 +39,10 @@ It targets **EIP-191, not a vendor**, so one skill rides every wallet.
 - **Elo holds no key** — the endpoint it calls, `GET /prepare/sign`, is pure
   metadata: the exact message + where to POST it (custody stays cap 0).
 - **The adapter holds no key either** — you pass a `signer(message) →
-  signature` that calls whatever wallet you run. A `local_signer(key)` helper
-  is included for the self-custodial `PRIVATE_KEY` case, but the adapter
-  never needs to see a key if your wallet signs behind a callable.
+  signature` that calls whatever wallet you run. For a self-custodial key,
+  `key_file_signer(path)` reads it from a file only you can read (mode 0600)
+  and never prints it. Never put a raw key in your own environment: every
+  tool you run can read it, and one `env` puts it in the transcript.
 
 ## Install
 
@@ -49,17 +50,17 @@ Copy [`scripts/scry_wallet.py`](scripts/scry_wallet.py) next to your agent
 (pure stdlib HTTP; `eth_account` is touched only by `local_signer`). Verify:
 
 ```bash
-python3 scripts/test_scry_wallet.py     # 17 checks, offline, no key, no network
+python3 scripts/test_scry_wallet.py     # 21 checks, offline, no real key, no network
 ```
 
 ## Use
 
 ```python
-import os
-from scry_wallet import ScryWallet, local_signer
+from scry_wallet import ScryWallet, key_file_signer
 
-# Option A — self-custodial local key (the OpenClaw x402-layer "Option A" shape)
-sign, address = local_signer(os.environ["PRIVATE_KEY"])
+# Option A — self-custodial key in a file (64 hex digits, chmod 600); pass the
+# path, never the key
+sign, address = key_file_signer("~/.gates/agent.key")
 w = ScryWallet(sign, wallet_address=address)
 
 # Option B — wrap the wallet you ALREADY run; no key ever reaches the adapter
@@ -118,7 +119,8 @@ default wallets are EVM-first, so this is usually already true.
 ## Per-runtime notes
 
 - **OpenClaw** — pass the Agent Wallet CLI's `sign message` as the `signer`
-  (Option B), or export a `PRIVATE_KEY` and use `local_signer` (Option A).
+  (Option B), or keep the key in a 0600 file and use `key_file_signer`
+  (Option A).
 - **Hermes** — pass MetaMask Agent Wallet / the economic-layer key's signer.
 - **Anything else** — any callable that does EIP-191 `personal_sign` works.
   No client at all also works: `GET /prepare/sign` returns the message and

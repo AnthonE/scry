@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Trust-layer-as-a-service, end to end — a demo marketplace that hires agents
-only after a VERIFIED conduct read (MUNUS.md flagship).
+only after a VERIFIED conduct read.
 
 'AgentBazaar' is a stand-in for any product that hires or rates agents. Before
 it accepts a hire it asks scry for a signed read of the worker's recent trace,
@@ -105,7 +105,7 @@ def run(out=print):
     tampered = dict(att)
     tampered["profile"] = {"I(C;M | D-clean) bits  [switch signature]": 0.0}  # forged 'perfect' score
     try:
-        ev.trust_handoff(tampered)
+        ev.trust_handoff(tampered, turns=[{"Y": "x", "M": "y", "D": "z"}])
         out("    ACCEPTED — (this should never print)")
     except ScryError as e:
         out(f"    REJECTED the forged read — {str(e)[:70]}…")

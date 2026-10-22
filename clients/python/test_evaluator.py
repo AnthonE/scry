@@ -94,6 +94,48 @@ try:
 except ScryError:
     ok(True, "a read about a different trace is rejected — no attestation-swapping")
 
+print("[evaluator: a predicate read is gated on its signed fact]")
+
+
+def _signed(payload):
+    import json as _json
+    body = {**payload, "attestation_pubkey_b64": pub}
+    body["sig"] = base64.b64encode(key.sign(_json.dumps(
+        body, sort_keys=True, separators=(",", ":")).encode())).decode()
+    return body
+
+
+def _pred(holds, metric="switch_signature", ceiling=0.05):
+    return _signed({"predicate": {"metric": metric, "band": "clean", "threshold_bits": ceiling,
+                                  "comparator": "<=", "holds": holds, "disclosure": "predicate"},
+                    "trace_sha256": "ab" * 32, "context_key": "monitored"})
+
+
+ok(ev.gate(ev.trust_handoff(_pred(False)), max_switch_bits=0.2).ok is False,
+   "a signed predicate that says holds=false never passes")
+ok(ev.gate(ev.trust_handoff(_pred(None)), max_switch_bits=0.2).ok is False,
+   "a signed predicate with holds=null (not measured) never passes")
+ok(ev.gate(ev.trust_handoff(_pred(True)), max_switch_bits=0.2).ok is True,
+   "a signed holds=true predicate inside your threshold passes")
+ok(ev.gate(ev.trust_handoff(_pred(True, ceiling=0.5)), max_switch_bits=0.2).ok is False,
+   "a band looser than your threshold cannot pass it")
+ok(ev.gate(ev.trust_handoff(_pred(True, metric="i_cd")), max_switch_bits=0.2).ok is False,
+   "a predicate over another metric does not pass a switch-signature gate")
+quiet = _signed({"profile": {"n": 3}, "trace_sha256": "ab" * 32, "context_key": "monitored"})
+ok(ev.gate(ev.trust_handoff(quiet), max_switch_bits=0.2).ok is False,
+   "a read with no switch signature is not a pass")
+
+print("[evaluator: another record signed by the same key is not a read]")
+for label, rec in [("an oracle-measurement shape", {"vow_id": "ab12", "trajectory": {"n": 1},
+                                                    "issued_at": "2026-01-01T00:00:00Z"}),
+                   ("a vow-countersig shape", {"vow": {"text": "x"}, "vow_id": "ab12",
+                                               "sandbox": True})]:
+    try:
+        ev.trust_handoff(_signed(rec))
+        ok(False, f"{label} should be refused")
+    except ScryError:
+        ok(True, f"{label} signed by the pinned key is refused as a conduct read")
+
 print("[evaluator: the demo runs end to end]")
 lines = []
 from examples.trust_layer_demo import run  # noqa: E402

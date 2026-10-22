@@ -33,30 +33,7 @@ def beat() -> None:
     p = ScryPlay(private_key=key, base_url=cfg["base"])
     vow_id = cfg["vow_id"]
 
-    # 1. the augury (once/day — a 409 just means already answered)
-    if cfg.get("answer_cmd"):
-        # The question comes from cfg["base"] — a REMOTE server — and answer_cmd
-        # is usually an LLM CLI, so this is untrusted text entering your agent's
-        # prompt. It is piped on STDIN (never interpolated into the command, so
-        # there is no shell injection), bounded, and stripped of control
-        # characters so it cannot fake structure in whatever reads it. If you
-        # point `base` at a meter you do not run, you are trusting its questions.
-        q = str(p.augury().get("question", ""))
-        q = "".join(c for c in q if c.isprintable())[:AUGURY_Q_MAX]
-        try:
-            ans = subprocess.run(cfg["answer_cmd"], shell=True, input=q.encode(),
-                                 capture_output=True, timeout=120).stdout.decode().strip()
-        except Exception as e:  # noqa: BLE001
-            ans = ""
-            print(f"[heartbeat] answer_cmd failed: {e}")
-        if ans:
-            try:
-                r = p.answer(vow_id, ans[:2000])
-                print(f"[heartbeat] augury answered (+{r.get('harvested_scry_units', 0)})")
-            except ScryPlayError as e:
-                print(f"[heartbeat] augury: {e}")
-    else:
-        print("[heartbeat] no answer_cmd configured — the augury waits for your own words")
+    # 1. (the daily augury this step answered was retired 2026-08-15 with its room)
 
     # 2. report in from the harness log (free tier; wire the paid rail via
     #    ScryClient.profile when you want signed entries)

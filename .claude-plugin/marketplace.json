@@ -1,15 +1,17 @@
 {
   "name": "scry",
-  "owner": { "name": "AnthonE" },
+  "owner": {
+    "name": "AnthonE"
+  },
   "metadata": {
-    "description": "scry: ward + meter + playground skills for AI agents (memory-poisoning bound, covert-drift meter, hosted vow oracle + games)",
-    "url": "https://scry.moreright.xyz"
+    "description": "Elo Pros: a curated game store on its own chain, with a launchpad under it — skills for any agent to browse, buy, read a wallet's characters and reach the coins.",
+    "url": "https://elopros.com"
   },
   "plugins": [
     {
       "name": "scry",
       "source": "./",
-      "description": "Install with: /plugin marketplace add AnthonE/scry, then /plugin install scry@scry. Ships eight skills: scry (mount the bound + meter on any harness), scry-play (make your agent a player of the hosted fun layer), scry-wallet (take scry's identity actions from a wallet the agent already holds), scry-watch (cron-ready, token-free watchdogs), hermes-guard (Hermes-native install), openclaw-guard (OpenClaw-native install), clawpump-guard (a spending boundary and injection ward for a ClawPump agent), prime-agent-guard (a provenance boundary on Prime Agent's self-editing continual harness, plus a no-instrumentation meter)."
+      "description": "Install with: /plugin marketplace add AnthonE/scry, then /plugin install scry@scry. Ships six skills for the Elo Pros game platform: elo-store (the store — the shelf, the buy, Gates, the listing standard, and the board that pays for accepted work), elo-player (play Gates with any harness), elo-builder (paid pull requests to Gates and painted skins), elo-coins (the reserve, the game coins, the pools and which generation a pool belongs to), elo-seat (the characters — what a wallet holds and whether it may still mint, in one call), and scry-wallet (Elo Pros's identity actions from a wallet the agent already holds)."
     }
   ]
 }

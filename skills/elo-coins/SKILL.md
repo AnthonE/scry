@@ -1,6 +1,6 @@
 ---
 name: elo-coins
-description: Use when an AI agent (Hermes, Clawdbot/OpenClaw, ElizaOS, Claude Code, any harness that can call HTTP) needs the Elo Pros economy at elopros.com — resolve the reserve coin, read a game coin like JUNK or ORBS, find which pools are live and which are retired, price a swap or route between two coins, read a launch that has no pool yet, or check what is actually deployed on chain. Reads are free and unsigned; a wallet signature appears only where a transaction does, and Elo never holds a key.
+description: Use when an AI agent (Hermes, Clawdbot/OpenClaw, ElizaOS, Claude Code, any harness that can call HTTP) needs the Elo Pros economy at elopros.com — resolve the reserve coin, read a game coin like JUNK, find which pools are live and which are retired, price a swap or route between two coins, read a launch that has no pool yet, or check what is actually deployed on chain. Reads are free and unsigned; a wallet signature appears only where a transaction does, and Elo never holds a key.
 license: MIT
 metadata:
   version: "1.0.0"
@@ -108,9 +108,8 @@ names.
 
 ## What to know
 
-- Game coins are **a game's own** — not the platform's. Gates' JUNK is
-  uncapped by design (minted by play, burned by use); its ORBS is capped at
-  21,000,000, and nothing mints new ORBS today — play never pays it. A title's
+- Game coins are **a game's own** — not the platform's. Gates' JUNK is fixed
+  at 1,000,000,000, launched on Abyss with no mint. A title's
   coin retiring says nothing
   about the reserve, and the reserve moving says nothing about a title's coin.
 - A retired coin is still deployed. Its pools may be open or pulled and its

@@ -15,14 +15,29 @@ others can read.
 (an `echo` adds one and the platform's texts never end with one); pass
 `--exact` to sign the bytes as they are.
 
+It signs an Elo Pros text and nothing else: two lines at least, the first
+`elo <family>` (or the legacy `scry <family>`), printable characters only. A
+sign-in for any site, the hive voice text (its signature IS a secret key) and
+a lone one-line blob are refused. The first line goes to stderr before the
+signature, so you see what you signed. Same rule as the launcher's broker
+(`sign_family`) and arca (`read_message`).
+
 Needs `eth_account` (`pip install eth-account`).
 """
 from __future__ import annotations
 
 import argparse
 import os
+import re
 import stat
 import sys
+
+MAX_TEXT_BYTES = 4096
+_FIRST_LINE = re.compile(r"(elo|scry) [a-z][a-z-]*")
+# invisible or reordering: C0/C1 controls but newline and tab, DEL, U+2028/9,
+# and the bidi overrides and isolates — the broker's `check_signable` set
+_HIDDEN = re.compile("[\x00-\x08\x0b-\x1f\x7f-\x9f\u2028\u2029"
+                     "\u202a-\u202e\u2066-\u2069]")
 
 
 def _fail(msg: str) -> None:
@@ -51,6 +66,25 @@ def load_key(path: str) -> bytes:
     if len(raw) != 64 or any(c not in "0123456789abcdefABCDEF" for c in raw):
         _fail(f"{path} is not a key file (64 hex digits)")
     return bytes.fromhex(raw)
+
+
+def check_text(text: str) -> str:
+    """The text's first line, or exit with why it is not an Elo Pros text."""
+    if len(text.encode("utf-8")) > MAX_TEXT_BYTES:
+        _fail(f"the text is over {MAX_TEXT_BYTES} bytes; no Elo Pros text is")
+    bad = _HIDDEN.search(text)
+    if bad:
+        _fail(f"the text contains U+{ord(bad.group()):04X}, which a reader cannot see; "
+              f"refused")
+    if "\n" not in text.strip():
+        _fail("a one-line text is refused: every Elo Pros text is two lines at least, "
+              "and a lone blob is the shape of a digest")
+    first = text.split("\n", 1)[0]
+    if not _FIRST_LINE.fullmatch(first):
+        _fail(f"the first line is {first[:80]!r}; this signs only texts whose first line "
+              f"is `elo <family>` (or the legacy `scry <family>`). A sign-in for any "
+              f"site and the hive voice text are never signed here.")
+    return first
 
 
 def main() -> None:
@@ -89,6 +123,7 @@ def main() -> None:
         text = text[:-1]
     if not text:
         _fail("nothing to sign")
+    print(f"elo_sign: signing `{check_text(text)}`", file=sys.stderr)
 
     sig = acct.sign_message(encode_defunct(text=text)).signature.hex()
     print("0x" + sig.removeprefix("0x"))

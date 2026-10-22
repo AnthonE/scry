@@ -7,9 +7,10 @@ fetches the exact EIP-191 message scry wants, signs it with YOUR wallet, and
 submits. It targets EIP-191, not any one wallet, so it rides all of them.
 
 No key is required BY the adapter. You pass a `signer(message) -> signature`
-that calls whatever wallet you run; the adapter never has to see a key. A
-convenience `local_signer(key)` (self-custodial PRIVATE_KEY mode, via
-eth_account) is provided for the common case. Custody stays where it belongs:
+that calls whatever wallet you run; the adapter never has to see a key. For
+a self-custodial key, `key_file_signer(path)` (via eth_account) reads it from a
+file only you can read and never prints it; keep it out of the agent's own
+environment, where every tool the agent runs can read it. Custody stays where it belongs:
 your wallet holds the key, scry holds none — the sign-index it calls is pure
 metadata (WALLETS.md §9, /prepare/sign).
 
@@ -19,7 +20,8 @@ server-issued index/nonce, so the adapter FETCHES the live challenge the
 recipe names instead of inventing one.
 
 Dependency-light: stdlib HTTP (urllib) by default; pass your own `http`
-callable to use any client. eth_account is only touched by `local_signer`.
+callable to use any client. eth_account is only touched by `key_file_signer`
+and `local_signer`.
 """
 import json
 import urllib.error
@@ -63,6 +65,37 @@ def local_signer(private_key):
         return acct.sign_message(encode_defunct(text=message)).signature.hex()
 
     return _sign, acct.address
+
+
+def key_file_signer(path):
+    """`local_signer` over a key FILE: 64 hex digits (an optional `0x`), mode
+    0600. The agent passes the path, never the key, so no `env`, `printenv` or
+    crash dump it runs can put the key in a transcript. Refuses a file group or
+    others can read, and never quotes the file in a refusal. The same file
+    `elo_sign.py` and `jev-bot --new-key` use."""
+    import os
+    import stat
+    path = os.path.expanduser(path)
+    try:
+        st = os.stat(path)
+    except OSError as e:
+        raise ScryWalletError(f"cannot read the key file {path}: {e.strerror}")
+    if not stat.S_ISREG(st.st_mode):
+        raise ScryWalletError(f"{path} is not a regular file")
+    if os.name == "posix" and st.st_mode & 0o077:
+        raise ScryWalletError(
+            f"{path} is readable by group or others (mode {stat.S_IMODE(st.st_mode):04o}); "
+            f"run: chmod 600 {path}")
+    try:
+        with open(path, encoding="ascii") as fh:
+            raw = fh.read(200).strip()
+    except (OSError, UnicodeDecodeError):
+        raise ScryWalletError(f"{path} is not a key file (64 hex digits)") from None
+    if raw[:2] in ("0x", "0X"):
+        raw = raw[2:]
+    if len(raw) != 64 or any(c not in "0123456789abcdefABCDEF" for c in raw):
+        raise ScryWalletError(f"{path} is not a key file (64 hex digits)")
+    return local_signer("0x" + raw)
 
 
 class ScryWallet:
@@ -153,4 +186,4 @@ class ScryWallet:
         return self._post(submit["path"], body)
 
 
-__all__ = ["ScryWallet", "ScryWalletError", "local_signer", "DEFAULT_BASE"]
+__all__ = ["ScryWallet", "ScryWalletError", "key_file_signer", "local_signer", "DEFAULT_BASE"]

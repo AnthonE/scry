@@ -34,7 +34,7 @@ from typing import Any
 
 import requests
 
-DEFAULT_BASE = "https://scry.moreright.xyz/api"
+DEFAULT_BASE = "https://elopros.com/api"
 RH_RPC = "https://rpc.mainnet.chain.robinhood.com"
 RH_NETWORK = "eip155:4663"
 BASE_RPC = "https://mainnet.base.org"
@@ -47,7 +47,7 @@ BASE_NETWORK = "eip155:8453"
 # "check USDG balance on Robinhood Chain". That is not a cosmetic gap: the Base/
 # Solana CDP rails are what feed the Bazaar index (a self-facilitated RH settle
 # catalogs nothing), so the one call that unlocks agentic discovery could not be
-# made with the published client. `DISTRIBUTION.md` §3 told operators to do
+# made with the published client. The listing runbook told operators to do
 # exactly that and handed them this method to do it with.
 EVM_RAILS = {
     RH_NETWORK: {"name": "Robinhood Chain USDG", "rpc": RH_RPC, "asset": "USDG"},
@@ -274,8 +274,18 @@ class ScryClient:
     def _owner_post(self, familiar_id: str, action: str, payload: dict,
                     signature: str | None, private_key: str | None) -> dict:
         if signature is None and private_key is not None:
+            # Sign only the text we can rebuild ourselves: the server supplies
+            # the index, never the words. A client that signs whatever a server
+            # hands it has given that server the owner's signature over anything.
             auth = self.familiar_auth_message(familiar_id, action)
-            signature = self._personal_sign(private_key, auth["sign_this"])
+            index = auth.get("index")
+            if not isinstance(index, int) or isinstance(index, bool) or index < 0:
+                raise ScryError(f"/familiar/{familiar_id}/auth-message: bad index {index!r} — not signing")
+            want = self.familiar_message(action, familiar_id, self._address(private_key), index)
+            if auth.get("sign_this") != want:
+                raise ScryError(f"/familiar/{familiar_id}/auth-message: the server asked us to sign "
+                                f"text that is not the familiar message — not signing")
+            signature = self._personal_sign(private_key, want)
         body = dict(payload)
         if signature:
             body["signature"] = signature
@@ -286,6 +296,16 @@ class ScryClient:
             403: "the signature recovers a different wallet — only the owner wallet named at summon drives a familiar",
             409: "that index was already consumed (replay) — refetch .familiar_auth_message(...) and re-sign",
         })
+
+    @staticmethod
+    def _address(private_key: str) -> str:
+        try:
+            from eth_account import Account
+        except ImportError as e:  # noqa: BLE001
+            raise ScryError(
+                'owner-signed calls need eth-account:  pip install "scry-client[pay]"'
+            ) from e
+        return Account.from_key(private_key).address
 
     @staticmethod
     def _personal_sign(private_key: str, text: str) -> str:
@@ -334,6 +354,11 @@ class ScryClient:
         rather than to trusting the sender; pass your own if you run your own
         meter, and pass `trust_any_signer=True` only if you genuinely mean
         "check the shape, trust nobody" (it can never return a trustworthy read).
+
+        The meter's one key signs other records too (vow countersigs, the free
+        oracle measurement, receipts). Only a conduct read carries a
+        `trace_sha256` beside a `profile` or a `predicate`, so anything without
+        that shape is refused here, before the signature is ever trusted.
         """
         try:
             from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -351,6 +376,11 @@ class ScryClient:
         pub_b64 = payload.get("attestation_pubkey_b64")
         if not pub_b64:
             raise ScryError("no 'attestation_pubkey_b64' on this payload — cannot verify")
+        if not (isinstance(payload.get("trace_sha256"), str)
+                and (isinstance(payload.get("profile"), dict)
+                     or isinstance(payload.get("predicate"), dict))):
+            raise ScryError("not a conduct read — a read carries trace_sha256 and a "
+                            "profile or predicate; another meter-signed record is not one")
         if not expect_pubkey_b64 and not trust_any_signer:
             from .evaluator import REFERENCE_PUBKEY_B64
             expect_pubkey_b64 = REFERENCE_PUBKEY_B64

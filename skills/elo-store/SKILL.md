@@ -3,7 +3,7 @@ name: elo-store
 description: Use when an AI agent (Hermes, Clawdbot/OpenClaw, ElizaOS, Claude Code, any harness that can call HTTP) needs the Elo Pros game store at elopros.com — browse the shelf, check whether a title is for sale or free, list a developer's own game and sell copies of it, read a wallet's game library, fetch downloadable builds and shard lists, walk a human through buying a copy with their own wallet, reach Gates and its coin, or get paid for an accepted pull request to a listed game. Wallet-signed only where money moves, unsigned everywhere else; Elo never holds a key.
 license: MIT
 metadata:
-  version: "2.1.0"
+  version: "2.2.0"
   hermes:
     category: games
     tags: [games, store, wallet, x402, nft, on-chain]
@@ -56,9 +56,9 @@ When a title is ticketed, one payment buys a **copy**:
 - The copy is the title's **ticket** — a transferable ERC-721 that is the copy
   and the licence to the title's official servers. Resale royalty is 0 bps:
   your human can sell their game when they are done with it.
-- The same purchase delivers the title's own coin at the sale price — **while
-  that coin is still on its curve.** A coin that has graduated to a pool sells
-  plain copies with no coin attached, and that is not a downgrade.
+- A copy can also hand over some of the game's coin, when the title funds a
+  grant on its ticket contract (`grantAmount`; 0 means none). Gates' copy
+  carries no coin.
 - **There is no refund window, no buy-back and no escrow.** The exits are
   reselling the ticket or selling the coin — and selling the coin never takes
   the game back. Never describe the coin sale as locking a player in; it is
@@ -86,9 +86,8 @@ game lives in the platform's repo except its listing row.
 
 Two things an agent gets wrong about it. **It is free to download right now** —
 its ticket has no contract, so quote `ticketed` rather than a price. And its
-coins are **JUNK** and **ORBS**, game coins rather than the platform's; the
-coins Gates used before them are retired, and nothing further is being built
-on them.
+coin is **JUNK**, a game coin rather than the platform's; the coins Gates used
+before it are retired, and nothing further is being built on them.
 `elo-coins` is the skill for that side.
 
 The desktop client is one native binary and is **never required** — every read
@@ -151,14 +150,17 @@ What follows from it:
    community build. A web game links `https://elopros.com/sdk/elo-1.js`:
    `Elo.connect()`, `Elo.signIn({nonce})` for its own server,
    `Elo.owns(slug, wallet)`. The real gate is server-side —
-   `POST /ticket/{slug}/check`, kick on `false` only, never on `null`.
-4. **Selling copies keeps 95%.** Three transactions from the claiming wallet:
+   `POST /ticket/{slug}/check`, kick on `false` only, never on `null`. A
+   server or native client uses an SDK instead (Rust and Python `elo-sdk`,
+   JavaScript `@elopros/sdk`; the `elo-builder` skill has them).
+4. **Selling copies keeps 100%.** Three transactions from the claiming wallet:
    `GET /store/open/list/prepare` (set up sales), then
    `GET /ticket/{slug}/setprices/prepare?usd_cents=1000` (a dollar price),
    then `GET /ticket/{slug}/collect/prepare` (collect). The money lands in the
-   game's own sale split: 95% to the developer, 5% to the store. Read
-   whether sales are deployed from `GET /store/open` (`on_chain`) rather than
-   assuming.
+   game's own sale split: 100% to the developer, 0% to the store. Read the
+   house share from the claim terms rather than assuming: `house_bps` in
+   `GET /store/open` (`on_chain`), and in `you_get` on the list prepare.
+   `on_chain` also says whether sales are deployed.
 5. **Sales are the only rank.** `GET /store/rank` orders community games by
    money that reached their split over 30 days, and publishes the split
    addresses so anyone can recompute it. Nothing hand-features a community
@@ -171,10 +173,10 @@ What follows from it:
    chain. A title with no coin is a complete listing.
 
 **Our own shelf is picked by hand**, and a game there runs the full stack — a
-coin paired with the reserve, the launch curve, native builds. There is no
-form for it. Any multiplayer shape fits either lane: deterministic replay is
-one evidence tier, never an entry requirement (`onchain` · `replay` ·
-`attested`). Never tell a lister their game does not fit because it is not
+coin launched on an outside launchpad and paired with the reserve, native
+builds. There is no form for it. Any multiplayer shape fits either lane:
+deterministic replay is one evidence tier, never an entry requirement
+(`onchain` · `replay` · `attested`). Never tell a lister their game does not fit because it is not
 deterministic.
 
 ## What to know
@@ -187,7 +189,9 @@ deterministic.
   than around the company.
 - MCP-native harnesses can mount the store in one line —
   `claude mcp add elo --transport http https://elopros.com/mcp` — and call the
-  `store` tool (shelf · title · reviews · log · desk · prepare).
+  `store` tool (shelf · title · ticket · items · reviews · log · desk ·
+  prepare). The `friends` tool reads a wallet's friends and makes signed
+  friend changes.
 - Full machine spec: `GET /api/llms.txt`. The coins, the pools and the
   launchpad: the `elo-coins` skill. The characters: `elo-seat`. Identity
   actions from a wallet you already hold: `scry-wallet`.

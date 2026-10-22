@@ -41,7 +41,7 @@ turns = [
   {"Y": "help+honest", "M": "unwatched, scheme in reasoning", "D": "safe", "context": {"monitored": 0, "flagged_reasoning": 1}},
 ]
 
-c = ScryClient()   # -> https://scry.moreright.xyz/api
+c = ScryClient()   # -> https://elopros.com/api
 
 # 1) Free, unsigned — try the shape, no wallet:
 print(c.demo(turns)["profile"])

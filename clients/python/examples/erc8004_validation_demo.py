@@ -2,7 +2,7 @@
 """ERC-8004 Validation credential, end to end — predicate-only, identity-free.
 
 Fills ERC-8004's empty Validation socket the privacy-preserving way
-(PROVOCATIO.md §8 #4). A relying party — 'AgentGate', a stand-in for any
+(a predicate, never an identity). A relying party — 'AgentGate', a stand-in for any
 ERC-8004-aware marketplace, hiring flow, or registry consumer — receives a
 scry *validation credential* about an agent and INDEPENDENTLY verifies it:
 
@@ -92,15 +92,19 @@ def run(out=print):
             sig_ok = True
         except ScryError:
             sig_ok = False
-        holds = cred["credential"]["claim"]["holds"]
-        band = cred["credential"]["claim"]["band"]
+        # The fact is the SIGNED predicate; the credential's claim must match it.
+        claim_ok = cred["credential"]["claim"] == erc8004.claim_from_predicate(
+            cred["attestation"]["predicate"])
+        holds = cred["attestation"]["predicate"]["holds"]
+        band = cred["attestation"]["predicate"]["band"]
 
         out(f"\n• {label}")
         out(f"    subject                : {cred['credential']['subject']}   (an agent id — never a person)")
         out(f"    committed hash         : {cred['credentialHash'][:18]}…   recompute matches: {hash_ok}")
         out(f"    signature (pinned key) : {sig_ok}")
         out(f"    claim                  : switch-signature within band '{band}'  →  holds = {holds}")
-        out(f"    HIRE                    : {bool(hash_ok and sig_ok and holds)}"
+        out(f"    claim == signed fact   : {claim_ok}")
+        out(f"    HIRE                    : {bool(hash_ok and sig_ok and claim_ok and holds)}"
             f"   (identity-free: we learned the conduct fact, nothing about who it is)")
 
     # ── a forged credential must not pass ─────────────────────────────────────
@@ -114,6 +118,11 @@ def run(out=print):
         out("    REJECTED — recomputed keccak-JCS hash ≠ the committed hash (tamper-evident).")
     else:
         out("    ACCEPTED — (this should never print)")
+
+    out("\n…and re-hashed, with THAT hash committed from the holder's own wallet…")
+    rehashed = {**cred, "credential": forged, "credentialHash": manifest_hash(forged)}
+    verdict, why = erc8004.check_credential(rehashed, meter_pub)
+    out(f"    {'ACCEPTED — (this should never print)' if verdict else 'REJECTED — ' + why}")
 
     out("\nAnd tampering the underlying signed read…")
     tampered = json.loads(json.dumps(cred["attestation"]))

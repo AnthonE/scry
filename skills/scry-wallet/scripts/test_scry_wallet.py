@@ -11,6 +11,7 @@ if present and is skipped honestly otherwise).
 """
 import os
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from scry_wallet import ScryWallet, ScryWalletError, local_signer  # noqa: E402
@@ -152,5 +153,43 @@ try:
     ok(recovered.lower() == addr.lower(), "local_signer signature recovers its own address")
 except ImportError:
     print("  skip: eth_account not installed (local_signer convenience only)")
+
+# ── key_file_signer: a key FILE, never the key in the environment ─────────────
+# The key lives in a file only you can read and the agent passes its path, so
+# no `env`, `printenv` or crash dump the model runs can put it in a transcript.
+print("[key_file_signer]")
+import scry_wallet  # noqa: E402
+ok(hasattr(scry_wallet, "key_file_signer"), "the adapter offers a key-file signer")
+_tmp = tempfile.mkdtemp(prefix="scry-wallet-test-")
+_kp = os.path.join(_tmp, "agent.key")
+_hex = "33" * 32
+try:
+    with open(_kp, "w", encoding="ascii") as fh:
+        fh.write(_hex + "\n")
+    os.chmod(_kp, 0o644)
+    try:
+        scry_wallet.key_file_signer(_kp)
+        ok(False, "a key file group or others can read is refused")
+    except ScryWalletError as e:
+        ok("chmod 600" in str(e) and _hex not in str(e),
+           "a key file group or others can read is refused, and the refusal never quotes it")
+    os.chmod(_kp, 0o600)
+    try:
+        from eth_account import Account
+        from eth_account.messages import encode_defunct
+        sign, addr = scry_wallet.key_file_signer(_kp)
+        sig = sign("hello scry")
+        ok(Account.recover_message(encode_defunct(text="hello scry"), signature=sig).lower()
+           == addr.lower(), "key_file_signer signature recovers its own address")
+    except ImportError:
+        print("  skip: eth_account not installed (key_file_signer signs through it)")
+finally:
+    os.unlink(_kp)
+    os.rmdir(_tmp)
+
+_skill = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "SKILL.md"),
+              encoding="utf-8").read()
+ok("os.environ[" not in _skill and "export a `PRIVATE_KEY`" not in _skill,
+   "SKILL.md never tells an agent to put its raw key in its own environment")
 
 print(f"\nall good — {PASS} checks passed")

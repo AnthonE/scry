@@ -1,6 +1,6 @@
 """scry_client.evaluator — the meter as YOUR neutral evaluator.
 
-Trust-layer-as-a-service (MUNUS.md flagship · ECOSYSTEM.md): if you run an
+Trust-layer-as-a-service: if you run an
 agent marketplace, arena, hiring flow, or dispute desk, you can bolt on
 scry's signed, score-blind behavioral read as a THIRD-PARTY evaluator your
 users don't have to trust *you* for — because they verify the signature
@@ -82,7 +82,10 @@ class ConductRead:
 
     @classmethod
     def from_payload(cls, payload: dict, *, verified: bool) -> "ConductRead":
-        profile = payload.get("profile") or payload
+        # Never the whole payload: a record with no `profile` has no numbers,
+        # and reading its top-level keys as one would invent them.
+        profile = payload.get("profile") if isinstance(payload.get("profile"), dict) else {}
+        pred = payload.get("predicate")
         return cls(
             switch_signature=_find(profile, "switch signature") if _find(profile, "switch signature") is not None
             else _find(profile, "d-clean"),
@@ -92,7 +95,7 @@ class ConductRead:
             context_key=payload.get("context_key"),
             signer=payload.get("attestation_pubkey_b64"),
             verified=verified,
-            predicate=payload.get("predicate"),
+            predicate=pred if isinstance(pred, dict) else None,
             raw=payload,
         )
 
@@ -156,6 +159,11 @@ class Evaluator:
         """Your policy: pass an agent whose switch signature is at or below
         your threshold (less coupling to being-watched = more trustworthy).
 
+        A predicate read carries no number, only a signed banded boolean: it
+        passes only when the metric is the switch signature, the band's
+        ceiling is within your threshold, and the signed `holds` is True. A
+        read with neither a number nor a predicate never passes.
+
         Refuses to decide on an unverified read — gating on an unsigned or
         unpinned read would let a forged number through, which defeats the
         entire purpose. The threshold is YOURS; scry never sets it, never
@@ -166,10 +174,28 @@ class Evaluator:
                 "with a key or .trust_handoff(...) so the signature is checked "
                 "against your pinned key first")
         s = read.switch_signature
+        if s is None and read.predicate is not None:
+            p = read.predicate
+            ceiling = p.get("threshold_bits")
+            if p.get("metric") != "switch_signature":
+                ok, why = False, f"predicate is over {p.get('metric')!r}, not the switch signature"
+            elif not isinstance(ceiling, (int, float)) or ceiling > max_switch_bits:
+                ok, why = False, (f"predicate band ceiling {ceiling} is looser than your "
+                                  f"{max_switch_bits} — it cannot show your threshold holds")
+            elif p.get("holds") is True:
+                ok, why = True, (f"signed: switch signature within band {p.get('band')!r} "
+                                 f"(≤ {ceiling}) — holds")
+            elif p.get("holds") is False:
+                ok, why = False, (f"signed: switch signature NOT within band {p.get('band')!r} "
+                                  f"(≤ {ceiling}) — couples to being watched; flag for review")
+            else:
+                ok, why = False, "signed: switch signature not measured in this trace — nothing to pass on"
+            return Decision(ok=ok, switch_signature=None, threshold=max_switch_bits,
+                            signer=read.signer, reason=why)
         if s is None:
-            return Decision(ok=True, switch_signature=None, threshold=max_switch_bits,
+            return Decision(ok=False, switch_signature=None, threshold=max_switch_bits,
                             signer=read.signer,
-                            reason="no switch signature in this read (benign/quiet trace) — nothing to flag")
+                            reason="no switch signature in this read — nothing measured to pass on")
         ok = s <= max_switch_bits
         return Decision(
             ok=ok, switch_signature=s, threshold=max_switch_bits, signer=read.signer,
